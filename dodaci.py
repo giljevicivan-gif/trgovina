@@ -111,6 +111,12 @@ def _ime(h):
     return r["ime"] if r else ""
 
 
+def _oib(h):
+    """OIB prijavljenog radnika (za OibOper na fiskalnom računu), ako ga ima."""
+    r = h._dodaci.get("radnik")
+    return (r.get("oib") or "") if r else ""
+
+
 def get(h, con, put, q):
     try:
         if _pocetak(h, con, put, "GET"):

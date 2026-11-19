@@ -486,6 +486,19 @@ FISKALIZACIJA (TEST S DEMO CERTIFIKATOM) - novo 18.11.2026.
   dogovor s knjigovodjom. Na dnu kartice upisete rijec PRODUKCIJA i
   kliknete gumb. Program ne dopusta produkciju s demo certifikatom.
 
+BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
+  Ukljucuje se u Postavkama:
+  - Brze placanje: F5 = gotovina (kursor ide u Primljeno), F6 = kartica,
+    gumbi Tocno / 10 / 20 / 50 EUR upisuju primljeni iznos, Enter u
+    Primljeno naplacuje.
+  - Upozorenje za veliku tezinu (zadano ukljuceno): iznad 50 kg kasa
+    pita je li to tocno (npr. 1250 upisano u gramima).
+  - Gotovina + kartica: upisite koliko kupac daje gotovinom, ostatak
+    ide karticom. Fiskalno se salje kao nacin placanja O (ostalo);
+    potvrdite s knjigovodjom.
+  - OIB radnika (Dodaci, Radnici i ovlasti): ako je upisan, ide na
+    fiskalni racun kao OIB operatera; inace OIB iz postavki fiskalizacije.
+
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
   inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,

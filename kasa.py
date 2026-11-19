@@ -116,6 +116,7 @@ def racun(con, rid):
         raise Greska("Račun ne postoji.")
     out = dict(r)
     out["oznaka"] = oznaka(r)
+    out["placanje"] = opis_placanja(con, rid, r["placanje"])
     out["stavke"] = [dict(s) for s in con.execute(
         "SELECT * FROM racun_stavke WHERE racun_id = ? ORDER BY id", (rid,))]
     pdv = {}
@@ -148,6 +149,7 @@ def racuni_dana(con, datum):
     for r in rows:
         d = dict(r)
         d["oznaka"] = oznaka(r)
+        d["placanje"] = opis_placanja(con, r["id"], r["placanje"])
         out.append(d)
     return fiskal.dodaj_u_popis(con, out)
 
@@ -202,6 +204,35 @@ _NAPLATE = {}  # oznaka naplate iz preglednika -> id računa (dok kasa radi)
 _NAPLATE_BRAVA = threading.Lock()
 
 
+def _dijelovi_placanja(con, dijelovi, ukupno):
+    """[(nacin_id, iznos_centi), ...] za račun plaćen s više načina; [] = jedan način."""
+    if not dijelovi:
+        return []
+    if not postavke.ukljucen(con, "podijeljeno_placanje"):
+        raise Greska("Plaćanje s više načina nije uključeno (Postavke).")
+    out = {}
+    try:
+        for d in dijelovi:
+            nid, izn = int(d["nacin_placanja_id"]), int(d["iznos"])
+            if izn < 0 or not con.execute("SELECT 1 FROM nacini_placanja WHERE id = ?", (nid,)).fetchone():
+                raise ValueError
+            if izn:
+                out[nid] = out.get(nid, 0) + izn
+    except (TypeError, ValueError, KeyError):
+        raise Greska("Neispravni dijelovi plaćanja.")
+    if sum(out.values()) != ukupno:
+        raise Greska("Dijelovi plaćanja (%s) nisu jednaki iznosu računa (%s)." % (eur(sum(out.values())), eur(ukupno)))
+    return list(out.items()) if len(out) > 1 else []
+
+
+def opis_placanja(con, rid, naziv):
+    """'Gotovina' ili 'Gotovina 10,00 + Kartica 5,35' za račun s više načina plaćanja."""
+    dio = con.execute(
+        """SELECT p.naziv, x.iznos FROM racun_placanja x JOIN nacini_placanja p ON p.id = x.nacin_placanja_id
+           WHERE x.racun_id = ? ORDER BY x.id""", (rid,)).fetchall()
+    return " + ".join("%s %s" % (d[0], eur(d[1])) for d in dio) if dio else naziv
+
+
 def naplati(con, podaci, prije_commita=None):
     stavke = podaci.get("stavke") or []
     if not stavke:
@@ -231,6 +262,9 @@ def naplati(con, podaci, prije_commita=None):
             iznos = zaokruzi(a["cijena"] * kol * (1 - popust / 100.0))
             redovi.append((a, kol, popust, iznos))
         ukupno = sum(r[3] for r in redovi)
+        dijelovi = _dijelovi_placanja(con, podaci.get("dijelovi"), ukupno)
+        if dijelovi:
+            pid = dijelovi[0][0]  # glavni način (prvi dio); svi dijelovi su u racun_placanja
         vrijeme = sada()
         godina = int(vrijeme[:4])
         broj = _sljedeci_broj(con, godina)
@@ -239,6 +273,9 @@ def naplati(con, podaci, prije_commita=None):
                VALUES (?, ?, ?, ?, ?, ?)""",
             (godina, broj, vrijeme, ukupno, pid, str(podaci.get("napomena") or "")[:200]))
         rid = cur.lastrowid
+        for nid, izn in dijelovi:
+            con.execute("INSERT INTO racun_placanja (racun_id, nacin_placanja_id, iznos) VALUES (?, ?, ?)",
+                        (rid, nid, izn))
         for a, kol, popust, iznos in redovi:
             con.execute(
                 """INSERT INTO racun_stavke (racun_id, artikl_id, naziv, jm, kolicina, cijena,
@@ -273,6 +310,8 @@ def storniraj(con, rid, prije_commita=None):
             (godina, _sljedeci_broj(con, godina), vrijeme, -r["ukupno"],
              r["nacin_placanja_id"], rid, "Storno računa %s" % oznaka(r)))
         novi = cur.lastrowid
+        con.execute("""INSERT INTO racun_placanja (racun_id, nacin_placanja_id, iznos)
+                       SELECT ?, nacin_placanja_id, -iznos FROM racun_placanja WHERE racun_id = ?""", (novi, rid))
         for s in con.execute("SELECT * FROM racun_stavke WHERE racun_id = ?", (rid,)).fetchall():
             con.execute(
                 """INSERT INTO racun_stavke (racun_id, artikl_id, naziv, jm, kolicina, cijena,
@@ -599,7 +638,7 @@ class Handler(BaseHTTPRequestHandler):
                         return self._send(200, odg)
                     if postavke.ukljucen(con, "fiskalizacija"):
                         fiskal.spreman(con)  # bez certifikata i OIB-a nema naplate
-                        rid = naplati(con, podaci, lambda c, i: fiskal.pri_naplati(c, i, dodaci._ime(self)))
+                        rid = naplati(con, podaci, lambda c, i: fiskal.pri_naplati(c, i, dodaci._ime(self), dodaci._oib(self)))
                         if oznaka:
                             _NAPLATE[oznaka] = rid
                         odg = {"id": rid, "fiskal": _fiskal_posalji(con, rid)}
@@ -708,7 +747,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"id": nabava.storniraj(con, int(u.path.rsplit("/", 1)[1]))})
             elif re.fullmatch(r"/api/storno/\d+", u.path):
                 rid = int(u.path.rsplit("/", 1)[1])
-                hook = fiskal_storno(con, rid, dodaci._ime(self))
+                hook = fiskal_storno(con, rid, dodaci._ime(self), dodaci._oib(self))
                 novi = storniraj(con, rid, hook)
                 self._send(200, {"id": novi, "fiskal": _fiskal_posalji(con, novi) if hook else None})
             else:
@@ -716,7 +755,7 @@ class Handler(BaseHTTPRequestHandler):
         self._handle(go)
 
 
-def fiskal_storno(con, rid, operater):
+def fiskal_storno(con, rid, operater="", oib_operatera=""):
     """Storno fiskalnog računa je novi fiskalni račun s minusom, u istoj okolini (test/produkcija).
     Vraća funkciju za storniraj() ili None (račun za vježbu ili s testa, storno samo kod nas)."""
     f = fiskal.zapis(con, rid)
@@ -726,7 +765,7 @@ def fiskal_storno(con, rid, operater):
         raise Greska("Račun je fiskaliziran u produkciji; storno se radi samo uz uključenu pravu fiskalizaciju.")
     if f and f["okolina"] == okolina:
         fiskal.spreman(con)
-        return lambda c, i: fiskal.pri_naplati(c, i, operater)
+        return lambda c, i: fiskal.pri_naplati(c, i, operater, oib_operatera)
     return None
 
 
@@ -823,7 +862,7 @@ hr { border: 0; border-top: 1px dashed #000; }
 </body></html>""" % (
         esc(f["oznaka"]), esc(f["naziv_tvrtke"] or NAZIV_TRGOVINE), (adresa + "<br>") if adresa else "",
         "OIB: " + esc(f["oib"]), upoz, storno, esc(f["oznaka"]), d.strftime("%d.%m.%Y. %H:%M:%S"),
-        esc(f["operater"] or f["oib_operatera"]), esc(r["placanje"]), esc(r["oznaka"]),
+        esc(f["operater"] or "-"), esc(r["placanje"]), esc(r["oznaka"]),
         stavke, eur(r["ukupno"]), pdv if f["u_pdv"] else "<tr><td>Obveznik nije u sustavu PDV-a.</td></tr>",
         fiskal.ispis_dio(f), upoz if test else "")
 

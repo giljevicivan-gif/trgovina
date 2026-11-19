@@ -18,12 +18,14 @@ radnik čeka minutu. Prijava traje dok se ne odjavi ili dok se program ne zatvor
 """
 
 import datetime as dt
+import re
 import hashlib
 import secrets
 import threading
 import time
 
 import postavke
+from baza import oib_ispravan
 from nabava import Greska
 
 OVLASTI = (
@@ -91,6 +93,10 @@ def sada():
 
 def pripremi(con):
     con.executescript(SHEMA)
+    if "oib" not in {r[1] for r in con.execute("PRAGMA table_info(radnici)")}:
+        # OIB radnika ide na fiskalni račun kao OIB operatera (inače OIB iz postavki fiskalizacije)
+        con.execute("ALTER TABLE radnici ADD COLUMN oib TEXT NOT NULL DEFAULT ''")
+        con.commit()
 
 
 def _sazetak(pin, sol=None):
@@ -122,7 +128,7 @@ def _javno(r):
 
 def popis(con, svi=False):
     sql = "SELECT * FROM radnici" + ("" if svi else " WHERE aktivan = 1") + " ORDER BY vlasnik DESC, ime"
-    return [_javno(r) for r in con.execute(sql)]
+    return [dict(_javno(r), oib=r["oib"]) if svi else _javno(r) for r in con.execute(sql)]
 
 
 def ima_vlasnika(con):
@@ -138,6 +144,9 @@ def spremi(con, p):
     vlasnik = 1 if p.get("vlasnik") in (True, 1, "1", "true") else 0
     ovlasti = ",".join(o for o in (p.get("ovlasti") or []) if o in SVE)
     aktivan = 0 if p.get("aktivan") in (False, 0, "0", "false") else 1
+    oib = re.sub(r"\s", "", str(p.get("oib") or ""))
+    if oib and not oib_ispravan(oib):
+        raise Greska("OIB radnika %s nije ispravan." % ime)
     with con:
         if rid:
             r = con.execute("SELECT * FROM radnici WHERE id = ?", (rid,)).fetchone()
@@ -146,15 +155,15 @@ def spremi(con, p):
             if r["vlasnik"] and (not vlasnik or not aktivan) and postavke.ukljucen(con, "radnici") and \
                     con.execute("SELECT COUNT(*) FROM radnici WHERE vlasnik = 1 AND aktivan = 1").fetchone()[0] <= 1:
                 raise Greska("Mora ostati barem jedan vlasnik (inače nitko ne može u Postavke).")
-            con.execute("UPDATE radnici SET ime = ?, vlasnik = ?, ovlasti = ?, aktivan = ? WHERE id = ?",
-                        (ime, vlasnik, ovlasti, aktivan, rid))
+            con.execute("UPDATE radnici SET ime = ?, vlasnik = ?, ovlasti = ?, aktivan = ?, oib = ? WHERE id = ?",
+                        (ime, vlasnik, ovlasti, aktivan, oib, rid))
             if str(p.get("pin") or "").strip():
                 con.execute("UPDATE radnici SET pin = ? WHERE id = ?", (_sazetak(_pin(p)), rid))
             if not aktivan:
                 odjavi_radnika(rid)
         else:
-            rid = con.execute("INSERT INTO radnici (ime, pin, vlasnik, ovlasti, dodan) VALUES (?, ?, ?, ?, ?)",
-                              (ime, _sazetak(_pin(p)), vlasnik, ovlasti, sada())).lastrowid
+            rid = con.execute("INSERT INTO radnici (ime, pin, vlasnik, ovlasti, dodan, oib) VALUES (?, ?, ?, ?, ?, ?)",
+                              (ime, _sazetak(_pin(p)), vlasnik, ovlasti, sada(), oib)).lastrowid
     return rid
 
 
@@ -220,7 +229,7 @@ def tko(con, token):
             return None
         _prijave[token] = (v[0], time.time())
     r = con.execute("SELECT * FROM radnici WHERE id = ? AND aktivan = 1", (v[0],)).fetchone()
-    return _javno(r) if r else None
+    return dict(_javno(r), oib=r["oib"]) if r else None
 
 
 def smije(radnik, ovlast):
