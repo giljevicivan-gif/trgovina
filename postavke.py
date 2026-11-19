@@ -54,6 +54,11 @@ MODULI = (
      "Pita za potvrdu kad se na kasi upiše više od 50 kg (npr. 1250 upisano u gramima umjesto 1,25).", True),
     ("podijeljeno_placanje", "Plaćanje dijelom gotovinom, dijelom karticom",
      "Na kasi gumb 'Gotovina + kartica'. Fiskalno se šalje kao način plaćanja 'O' (ostalo): potvrdite s knjigovođom.", False),
+    ("qr_uplata", "Barkod za plaćanje na otpremnici",
+     "Na otpremnici i zbirnom pregledu za tvrtke 2D barkod (HUB-3) koji kupac skenira mobilnim bankarstvom. "
+     "Treba IBAN (Postavke). Plaćanje po otpremnici prije računa potvrdite s knjigovođom.", False),
+    ("narudzba_mail", "Narudžba dobavljaču e-mailom",
+     "U Prijedlogu narudžbe gumb za slanje narudžbe dobavljaču e-mailom (SMTP iz večernjeg sažetka).", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",
