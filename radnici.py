@@ -50,6 +50,7 @@ PUTANJE = (
     ("/knjigovodja_", "cijene"), ("/api/izvjestaj", "cijene"), ("/api/kontrola", "cijene"),
     ("/api/usporedba", "cijene"), ("/api/lanci", "cijene"),
     ("/api/storno/", "storno"), ("/ispis_popisna", "cijene"),
+    ("/api/eracun", "nabava"), ("/api/kpd", "zaliha"),
     ("/api/postavke", "postavke"), ("/api/fiskal", "postavke"), ("/api/radnici", "postavke"), ("/api/sazetak", "postavke"),
 )
 # GET koji radnik bez ovlasti ipak smije (Zaliha i Nabava ih koriste i drugdje)

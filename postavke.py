@@ -28,7 +28,15 @@ MODULI = (
      "Kad je Roba ima (novija verzija), etiketa koristi Robinu sidrenu cijenu; ručno upisana kod nas ostaje.", False),
     ("zpc", "Zapisnici o promjeni cijena iz Robe",
      "Povijest cijena po artiklu i točnija najniža cijena u 30 dana kod akcije.", False),
-    ("kpd", "KPD šifre (eRačun)", "Provjera da artikli prodani tvrtkama imaju KPD šifru u Robi.", False),
+    ("kpd", "KPD šifre (eRačun)",
+     "KPD šifra na artiklu (upis kod nas, prijedlog od sličnih artikala, popis artikala bez šifre) i provjera "
+     "da artikli prodani tvrtkama imaju šifru. Šifre potvrdite s knjigovođom.", False),
+    ("r1_kasa", "R1 račun na kasi (kupac tvrtka)",
+     "Na kasi gumb R1: naziv, adresa i OIB tvrtke na računu. Poreznoj ide isti fiskalni račun. "
+     "Potvrdite s knjigovođom da je za tvrtku koja plaća na kasi to dovoljno.", False),
+    ("eracun_uvoz", "Primka iz eRačuna dobavljača",
+     "Učitajte XML eRačuna (UBL 2.1) i program sam popuni primku: dobavljač, broj, stavke i cijene. "
+     "Ništa se ne šalje Poreznoj.", False),
     ("ponude", "Ponude i broj narudžbenice",
      "Ponude kupcima (pretvaraju se u narudžbu) i broj narudžbenice kupca na otpremnici (radi uz narudžbe).", False),
     ("dugovanja", "Računi dobavljača i dugovanja", "Dospijeće i plaćanje računa dobavljača (primke), tko koliko duguje i što kasni.", False),

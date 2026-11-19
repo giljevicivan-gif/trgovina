@@ -45,6 +45,7 @@ import fiskal
 import ponude
 import roba_dodatno
 import cijene
+import eracun
 import dodaci
 import inventura
 import izvjestaji
@@ -117,6 +118,7 @@ def racun(con, rid):
     out = dict(r)
     out["oznaka"] = oznaka(r)
     out["placanje"] = opis_placanja(con, rid, r["placanje"])
+    out["kupac"] = eracun.kupac_za_ispis(con, r["kupac_id"])
     out["stavke"] = [dict(s) for s in con.execute(
         "SELECT * FROM racun_stavke WHERE racun_id = ? ORDER BY id", (rid,))]
     pdv = {}
@@ -263,15 +265,19 @@ def naplati(con, podaci, prije_commita=None):
             redovi.append((a, kol, popust, iznos))
         ukupno = sum(r[3] for r in redovi)
         dijelovi = _dijelovi_placanja(con, podaci.get("dijelovi"), ukupno)
+        kupac_id = None
+        if podaci.get("kupac_id"):  # R1 račun: kupac tvrtka
+            postavke.provjeri(con, "r1_kasa")
+            kupac_id = eracun.provjeri_kupca(con, podaci["kupac_id"])
         if dijelovi:
             pid = dijelovi[0][0]  # glavni način (prvi dio); svi dijelovi su u racun_placanja
         vrijeme = sada()
         godina = int(vrijeme[:4])
         broj = _sljedeci_broj(con, godina)
         cur = con.execute(
-            """INSERT INTO racuni (godina, broj, vrijeme, ukupno, nacin_placanja_id, napomena)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (godina, broj, vrijeme, ukupno, pid, str(podaci.get("napomena") or "")[:200]))
+            """INSERT INTO racuni (godina, broj, vrijeme, ukupno, nacin_placanja_id, napomena, kupac_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (godina, broj, vrijeme, ukupno, pid, str(podaci.get("napomena") or "")[:200], kupac_id))
         rid = cur.lastrowid
         for nid, izn in dijelovi:
             con.execute("INSERT INTO racun_placanja (racun_id, nacin_placanja_id, iznos) VALUES (?, ?, ?)",
@@ -306,9 +312,9 @@ def storniraj(con, rid, prije_commita=None):
         godina = int(vrijeme[:4])
         cur = con.execute(
             """INSERT INTO racuni (godina, broj, vrijeme, ukupno, nacin_placanja_id, storno_od,
-                                   napomena) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                   napomena, kupac_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (godina, _sljedeci_broj(con, godina), vrijeme, -r["ukupno"],
-             r["nacin_placanja_id"], rid, "Storno računa %s" % oznaka(r)))
+             r["nacin_placanja_id"], rid, "Storno računa %s" % oznaka(r), r["kupac_id"]))
         novi = cur.lastrowid
         con.execute("""INSERT INTO racun_placanja (racun_id, nacin_placanja_id, iznos)
                        SELECT ?, nacin_placanja_id, -iznos FROM racun_placanja WHERE racun_id = ?""", (novi, rid))
@@ -343,6 +349,7 @@ PUTANJE_MODULA = (
     ("/api/bon", "bonovi"), ("/ispis_bon", "bonovi"),
     ("/api/vjernost", "vjernost"), ("/ispis_pristupnica", "vjernost"),
     ("/api/dugovanja", "dugovanja"),
+    ("/api/kpd", "kpd"), ("/api/r1", "r1_kasa"), ("/api/eracun", "eracun_uvoz"),
     ("/api/ponud", "narudzbe"), ("/api/ponud", "ponude"), ("/ispis_ponuda", "narudzbe"), ("/ispis_ponuda", "ponude"),
     ("/api/zpc", "zpc"), ("/ispis_zpc", "zpc"),
 )
@@ -448,6 +455,12 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/ispis_zpc/\d+/\d+", u.path):
                 g, s = u.path.split("/")[2:4]
                 self._send(200, ispis_zpc_html(roba_dodatno.zpc(con, int(g), int(s))), "text/html; charset=utf-8")
+            elif u.path == "/api/kpd/bez":
+                self._send(200, {"artikli": eracun.bez_kpd(con)})
+            elif re.fullmatch(r"/api/kpd/prijedlog/\d+", u.path):
+                self._send(200, eracun.prijedlog_kpd(con, int(u.path.rsplit("/", 1)[1])))
+            elif u.path == "/api/r1/kupci":
+                self._send(200, {"kupci": eracun.kupci(con)})
             elif re.fullmatch(r"/api/artikl_info/\d+", u.path):
                 a = con.execute("SELECT * FROM artikli WHERE id = ?", (int(u.path.rsplit("/", 1)[1]),)).fetchone()
                 if not a:
@@ -734,6 +747,15 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/narudzba/\d+/status", u.path):
                 narudzbe.status(con, int(u.path.split("/")[3]), podaci)
                 self._send(200, {"ok": True})
+            elif re.fullmatch(r"/api/kpd/\d+", u.path):
+                eracun.spremi_kpd(con, int(u.path.rsplit("/", 1)[1]), podaci.get("kpd"))
+                self._send(200, {"ok": True})
+            elif u.path == "/api/r1/kupac":
+                self._send(200, {"id": eracun.novi_kupac(con, podaci)})
+            elif u.path == "/api/eracun/procitaj":
+                self._send(200, eracun.procitaj(con, podaci.get("xml") or ""))
+            elif u.path == "/api/eracun/veze":
+                self._send(200, {"spremljeno": eracun.spremi_veze(con, podaci)})
             elif u.path == "/api/partner":
                 self._send(200, {"id": nabava.spremi_partner(con, podaci)})
             elif re.fullmatch(r"/api/artikl/\d+", u.path):
@@ -783,6 +805,16 @@ def esc(s):
             .replace('"', "&quot;"))
 
 
+def kupac_html(r):
+    """R1: kupac tvrtka na računu (samo kad je odabran)."""
+    k = r.get("kupac")
+    if not k:
+        return ""
+    mjesto = ", ".join(x for x in (k["adresa"], k["mjesto"]) if x)
+    return "<p><b>R1</b><br>Kupac: %s<br>%sOIB kupca: %s</p>" % (
+        esc(k["naziv"]), (esc(mjesto) + "<br>") if mjesto else "", esc(k["oib"]))
+
+
 def ispis_html(r):
     """Ispis za termalni printer 80 mm (ili bilo koji, preko dijaloga za ispis)."""
     red = []
@@ -813,7 +845,7 @@ hr { border: 0; border-top: 1px dashed #000; }
 <p class=c><b>%s</b></p>
 <div class=upoz>OVO NIJE FISKALIZIRANI RAČUN<br>VJEŽBA - ne izdaje se kupcu</div>
 %s
-<p>Dokument: %s<br>Vrijeme: %s<br>Plaćanje: %s</p>
+<p>Dokument: %s<br>Vrijeme: %s<br>Plaćanje: %s</p>%s
 <hr><table>%s</table>
 <table><tr class=tot><td>UKUPNO EUR</td><td class=r>%s</td></tr></table>
 <hr><table>%s</table>
@@ -822,7 +854,7 @@ hr { border: 0; border-top: 1px dashed #000; }
 <script>if (location.hash === '#ispis') { addEventListener('load', () => print()); }</script>
 </body></html>""" % (esc(r["oznaka"]), esc(NAZIV_TRGOVINE), storno, esc(r["oznaka"]),
                      esc(dt.datetime.strptime(r["vrijeme"], "%Y-%m-%d %H:%M:%S").strftime("%d.%m.%Y. %H:%M:%S")),
-                     esc(r["placanje"]), "".join(red), eur(r["ukupno"]), pdv)
+                     esc(r["placanje"]), kupac_html(r), "".join(red), eur(r["ukupno"]), pdv)
 
 
 def ispis_fiskalni_html(r, f, stavke, pdv):
@@ -851,7 +883,7 @@ hr { border: 0; border-top: 1px dashed #000; }
 </style></head><body>
 <p class=c><b>%s</b><br>%s%s</p>
 %s%s
-<p>Račun br. %s<br>Datum: %s<br>Operater: %s<br>Plaćanje: %s<br>Interni broj: %s</p>
+<p>Račun br. %s<br>Datum: %s<br>Operater: %s<br>Plaćanje: %s<br>Interni broj: %s</p>%s
 <hr><table>%s</table>
 <table><tr class=tot><td>UKUPNO EUR</td><td class=r>%s</td></tr></table>
 <hr><table>%s</table>
@@ -862,7 +894,7 @@ hr { border: 0; border-top: 1px dashed #000; }
 </body></html>""" % (
         esc(f["oznaka"]), esc(f["naziv_tvrtke"] or NAZIV_TRGOVINE), (adresa + "<br>") if adresa else "",
         "OIB: " + esc(f["oib"]), upoz, storno, esc(f["oznaka"]), d.strftime("%d.%m.%Y. %H:%M:%S"),
-        esc(f["operater"] or "-"), esc(r["placanje"]), esc(r["oznaka"]),
+        esc(f["operater"] or "-"), esc(r["placanje"]), esc(r["oznaka"]), kupac_html(r),
         stavke, eur(r["ukupno"]), pdv if f["u_pdv"] else "<tr><td>Obveznik nije u sustavu PDV-a.</td></tr>",
         fiskal.ispis_dio(f), upoz if test else "")
 

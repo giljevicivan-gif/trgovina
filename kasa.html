@@ -71,6 +71,8 @@ main { padding: 16px; height: calc(100% - 53px); }
 .plac button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 11px; font-size: 14px; }
 .plac button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .gotovina { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.r1 { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; } .r1[hidden] { display: none; }
+#k-r1-kupac b { color: var(--accent); }
 .brzi-novac[hidden], #podijeljeno[hidden] { display: none; }
 .brzi-novac { display: flex; gap: 6px; margin: -4px 0 10px; }
 .brzi-novac button { flex: 1; padding: 8px 0; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--card, #fff); cursor: pointer; }
@@ -217,6 +219,7 @@ table.t tfoot td { font-weight: 600; border-bottom: 0; }
       <div class="desno card">
         <div class="kosarica" id="kosarica"></div>
         <div class="ukupno"><span>Ukupno EUR</span><b id="ukupno">0,00</b></div>
+        <div class="r1" id="k-r1" hidden><button class="btn" id="k-r1-gumb" type="button">R1 (tvrtka)</button> <span id="k-r1-kupac" class="napomena"></span></div>
         <div class="plac" id="plac"></div>
         <div class="gotovina" id="gotovina">
           <label>Primljeno <input id="primljeno" inputmode="decimal"></label>
@@ -268,6 +271,8 @@ table.t tfoot td { font-weight: 600; border-bottom: 0; }
   <section class="view" id="v-nabava">
     <div class="red">
       <button class="btn prim" id="n-nova-primka">Nova primka</button>
+      <button class="btn" id="n-eracun" hidden title="Učitajte XML eRačuna dobavljača (UBL 2.1) i od njega napravite primku">Primka iz eRačuna (XML)</button>
+      <input type="file" id="n-eracun-dat" accept=".xml,application/xml,text/xml" hidden>
       <button class="btn" id="n-novi-otpis">Novi otpis (kalo, kvar)</button>
       <button class="btn" id="n-novi-povrat">Povrat dobavljaču</button>
       <button class="btn" id="n-prijedlog">Prijedlog narudžbe</button>
@@ -295,6 +300,7 @@ table.t tfoot td { font-weight: 600; border-bottom: 0; }
         <button class="btn" id="z-mob-gumb">Inventura s mobitela</button>
         <button class="btn" id="z-akc-gumb" title="Prijedlog akcije za robu koja stoji, i akcije koje traju">Akcije</button>
         <button class="btn" id="z-rok-gumb" hidden title="Rokovi trajanja pakirane robe i kalo">Rokovi i kalo</button>
+        <button class="btn" id="z-kpd-gumb" hidden title="Aktivni artikli bez KPD šifre (eRačun je traži na svakoj stavci)">Bez KPD šifre</button>
         <button class="btn" id="z-zpc-gumb" hidden title="Zapisnici o promjeni cijena iz Robe">Promjene cijena</button>
         <button class="btn" id="z-ispis">Ispiši stanje zalihe</button>
         <button class="btn" id="z-etikete" title="Etikete za police za artikle koji su trenutno na popisu (suzite pretragom)">Etikete za police</button>
@@ -566,9 +572,10 @@ async function naplati() {
   const vrati = prim > 0 && $('#gotovina').style.visibility !== 'hidden' ? Math.round(prim * 100) - ukupno() : null;
   try {
     const r = await api('/api/naplati', {nacin_placanja_id: nacin, oznaka_naplate: naplati.oznaka, ...(dijelovi ? {dijelovi} : {}),
+      ...(R1 ? {kupac_id: R1.id} : {}),
       stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
     if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
-    naplati.oznaka = null;
+    naplati.oznaka = null; R1 = null; crtajR1();
     kosarica = []; $('#primljeno').value = ''; $('#dio-gotovina').value = ''; crtajKosaricu();
     if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
     if (vrati !== null && vrati >= 0) {
@@ -622,6 +629,43 @@ $('#brzi-novac').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const n = +b.dataset.n || ukupno();
   $('#primljeno').value = (n / 100).toFixed(2).replace('.', ','); vratiti(); $('#trazi').focus();
+});
+// R1: račun tvrtki (naziv, adresa i OIB kupca na računu); vrijedi samo za sljedeću naplatu
+var R1 = null;
+function crtajR1() {
+  $('#k-r1-kupac').innerHTML = R1 ? `<b>R1: ${esc(R1.naziv)}</b>, OIB ${esc(R1.oib)} <a href="#" id="k-r1-makni">makni</a>` : '';
+  $('#k-r1-gumb').textContent = R1 ? 'Promijeni' : 'R1 (tvrtka)';
+  if ($('#k-r1-makni')) $('#k-r1-makni').onclick = e => { e.preventDefault(); R1 = null; crtajR1(); $('#trazi').focus(); };
+}
+$('#k-r1-gumb').addEventListener('click', async () => {
+  let K;
+  try { K = (await api('/api/r1/kupci')).kupci; } catch (e) { return toast(e.message, true); }
+  const box = document.createElement('div');
+  box.className = 'modal-r1';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:40;display:flex;align-items:center;justify-content:center';
+  box.innerHTML = '<div class="card" style="width:460px;max-width:calc(100% - 32px);max-height:80vh;overflow:auto"><h2>R1 račun: kupac tvrtka</h2>' +
+    '<input id="r1-trazi" placeholder="Naziv ili OIB" autocomplete="off" style="width:100%;margin-bottom:8px">' +
+    '<div id="r1-popis"></div><h3>Nova tvrtka</h3><div class="polja">' +
+    '<label>Naziv <input id="r1-naziv"></label><label>OIB <input id="r1-oib" inputmode="numeric" maxlength="11"></label>' +
+    '<label>Adresa <input id="r1-adresa"></label><label>Mjesto <input id="r1-mjesto"></label></div>' +
+    '<div class="red" style="margin-top:8px"><button class="btn prim" id="r1-dodaj">Dodaj i odaberi</button><button class="btn" id="r1-zatvori">Zatvori</button></div></div>';
+  document.body.appendChild(box);
+  const zatvori = () => { box.remove(); $('#trazi').focus(); };
+  const crtaj = () => {
+    const q = norm($('#r1-trazi').value.trim());
+    const L = K.filter(k => !q || norm(k.naziv).includes(q) || k.oib.includes(q)).slice(0, 30);
+    $('#r1-popis').innerHTML = L.length ? '<table class="t">' + L.map(k => `<tr class="klik" data-k="${k.id}"><td>${esc(k.naziv)}</td><td>${esc(k.oib)}</td></tr>`).join('') + '</table>'
+      : '<p class="napomena">Nema tvrtke s OIB-om. Dodajte je ispod.</p>';
+  };
+  crtaj(); $('#r1-trazi').oninput = crtaj; $('#r1-trazi').focus();
+  $('#r1-popis').onclick = e => { const tr = e.target.closest('[data-k]'); if (tr) { R1 = K.find(k => k.id === +tr.dataset.k); crtajR1(); zatvori(); } };
+  $('#r1-zatvori').onclick = zatvori;
+  box.addEventListener('keydown', e => { if (e.key === 'Escape') zatvori(); });
+  $('#r1-dodaj').onclick = async () => {
+    const p = {naziv: $('#r1-naziv').value, oib: $('#r1-oib').value, adresa: $('#r1-adresa').value, mjesto: $('#r1-mjesto').value};
+    try { const r = await api('/api/r1/kupac', p); R1 = {id: r.id, naziv: p.naziv.trim(), oib: p.oib.trim()}; crtajR1(); zatvori(); }
+    catch (e) { toast(e.message, true); }
+  };
 });
 function odaberiNacin(re) {
   const p = nacinPo(re); if (!p) return;
@@ -788,6 +832,7 @@ function noviDokument(vrsta) {
       `<span class="n">${esc(a.naziv)}</span><span class="c">${kolTxt(a.zaliha)} ${esc(a.jm)}</span></li>`).join('');
   };
   const dodajStavku = a => {
+    if (dok.ceka) return poveziStavku(a);
     const rab = $('#e-rabat') && $('#e-rabat').value.trim() !== '' ? $('#e-rabat').value.trim()
       : String(a.zadnji_rabat || 0).replace('.', ',');
     dok.stavke.push({a, kol: '', rabat: rab,
@@ -892,9 +937,11 @@ async function spremiDokument() {
   const podaci = {vrsta: dok.vrsta, datum: $('#e-datum').value, napomena: $('#e-napomena').value,
     stavke: dok.stavke.map(s => ({artikl_id: s.a.id, kolicina: broj(s.kol), cijena: primka || povrat ? broj(s.cijena) : null, rabat: primka ? (broj(s.rabat) || 0) : 0}))};
   if (sDob(dok.vrsta)) { podaci.partner_id = $('#e-partner').value; podaci.broj_dobavljaca = $('#e-broj').value; }
+  if (dok.nepovezane && dok.nepovezane.length && !confirm(dok.nepovezane.length + ' stavki s eRačuna nije povezano s artiklima i neće ući u primku. Svejedno spremiti?')) return;
   $('#e-spremi').disabled = true;
   try {
     const r = await api('/api/dokument', podaci);
+    if (dok.veze && dok.veze.length && podaci.partner_id) api('/api/eracun/veze', {partner_id: +podaci.partner_id, veze: dok.veze}).catch(() => {});
     toast('Spremljeno'); dok = null;
     await ucitajZalihu(); await ucitajDokumente(); prikaziDokument(r.id);
   } catch (e) { toast(e.message, true); $('#e-spremi').disabled = false; }
@@ -947,13 +994,14 @@ $('#z-tablica').addEventListener('click', e => {
     `<label><input type="checkbox" id="u-usluga" ${a.usluga ? 'checked' : ''}> usluga (nema zalihu)</label>` +
     `<label ${MODULI.voce_povrce ? '' : 'hidden'}>Podrijetlo <input id="u-podrijetlo" list="zemlje" value="${esc(a.podrijetlo || '')}" style="width:130px"></label>` +
     `<label ${MODULI.voce_povrce ? '' : 'hidden'}>Klasa <input id="u-klasa" list="klase" value="${esc(a.klasa || '')}" style="width:70px"></label>` +
-    `<label title="Cijena na 2.5.2025. ili na prvi dan u ponudi; ističe se na etiketi od 17.11.2026.">Sidrena cijena <input id="u-sidrena" inputmode="decimal" value="${a.sidrena_datum ? (a.sidrena / 100).toFixed(2).replace('.', ',') : ''}" style="width:70px"> EUR na dan <input type="date" id="u-sid-datum" value="${esc(a.sidrena_datum || '')}"></label>` +
+    `<label title="Bazna cijena (prije: sidrena): cijena na 2.5.2025. ili na prvi dan u ponudi; ističe se na etiketi od 17.11.2026.">Bazna cijena <input id="u-sidrena" inputmode="decimal" value="${a.sidrena_datum ? (a.sidrena / 100).toFixed(2).replace('.', ',') : ''}" style="width:70px"> EUR na dan <input type="date" id="u-sid-datum" value="${esc(a.sidrena_datum || '')}"></label>` +
     `<label title="Ako je artikl na akciji (sniženju), uz cijenu se mora istaknuti najniža cijena u 30 dana prije akcije. Prazno = nije na akciji.">Akcija: najniža cijena u 30 dana prije <input id="u-akcija" inputmode="decimal" value="${a.akcija_prije ? (a.akcija_prije / 100).toFixed(2).replace('.', ',') : ''}" style="width:70px"> EUR <button class="btn" id="u-predlozi" type="button">Predloži</button></label>` +
     (['kg', 'l'].includes(a.jm.toLowerCase()) ? '' :
       `<label title="Za pakiranu hranu na komad uz cijenu mora pisati i cijena za kg ili l (Pravilnik NN 105/2026). Voće i povrće na komad ili vezicu i pakiranja ispod 50 g: ne treba.">Pakiranje ` +
       `<input id="u-neto" inputmode="decimal" value="${a.neto_kolicina ? kolTxt(a.neto_kolicina) : ''}" style="width:60px" placeholder="0,2"> ` +
       `<select id="u-neto-jm"><option value="">— nije upisano —</option><option value="kg" ${a.neto_jm === 'kg' ? 'selected' : ''}>kg</option>` +
       `<option value="l" ${a.neto_jm === 'l' ? 'selected' : ''}>l</option><option value="-" ${a.neto_jm === '-' ? 'selected' : ''}>ne treba (na komad, vezica, ispod 50 g)</option></select></label>`) +
+    (MODULI.kpd ? `<label title="KPD 2025 šifra za eRačun. Upisana ovdje ostaje i kad Roba uveze svoju. Potvrdite s knjigovođom.">KPD <input id="u-kpd" value="${esc(a.kpd || '')}" placeholder="01.13.12" style="width:100px"> <button class="btn" id="u-kpd-pr" type="button">Prijedlog</button></label>` : '') +
     `<label>Minimalna zaliha <input id="u-min" inputmode="decimal" value="${a.min_zaliha ? kolTxt(a.min_zaliha) : ''}" style="width:90px"> ${esc(a.jm)}</label>` +
     `<button class="btn prim" id="u-spremi">Spremi</button><button class="btn" id="u-zatvori">Zatvori</button></div>`;
   $('#u-min').focus();
@@ -965,6 +1013,16 @@ $('#z-tablica').addEventListener('click', e => {
     if (dijelovi.length) box.insertAdjacentHTML('beforeend', '<p class="napomena" style="margin:8px 0 0">' + dijelovi.join('<br>') + '</p>');
   }).catch(() => {});
   $('#u-zatvori').onclick = () => box.hidden = true;
+  const kpdPrije = $('#u-kpd') ? $('#u-kpd').value : null;
+  if ($('#u-kpd')) api('/api/artikl_info/' + a.id).then(I => { if (!$('#u-kpd').value && I.kpd) $('#u-kpd').value = I.kpd; }).catch(() => {});
+  if ($('#u-kpd-pr')) $('#u-kpd-pr').onclick = async () => {
+    try {
+      const P = await api('/api/kpd/prijedlog/' + a.id);
+      if (!P.prijedlozi.length) return toast('Nema sličnih artikala s KPD šifrom. Šifru dogovorite s knjigovođom.', true);
+      $('#u-kpd').value = P.prijedlozi[0].kpd;
+      toast('Prijedlog (' + P.izvor + '): ' + P.prijedlozi.map(p => p.kpd + (p.naziv ? ' ' + p.naziv : '') + ' (' + p.artikala + ' art.)').join('; ') + '. Provjerite prije spremanja.');
+    } catch (e) { toast(e.message, true); }
+  };
   $('#u-predlozi').onclick = async () => {
     const r = await api('/api/najniza/' + a.id);
     if (r.cijena) {
@@ -980,9 +1038,22 @@ $('#z-tablica').addEventListener('click', e => {
         podrijetlo: $('#u-podrijetlo').value, klasa: $('#u-klasa').value, akcija_prije: $('#u-akcija').value,
         ...($('#u-neto-jm') ? {neto_jm: $('#u-neto-jm').value, neto_kolicina: $('#u-neto').value} : {}),
         ...($('#u-sidrena').value.trim() ? {sidrena: $('#u-sidrena').value, sidrena_datum: $('#u-sid-datum').value} : {})});
+      if ($('#u-kpd') && $('#u-kpd').value.trim() !== kpdPrije) await api('/api/kpd/' + a.id, {kpd: $('#u-kpd').value.trim()});
       box.hidden = true; toast('Spremljeno'); await ucitajZalihu(); crtajZalihu();
     } catch (err) { toast(err.message, true); }
   };
+});
+$('#z-kpd-gumb').addEventListener('click', async () => {
+  const box = $('#z-uredi');
+  try {
+    const R = await api('/api/kpd/bez');
+    box.hidden = false;
+    box.innerHTML = `<div class="red"><b>Artikli bez KPD šifre: ${R.artikli.length}${R.artikli.length >= 500 ? '+' : ''}</b><button class="btn" id="kpd-zatvori">Zatvori</button></div>` +
+      '<p class="napomena">KPD je obvezan na svakoj stavci eRačuna (za račune tvrtkama). Kliknite naziv u tablici Zaliha i upišite šifru, ili je upišite u Robi. Fiskalnom računu za građane KPD ne treba.</p>' +
+      (R.artikli.length ? '<div class="scroll" style="max-height:300px"><table class="t"><tr><th>Šifra</th><th>Naziv</th><th>JM</th></tr>' +
+        R.artikli.map(x => `<tr><td>${esc(x.sifra)}</td><td>${esc(x.naziv)}</td><td>${esc(x.jm)}</td></tr>`).join('') + '</table></div>' : '<p>Svi aktivni artikli imaju KPD šifru.</p>');
+    $('#kpd-zatvori').onclick = () => box.hidden = true;
+  } catch (e) { toast(e.message, true); }
 });
 $('#z-cjenik').addEventListener('click', () => { location.href = '/cjenik.csv'; });
 $('#z-ispis').addEventListener('click', () => window.open('/ispis_zaliha#ispis', 'ispiszal', 'width=1100,height=800'));
@@ -1106,6 +1177,63 @@ async function prikaziUsporedbu() {
 $('#n-usporedba').addEventListener('click', prikaziUsporedbu);
 $('#n-prijedlog').addEventListener('click', () => ucitajZalihu().then(prikaziPrijedlog));
 $('#n-nova-primka').addEventListener('click', () => noviDokument('primka'));
+// ---- primka iz eRačuna (UBL 2.1 XML): dobavljač po OIB-u, stavke po EAN-u ili šifri dobavljača
+$('#n-eracun').addEventListener('click', () => { $('#n-eracun-dat').value = ''; $('#n-eracun-dat').click(); });
+$('#n-eracun-dat').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  let E;
+  try { E = await api('/api/eracun/procitaj', {xml: await f.text()}); } catch (err) { return toast(err.message, true); }
+  await ucitajZalihu();
+  if (!E.dobavljac.partner_id) {
+    const d = E.dobavljac;
+    if (!d.oib) return toast('U eRačunu nema ispravnog OIB-a dobavljača.', true);
+    if (!confirm(`Dobavljač ${d.naziv} (OIB ${d.oib}) nije u popisu dobavljača. Dodati ga?`)) return;
+    try { E.dobavljac.partner_id = (await api('/api/partner', {naziv: d.naziv, oib: d.oib, adresa: d.adresa, mjesto: d.mjesto})).id; await ucitajZalihu(); }
+    catch (err) { return toast(err.message, true); }
+  }
+  noviDokument('primka');
+  $('#e-partner').value = E.dobavljac.partner_id;
+  $('#e-broj').value = E.broj;
+  if (E.datum && E.datum <= danas()) $('#e-datum').value = E.datum;
+  $('#e-kontrola').value = String(E.ukupno).replace('.', ',');
+  $('#e-napomena').value = 'eRačun ' + E.broj;
+  dok.veze = []; dok.nepovezane = [];
+  const fmt = x => String(x).replace('.', ',');
+  E.stavke.forEach(s => {
+    const a = s.artikl_id && ZAL_ID[s.artikl_id];
+    if (a && s.kolicina > 0) {
+      if (s.pdv !== a.pdv_stopa) E.upozorenja.push(`${a.naziv}: na eRačunu je PDV ${s.pdv} %, a artikl ima ${a.pdv_stopa} %.`);
+      dok.stavke.push({a, kol: kolTxt(s.kolicina), cijena: fmt(s.cijena), rabat: fmt(s.rabat)});
+      if (s.kpd) dok.veze.push({artikl_id: a.id, ean: s.ean, sifra_dob: s.sifra_dob, kpd: s.kpd});
+    } else dok.nepovezane.push(s);
+  });
+  crtajStavke(); crtajNepovezane();
+  const U = E.upozorenja || [];
+  toast(`eRačun ${E.broj}: ${E.stavke.length - dok.nepovezane.length} od ${E.stavke.length} stavki povezano. Provjerite i spremite.` +
+        (U.length ? ' ' + U.join(' ') : ''), U.length > 0);
+});
+function crtajNepovezane() {
+  let box = $('#e-nepovezane');
+  if (!box) { $('#e-stavke').insertAdjacentHTML('beforebegin', '<div id="e-nepovezane"></div>'); box = $('#e-nepovezane'); }
+  const N = dok.nepovezane || [];
+  box.innerHTML = N.length ? '<div class="card upoz"><b>Stavke s eRačuna koje treba povezati s artiklom</b>' +
+    '<p class="napomena">Kliknite stavku, pa u polju "Dodaj artikl" pronađite naš artikl. Veza se pamti za sljedeći eRačun tog dobavljača.</p>' +
+    '<table class="t">' + N.map((s, k) => `<tr class="klik ${dok.ceka === s ? 'sel' : ''}" data-n="${k}"><td>${esc(s.naziv)}</td><td>${esc(s.ean || s.sifra_dob || '')}</td>` +
+      `<td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td><td class="r">${String(s.cijena).replace('.', ',')}</td><td class="r">${s.rabat ? String(s.rabat).replace('.', ',') + ' %' : ''}</td></tr>`).join('') + '</table></div>' : '';
+  box.querySelectorAll('[data-n]').forEach(tr => tr.onclick = () => {
+    dok.ceka = N[+tr.dataset.n]; crtajNepovezane();
+    const t = $('#e-trazi'); t.value = dok.ceka.naziv.split(/\s+/)[0]; t.dispatchEvent(new Event('input')); t.focus(); t.select();
+  });
+}
+function poveziStavku(a) {
+  const s = dok.ceka; dok.ceka = null;
+  dok.stavke.push({a, kol: kolTxt(s.kolicina), cijena: String(s.cijena).replace('.', ','), rabat: String(s.rabat).replace('.', ',')});
+  dok.veze.push({artikl_id: a.id, ean: s.ean, sifra_dob: s.sifra_dob, kpd: s.kpd});
+  dok.nepovezane = dok.nepovezane.filter(x => x !== s);
+  $('#e-trazi').value = ''; $('#e-rez').hidden = true;
+  crtajStavke(); crtajNepovezane();
+  toast(a.naziv + ' povezan sa stavkom ' + s.naziv + (s.pdv !== a.pdv_stopa ? `. PAZITE: na eRačunu je PDV ${s.pdv} %, a artikl ima ${a.pdv_stopa} %.` : ''), s.pdv !== a.pdv_stopa);
+}
 $('#n-novi-otpis').addEventListener('click', () => noviDokument('otpis'));
 $('#n-novi-povrat').addEventListener('click', () => noviDokument('povrat'));
 $('#n-mjesec').addEventListener('change', ucitajDokumente);
@@ -1754,6 +1882,10 @@ function primijeniModule() {
   $('#n-dug').hidden = !m.dugovanja;
   $('#o-ponude').hidden = !(m.narudzbe && m.ponude);
   $('#z-zpc-gumb').hidden = !m.zpc;
+  $('#z-kpd-gumb').hidden = !m.kpd;
+  $('#k-r1').hidden = !m.r1_kasa;
+  if (!m.r1_kasa && R1) { R1 = null; crtajR1(); }
+  $('#n-eracun').hidden = !m.eracun_uvoz;
   if (!m.zpc) $('#z-zpc').hidden = true;
   $('#z-rok-gumb').hidden = !m.rokovi;
   if (!m.rokovi) $('#z-rok').hidden = true;
