@@ -1204,7 +1204,7 @@ async function prikaziPrijedlog() {
     `<p class="napomena">Prosjek prodaje iz Robe od ${datumHr(PRIJ.od)} do ${datumHr(PRIJ.do)}. Prijedlog = prodaja za odabrani broj dana + minimalna zaliha − trenutna zaliha (zaliha u minusu se računa kao 0).</p>` +
     (Object.keys(grupe).length ? Object.entries(grupe).map(([d, st]) =>
       `<div class="card" style="margin-bottom:12px"><h2 style="display:flex;justify-content:space-between">${esc(d)}` +
-      (st[0].partner_id ? `<button class="btn" data-primka="${esc(d)}">Napravi primku</button>` : '') + '</h2>' +
+      (st[0].partner_id ? `<span>${MODULI.narudzba_mail ? `<button class="btn" data-mail="${esc(d)}">Pošalji narudžbu e-mailom</button> ` : ''}<button class="btn" data-primka="${esc(d)}">Napravi primku</button></span>` : '') + '</h2>' +
       '<table class="t"><tr><th>Artikl</th><th class="r">Zaliha</th><th class="r">Prodaja/dan</th><th class="r" title="Otvorene narudžbe kupaca s rokom u tom razdoblju">Za kupce</th><th class="r">Dosta za</th><th class="r">Naručiti</th></tr>' +
       st.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r ${s.zaliha < 0 ? 'minus' : ''}">${kolTxt(s.zaliha)}</td><td class="r">${kolTxt(s.dnevno)}</td><td class="r">${s.narudzbe ? kolTxt(s.narudzbe) : ''}</td>` +
         `<td class="r">${s.dana_zalihe === null ? '' : String(Math.max(0, s.dana_zalihe)).replace('.', ',') + ' d'}</td>` +
@@ -1220,6 +1220,7 @@ async function prikaziPrijedlog() {
       '<script>print()<\/script>');
     w.document.close();
   };
+  $('#n-desno').querySelectorAll('[data-mail]').forEach(b => b.onclick = () => narudzbaMail(grupe[b.dataset.mail]));
   $('#n-desno').querySelectorAll('[data-primka]').forEach(b => b.onclick = () => {
     const st = grupe[b.dataset.primka];
     noviDokument('primka');
@@ -1234,6 +1235,41 @@ async function prikaziPrijedlog() {
   });
 }
 $('#n-dobavljaci').addEventListener('click', () => ucitajZalihu().then(prikaziDobavljace).catch(e => toast(e.message, true)));
+
+// ---- narudžba dobavljaču e-mailom (modul narudzba_mail, narudzba_mail.py)
+async function narudzbaMail(st) {
+  let M;
+  try { M = await api('/api/dob_mail/' + st[0].partner_id); } catch (e) { toast(e.message, true); return; }
+  const podaci = () => ({partner_id: M.partner_id, za: $('#nm-za').value, napomena: $('#nm-napomena').value,
+    kopija_meni: $('#nm-kopija').checked,
+    stavke: st.map((s, i) => ({artikl_id: s.id, kolicina: $('#nm-k' + i).value.replace(',', '.') || 0}))});
+  $('#n-desno').innerHTML = `<h2>Narudžba e-mailom: ${esc(M.partner)}</h2>` +
+    (M.smtp ? '' : '<p class="minus"><b>E-mail nije postavljen.</b> SMTP poslužitelj, korisnika i lozinku upišite u kartici Dodaci, "Večernji sažetak na e-mail" ' +
+      (M.sazetak_ukljucen ? '' : '(prvo uključite modul "Večernji sažetak na e-mail" u Postavkama; ako sažetak ne želite primati, odznačite "Pošalji kad se zaključi smjena" i ostavite vrijeme prazno)') + '. Do tada narudžbu možete ispisati.</p>') +
+    `<div class="polja"><label>Kome (e-mail dobavljača)<input id="nm-za" value="${esc(M.email)}" placeholder="narudzbe@dobavljac.hr" style="width:300px"></label>` +
+    `<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="nm-kopija" ${M.od ? '' : 'disabled'}> kopija meni${M.od ? ' (' + esc(M.od) + ')' : ''}</label></div>` +
+    '<table class="t"><tr><th>Artikl</th><th class="r">Zaliha</th><th class="r">Količina</th><th>JM</th></tr>' +
+    st.map((s, i) => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.zaliha)}</td><td class="r"><input id="nm-k${i}" value="${kolTxt(s.kolicina)}" inputmode="decimal" style="width:80px;text-align:right"></td><td>${esc(s.jm)}</td></tr>`).join('') +
+    '</table><p class="napomena">Količina 0 = ne naručuje se.</p>' +
+    '<label style="display:block;margin:8px 0">Napomena dobavljaču<br><textarea id="nm-napomena" rows="3" style="width:100%" placeholder="npr. isporuka u utorak do 7 h"></textarea></label>' +
+    `<div class="red"><button class="btn prim" id="nm-posalji" ${M.smtp ? '' : 'disabled'}>Pošalji</button><button class="btn" id="nm-pregled">Pregled / ispis</button><button class="btn" id="nm-natrag">Natrag na prijedlog</button></div>` +
+    '<h3>Zadnje narudžbe ovom dobavljaču</h3>' + (M.zadnje.length ? '<table class="t"><tr><th>Vrijeme</th><th>Kome</th><th class="r">Stavki</th><th>Stanje</th><th></th></tr>' +
+      M.zadnje.map(x => `<tr><td>${datumHr(x.vrijeme.slice(0, 10))} ${x.vrijeme.slice(11, 16)}</td><td>${esc(x.za)}</td><td class="r">${x.stavke.length}</td>` +
+        `<td class="${x.status === 'poslano' ? '' : 'minus'}">${x.status === 'poslano' ? 'poslano' : 'nije poslano: ' + esc(x.greska)}</td>` +
+        `<td><a href="/ispis_narudzba_dob/${x.id}" target="_blank">Ispis</a></td></tr>`).join('') + '</table>' : '<p class="napomena">Još nijedna.</p>');
+  $('#nm-natrag').onclick = prikaziPrijedlog;
+  $('#nm-pregled').onclick = async () => {
+    let P;
+    try { P = await api('/api/dob_mail/pregled', podaci()); } catch (e) { toast(e.message, true); return; }
+    const w = window.open('', 'narudzba_dob', 'width=850,height=900');
+    w.document.write(P.ispis); w.document.close();
+  };
+  $('#nm-posalji').onclick = async () => {
+    const b = $('#nm-posalji'); b.disabled = true; b.textContent = 'Šaljem…';
+    try { const r = await api('/api/dob_mail/posalji', podaci()); toast('Narudžba poslana: ' + r.za); narudzbaMail(st); }
+    catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Pošalji'; narudzbaMail(st); }
+  };
+}
 
 // ---- usporedba nabavnih cijena po dobavljačima
 async function prikaziUsporedbu() {
@@ -1998,6 +2034,7 @@ async function prikaziPostavke() {
   box.hidden = false; box.scrollTop = 0;
   crtajNadogradnju(false);
   if ($('#p-vaga')) crtajVagaPostavke();
+  if (MODULI.qr_uplata) ucitajUplatu();
   $('#p-zatvori').onclick = () => box.hidden = true;
   $('#p-spremi').onclick = async () => {
     const p = {};
@@ -2012,6 +2049,32 @@ async function prikaziPostavke() {
   };
 }
 $('#postavke-gumb').addEventListener('click', prikaziPostavke);
+
+// ---- barkod za plaćanje na otpremnici (modul qr_uplata, uplata.py)
+async function ucitajUplatu() {
+  let U;
+  try { U = await api('/api/uplata'); } catch (e) { return; }
+  const div = document.createElement('div');
+  div.className = 'card'; div.id = 'p-uplata'; div.style.margin = '12px 0';
+  const polje = (k, n, extra) => `<label>${n}<input id="up-${k}" value="${esc(U[k] || '')}" ${extra || ''}></label>`;
+  div.innerHTML = '<h2>Barkod za plaćanje (otpremnica, zbirni pregled)</h2><p class="napomena">Kupac skenira 2D barkod (HUB-3) u mobilnom bankarstvu i dobije popunjen nalog. ' +
+    'Bez IBAN-a se barkod ne ispisuje. Poziv na broj: broj otpremnice (godina-broj) ili kupac-mjesec za zbirni pregled.</p>' +
+    '<div class="polja">' + polje('iban', 'IBAN primatelja', 'style="width:230px" placeholder="HR12 3456 7890 1234 5678 9"') +
+    polje('naziv', 'Primatelj (naziv, do 25 znakova)', 'maxlength="25" style="width:220px"') + '</div><div class="polja">' +
+    polje('adresa', 'Ulica i broj', 'maxlength="25"') + polje('mjesto', 'Poštanski broj i mjesto', 'maxlength="27"') +
+    `<label>Model<select id="up-model">${U.modeli.map(m => `<option ${m === U.model ? 'selected' : ''}>${m}</option>`).join('')}</select></label>` +
+    `<label>Šifra namjene<select id="up-namjena">${U.namjene.map(n => `<option value="${n.sifra}" ${n.sifra === U.namjena ? 'selected' : ''}>${n.sifra} ${esc(n.opis)}</option>`).join('')}</select></label>` +
+    '<button class="btn" id="up-spremi">Spremi podatke za uplatu</button></div>' +
+    '<p class="napomena">HR00 = bez kontrolnog broja, HR01 = s kontrolnim brojem (MOD 11), HR99 = bez poziva na broj. Plaćanje po otpremnici prije računa iz Robe: potvrdite s knjigovođom.</p>';
+  const box = $('#postavke'); box.insertBefore(div, box.lastElementChild);
+  $('#up-spremi').onclick = async () => {
+    try {
+      await api('/api/uplata', {iban: $('#up-iban').value, naziv: $('#up-naziv').value, adresa: $('#up-adresa').value,
+        mjesto: $('#up-mjesto').value, model: $('#up-model').value, namjena: $('#up-namjena').value});
+      toast('Podaci za uplatu spremljeni');
+    } catch (e) { toast(e.message, true); }
+  };
+}
 
 // ---- nadogradnja programa s GitHuba (samo instalirana verzija)
 async function crtajNadogradnju(odmah) {

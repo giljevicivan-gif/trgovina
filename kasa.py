@@ -57,6 +57,8 @@ import usporedba
 import nabava
 import nadogradnja
 import narudzbe
+import narudzba_mail
+import uplata
 import postavke
 import povrat_ambalaze
 import zaslon_kupca
@@ -343,7 +345,7 @@ def storniraj(con, rid, prije_commita=None):
 
 # Putanje dodatnih modula; kad je modul isključen u Postavkama, API ih odbija.
 PUTANJE_MODULA = (
-    ("/api/narudzb", "narudzbe"), ("/api/kupac", "narudzbe"), ("/ispis_narudzba", "narudzbe"),
+    ("/api/narudzb", "narudzbe"), ("/api/kupac", "narudzbe"), ("/ispis_narudzba/", "narudzbe"),
     ("/api/inv/otvori", "inventura_mobitel"), ("/api/inv/pokreni", "inventura_mobitel"),
     ("/api/akcije", "akcije"), ("/api/usporedba", "usporedba"),
     ("/api/haccp", "haccp"), ("/ispis_haccp", "haccp"),
@@ -360,6 +362,7 @@ PUTANJE_MODULA = (
     ("/api/povrat_amb", "povrat_ambalaze"), ("/ispis_povrat_amb", "povrat_ambalaze"), ("/povrat_amb", "povrat_ambalaze"),
     ("/api/zaslon", "zaslon_kupca"), ("/zaslon", "zaslon_kupca"),
     ("/api/vaga", "vaga_veza"),
+    ("/api/uplata", "qr_uplata"), ("/api/dob_mail", "narudzba_mail"), ("/ispis_narudzba_dob", "narudzba_mail"),
 )
 
 
@@ -559,15 +562,24 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/kupci_zbirni/\d+", u.path):
                 self._send(200, kupci_tvrtke.zbirni(con, int(u.path.rsplit("/", 1)[1]), q.get("mjesec")))
             elif re.fullmatch(r"/ispis_zbirni/\d+", u.path):
-                self._send(200, ispis_zbirni_html(kupci_tvrtke.zbirni(con, int(u.path.rsplit("/", 1)[1]),
-                                                                       q.get("mjesec"))),
-                           "text/html; charset=utf-8")
+                z = kupci_tvrtke.zbirni(con, int(u.path.rsplit("/", 1)[1]), q.get("mjesec"))
+                self._send(200, uplata.za_zbirni(con, z, ispis_zbirni_html(z)), "text/html; charset=utf-8")
             elif re.fullmatch(r"/api/narudzba/\d+", u.path):
                 self._send(200, narudzbe.narudzba(con, int(u.path.rsplit("/", 1)[1])))
             elif re.fullmatch(r"/ispis_narudzba/\d+", u.path):
-                self._send(200, ispis_narudzba_html(narudzbe.narudzba(con, int(u.path.rsplit("/", 1)[1])),
-                                                    q.get("vrsta") == "otpremnica"),
-                           "text/html; charset=utf-8")
+                d = narudzbe.narudzba(con, int(u.path.rsplit("/", 1)[1]))
+                h = ispis_narudzba_html(d, q.get("vrsta") == "otpremnica")
+                if q.get("vrsta") == "otpremnica":
+                    h = uplata.za_otpremnicu(con, d, h)
+                self._send(200, h, "text/html; charset=utf-8")
+            elif u.path == "/api/uplata":
+                self._send(200, uplata.postavke_modula(con))
+            elif re.fullmatch(r"/api/dob_mail/\d+", u.path):
+                self._send(200, narudzba_mail.priprema(con, int(u.path.rsplit("/", 1)[1])))
+            elif u.path == "/api/dob_mail":
+                self._send(200, {"narudzbe": narudzba_mail.popis(con, 30)})
+            elif re.fullmatch(r"/ispis_narudzba_dob/\d+", u.path):
+                self._send(200, narudzba_mail.ispis(con, int(u.path.rsplit("/", 1)[1])), "text/html; charset=utf-8")
             elif u.path == "/api/danas":
                 self._send(200, jutro.pregled(con))
             elif u.path == "/api/usporedba":
@@ -711,6 +723,12 @@ class Handler(BaseHTTPRequestHandler):
                             _NAPLATE[oznaka] = rid
                         odg = {"id": rid}
                 self._send(200, odg)
+            elif u.path == "/api/uplata":
+                self._send(200, uplata.spremi_postavke(con, podaci))
+            elif u.path == "/api/dob_mail/pregled":
+                self._send(200, narudzba_mail.pregled(con, podaci))
+            elif u.path == "/api/dob_mail/posalji":
+                self._send(200, narudzba_mail.posalji(con, podaci))
             elif u.path == "/api/smjena/otvori":
                 self._send(200, {"id": blagajna.otvori(con, podaci)})
             elif u.path == "/api/smjena/promet":

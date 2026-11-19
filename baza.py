@@ -255,6 +255,8 @@ def spoji(path=DB_PATH):
     eracun.pripremi(con)
     import povrat_ambalaze
     povrat_ambalaze.pripremi(con)
+    import narudzba_mail
+    narudzba_mail.pripremi(con)
     return con
 
 

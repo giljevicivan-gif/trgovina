@@ -581,6 +581,31 @@ IZRAVNI ISPIS NA TERMALNI PISAC I LADICA (modul "termo_pisac")
   Racun je spremljen prije ispisa, pa greska pisaca ne ponistava
   prodaju. Windows pisac: ako ispis ne izlazi, u driveru pisaca
   probajte "Generic / Text Only" ili driver proizvodjaca.
+BARKOD ZA PLACANJE NA OTPREMNICI (modul "qr_uplata")
+  Ukljucuje se u Postavkama (zadano iskljuceno). U Postavkama, ispod
+  popisa modula, upisite IBAN (provjerava se kontrolni broj), naziv,
+  ulicu i mjesto primatelja, model (HR00 bez kontrole, HR01 s kontrolnim
+  brojem, HR99 bez poziva na broj) i sifru namjene (GDSV = roba i usluge).
+  Na ispisu otpremnice i zbirnog pregleda za tvrtke tada je dolje desno
+  okvir "Plati mobilnim bankarstvom" s 2D barkodom HUB-3 (PDF417, isti
+  kao na uplatnicama). Kupac ga skenira u aplikaciji banke i dobije
+  popunjen nalog: iznos, IBAN, poziv na broj (otpremnica: godina-broj,
+  zbirni: sifra kupca-godinamjesec) i opis. Bez IBAN-a ili iznosa nema
+  barkoda. Ispisujte laserskim pisacem; prije prave upotrebe skenirajte
+  jedan ispis svojom aplikacijom banke. Placanje po otpremnici prije
+  racuna iz Robe: potvrdite s knjigovodjom.
+
+NARUDZBA DOBAVLJACU E-MAILOM (modul "narudzba_mail")
+  Ukljucuje se u Postavkama (zadano iskljuceno). E-mail se salje preko
+  SMTP postavki vecernjeg sazetka (Dodaci, Vecernji sazetak na e-mail;
+  ako sazetak ne zelite primati, odznacite "Posalji kad se zakljuci
+  smjena" i ostavite vrijeme prazno). Nabava, Prijedlog narudzbe: kod
+  dobavljaca gumb "Posalji narudzbu e-mailom". Upisite ili provjerite
+  adresu (prvi put upisana ostaje na dobavljacu), promijenite kolicine
+  (0 = ne narucuje se) i napomenu, "Pregled / ispis" pokaze A4 narudzbu,
+  "Posalji" je salje (tekst + HTML, odgovor dolazi na vasu adresu).
+  Ispod je popis zadnjih narudzbi tom dobavljacu, i neuspjelih s
+  greskom; svaka se moze ponovno ispisati.
 
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,

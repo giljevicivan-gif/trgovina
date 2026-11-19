@@ -67,6 +67,11 @@ MODULI = (
     ("termo_pisac", "Izravni ispis na termalni pisač",
      "Račun ide ravno na termalni pisač 80/58 mm (ESC/POS: Windows pisač, mreža ili COM) bez prozora za ispis, "
      "s QR kodom, rezanjem papira i otvaranjem ladice kod gotovine. Kad pisač ne radi, otvara se obični ispis.", False),
+    ("qr_uplata", "Barkod za plaćanje na otpremnici",
+     "Na otpremnici i zbirnom pregledu za tvrtke 2D barkod (HUB-3) koji kupac skenira mobilnim bankarstvom. "
+     "Treba IBAN (Postavke). Plaćanje po otpremnici prije računa potvrdite s knjigovođom.", False),
+    ("narudzba_mail", "Narudžba dobavljaču e-mailom",
+     "U Prijedlogu narudžbe gumb za slanje narudžbe dobavljaču e-mailom (SMTP iz večernjeg sažetka).", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",

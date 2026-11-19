@@ -205,6 +205,23 @@ def posalji(con, datum=None, smjena_id=None, probni=False):
     msg["Date"] = formatdate(localtime=True)
     msg["Message-ID"] = make_msgid()
     msg.set_content(tekst)
+    posalji_poruku(con, msg)
+    return naslov
+
+
+def smtp_upisan(con):
+    """Je li upisan SMTP poslužitelj (koriste ga i drugi moduli, npr. narudžba dobavljaču)."""
+    return bool(_v(con, "posluzitelj"))
+
+
+def posalji_poruku(con, msg):
+    """Pošalji gotovu EmailMessage preko SMTP postavki sažetka."""
+    p = postavke_modula(con)
+    if not p["posluzitelj"]:
+        raise Greska("SMTP poslužitelj nije upisan (Dodaci, Večernji sažetak na e-mail).")
+    lozinka = _v(con, "lozinka")
+    if not msg["From"]:
+        msg["From"] = p["od"] or p["korisnik"]
     port = int(p["port"])
     try:
         if p["sigurnost"] == "ssl":
@@ -233,7 +250,6 @@ def posalji(con, datum=None, smjena_id=None, probni=False):
         raise Greska("Prijava na e-mail nije uspjela (korisnik ili lozinka; za Gmail treba lozinka za aplikacije).")
     except Exception as e:
         raise Greska("Slanje nije uspjelo: %s" % e)
-    return naslov
 
 
 def _zabiljezi(con, ok, poruka):

@@ -56,6 +56,7 @@ PUTANJE = (
     ("/api/vaga/", "postavke"),
     ("/api/tisak/postavke", "postavke"), ("/api/tisak/pisaci", "postavke"), ("/api/tisak/probni", "postavke"),
     ("/api/tisak/otvori_ladicu", "postavke"), ("/api/tisak/tekst", "postavke"),
+    ("/api/uplata", "postavke"), ("/api/dob_mail", "nabava"), ("/ispis_narudzba_dob", "nabava"),
 )
 # GET koji radnik bez ovlasti ipak smije (Zaliha i Nabava ih koriste i drugdje)
 GET_SLOBODNO = ("/api/postavke", "/api/zaliha", "/api/partneri", "/api/kontrola")
@@ -273,6 +274,7 @@ OPISI = (
     ("/api/povrat_amb/", "Povratna naknada za ambalažu"), ("/api/zaslon/", "Zaslon za kupca"),
     ("/api/tisak/ladica", "Ladica (gotovina)"), ("/api/tisak/otvori_ladicu", "Ladica otvorena ručno"),
     ("/api/tisak/", "Termalni pisač"),
+    ("/api/uplata", "Postavke barkoda za plaćanje"), ("/api/dob_mail/posalji", "Narudžba dobavljaču e-mailom"),
 )
 
 
