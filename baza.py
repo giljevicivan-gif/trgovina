@@ -251,6 +251,8 @@ def spoji(path=DB_PATH):
     rokovi.pripremi(con)
     bonovi.pripremi(con)
     dugovanja.pripremi(con)
+    import eracun
+    eracun.pripremi(con)
     return con
 
 

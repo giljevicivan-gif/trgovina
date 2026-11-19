@@ -77,8 +77,10 @@ def uvezi(con, godine, citaj, zadnja, ispis=print):
         dc, dd = a.get("DCIJENA"), _datum(a.get("DDATUM"))
         if not kpd and not (dc and dd):
             continue
-        con.execute("UPDATE artikli SET kpd = ?, roba_sidrena = ?, roba_sidrena_datum = ? WHERE roba_sifra = ?",
-                    (kpd, centi(dc) if dc and dd else 0, dd if dc else "", a["SIFRA"]))
+        # KPD upisan kod nas (kpd_rucno) ili s eRačuna Roba ne prepisuje praznim ni svojim
+        con.execute("""UPDATE artikli SET kpd = CASE WHEN kpd_rucno = 1 OR ? = '' THEN kpd ELSE ? END,
+                       roba_sidrena = ?, roba_sidrena_datum = ? WHERE roba_sifra = ?""",
+                    (kpd, kpd, centi(dc) if dc and dd else 0, dd if dc else "", a["SIFRA"]))
         n_kpd += bool(kpd)
         n_sid += bool(dc and dd)
     if n_kpd or n_sid:

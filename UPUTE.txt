@@ -499,6 +499,23 @@ BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
   - OIB radnika (Dodaci, Radnici i ovlasti): ako je upisan, ide na
     fiskalni racun kao OIB operatera; inace OIB iz postavki fiskalizacije.
 
+FISKALIZACIJA 2.0: KPD, R1 NA KASI, PRIMKA IZ eRACUNA (od 0.3.0)
+  Svaki dio se ukljucuje u Postavkama (zadano iskljuceno):
+  - KPD sifre: u Zalihi kliknite naziv artikla, upisite KPD (npr. 01.13.12)
+    ili kliknite Prijedlog (najcesca sifra kod slicnih artikala). Upisana
+    kod nas ostaje i kad Roba uveze svoju. Gumb "Bez KPD sifre" pokazuje
+    aktivne artikle bez sifre. Sifre potvrdite s knjigovodjom.
+  - R1 racun na kasi: gumb "R1 (tvrtka)" iznad nacina placanja, odaberite
+    ili dodajte tvrtku (naziv, OIB, adresa). Na racunu pise R1 i podaci
+    kupca; vrijedi samo za tu naplatu. Poreznoj ide isti fiskalni racun.
+  - Primka iz eRacuna: Nabava, "Primka iz eRacuna (XML)", odaberite XML
+    koji ste preuzeli od posrednika ili iz ePorezne. Program popuni
+    dobavljaca (po OIB-u, novog ponudi dodati), broj, datum, stavke,
+    cijene i rabat. Stavke koje ne prepozna kliknite i povezite s nasim
+    artiklom; veza se pamti za sljedeci racun tog dobavljaca. Pazi na
+    upozorenje kad se PDV na eRacunu razlikuje od PDV-a artikla.
+    Primka se sprema tek kad kliknete Spremi. Nista se ne salje Poreznoj.
+
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
   inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,
