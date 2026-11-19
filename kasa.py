@@ -46,6 +46,7 @@ import ponude
 import roba_dodatno
 import cijene
 import eracun
+import vaga
 import dodaci
 import inventura
 import izvjestaji
@@ -356,6 +357,7 @@ PUTANJE_MODULA = (
     ("/api/zpc", "zpc"), ("/ispis_zpc", "zpc"),
     ("/api/povrat_amb", "povrat_ambalaze"), ("/ispis_povrat_amb", "povrat_ambalaze"), ("/povrat_amb", "povrat_ambalaze"),
     ("/api/zaslon", "zaslon_kupca"), ("/zaslon", "zaslon_kupca"),
+    ("/api/vaga", "vaga_veza"),
 )
 
 
@@ -481,6 +483,11 @@ class Handler(BaseHTTPRequestHandler):
                            "text/html; charset=utf-8")
             elif u.path == "/api/zaslon/mreza":
                 self._send(200, zaslon_kupca.stanje_mreze(con))
+            elif u.path == "/api/vaga":  # očitanje vage za kasu (blagajnik smije)
+                self._send(200, vaga.ocitaj(vaga.postavke(con)))
+            elif u.path == "/api/vaga/postavke":
+                self._send(200, {"postavke": vaga.postavke(con), "protokoli": vaga.opis_protokola(),
+                                 "windows": os.name == "nt"})
             elif u.path == "/api/r1/kupci":
                 self._send(200, {"kupci": eracun.kupci(con)})
             elif re.fullmatch(r"/api/artikl_info/\d+", u.path):
@@ -798,6 +805,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, povrat_ambalaze.ponisti(con, podaci.get("id")))
             elif u.path == "/api/zaslon/mreza":
                 self._send(200, zaslon_kupca.spremi_mrezu(con, podaci))
+            elif u.path == "/api/vaga/postavke":
+                self._send(200, {"postavke": vaga.spremi_postavke(con, podaci)})
+            elif u.path == "/api/vaga/test":  # probno očitanje: uvijek vraća i sirove bajtove
+                try:
+                    self._send(200, vaga.ocitaj(podaci))
+                except Greska as e:
+                    self._send(200, {"greska": str(e), "sirovo": getattr(e, "sirovo", None)})
             elif u.path == "/api/r1/kupac":
                 self._send(200, {"id": eracun.novi_kupac(con, podaci)})
             elif u.path == "/api/eracun/procitaj":

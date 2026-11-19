@@ -61,6 +61,9 @@ MODULI = (
      "isplaćena naknada.", False),
     ("zaslon_kupca", "Zaslon za kupca",
      "Drugi prozor (drugi monitor) ili tablet u WiFi mreži kupcu pokazuje stavke, ukupno i koliko mu se vraća.", False),
+    ("vaga_veza", "Vaga spojena s kasom",
+     "Kasa sama očita težinu s vage (COM port ili mreža): gumb Vaga (F4) kod artikla na kg. "
+     "Postavke veze i probno očitanje ispod popisa modula.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",

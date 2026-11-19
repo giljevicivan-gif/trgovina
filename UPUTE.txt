@@ -541,6 +541,25 @@ ZASLON ZA KUPCA
   - Tablet u istoj WiFi mrezi: gumb "Tablet", Ukljuci, na tabletu otvorite
     pokazanu adresu (port 8769). Tablet samo prikazuje kosaricu, nista ne
     moze upisati. Ako Windows pita za vatrozid, dopustite privatnu mrezu.
+VAGA SPOJENA S KASOM (modul "Vaga spojena s kasom", zadano iskljuceno)
+  Kasa sama ocita tezinu s vage, ne treba je prepisivati.
+  - Postavke (gore desno): ukljucite modul, Spremi, ponovno otvorite
+    Postavke; ispod popisa modula je "Vaga spojena s kasom".
+  - Veza: COM port (kabel RS-232 ili USB pretvarac, broj porta vidi se u
+    Upravitelju uredaja) ili Mreza (IP:port) za mreznu vagu / pretvarac
+    serijski-mreza. Brzina, paritet, bitovi i stop moraju biti isti kao
+    na vagi.
+  - Protokol: Kontinuirano (vaga stalno salje, npr. ST,GS,+ 1.250kg),
+    Mettler Toledo 8217 (W), NCI / Avery Berkel (W + CR), CAS ECR
+    (ENQ/ACK/DC1) ili Prilagodjeno (svoj upit, npr. $ ili \x05, i izraz).
+    Na vagi u izborniku odaberite isti protokol za kasu/PC.
+  - "Ocitaj vagu" pokazuje tezinu i sto je vaga tocno poslala (tekst i
+    hex); to posaljite serviseru ako ne radi.
+  - Na kasi: odaberite artikl na kg, pritisnite F4 ili gumb "Vaga (F4)".
+    Tezina se upise u kolicinu; Enter je dodaje. Ako se vaga mice,
+    pokazuje nulu ili minus, tezina se ne upisuje.
+  - Barkod s etikete vage (20-29...) radi kao i prije.
+  - COM port nije isproban na stvarnoj vagi; prvo probajte "Ocitaj vagu".
 
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,

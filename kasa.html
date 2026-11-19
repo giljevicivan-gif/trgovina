@@ -208,6 +208,7 @@ table.t tfoot td { font-weight: 600; border-bottom: 0; }
           <span id="kol-cijena" class="napomena"></span>
           <input id="kol-unos" inputmode="decimal" autocomplete="off">
           <span id="kol-jm"></span>
+          <button class="btn" id="kol-vaga" hidden title="Očitaj težinu s vage">Vaga (F4)</button>
           <label class="napomena">Popust % <input id="kol-popust" inputmode="decimal" autocomplete="off" style="width:70px;font-size:18px"></label>
           <button class="btn prim" id="kol-dodaj">Dodaj</button>
           <button class="btn opasno" id="kol-obrisi" hidden>Obriši stavku</button>
@@ -450,6 +451,7 @@ function odaberi(a) {
   const unos = $('#kol-unos');
   unos.value = a.jm.toLowerCase() === 'kg' ? '' : '1';
   unos.placeholder = a.jm.toLowerCase() === 'kg' ? '0,000' : '1';
+  $('#kol-vaga').hidden = !(MODULI.vaga_veza && a.jm.toLowerCase() === 'kg');
   $('#kol').classList.add('on');
   rezultati = []; prikaziRez();
   unos.focus(); unos.select();
@@ -632,6 +634,70 @@ $('#brzi-novac').addEventListener('click', e => {
   const n = +b.dataset.n || ukupno();
   $('#primljeno').value = (n / 100).toFixed(2).replace('.', ','); vratiti(); $('#trazi').focus();
 });
+// Vaga spojena s kasom (modul vaga_veza): F4 ili gumb upiše težinu u količinu, Enter dodaje
+let vagaRadi = false;
+async function vagaUKolicinu() {
+  if (!odabran || odabran.jm.toLowerCase() !== 'kg') { toast('Prvo odaberite artikl na kg', true); return; }
+  if (vagaRadi) return;
+  vagaRadi = true; $('#kol-vaga').disabled = true;
+  const a = odabran;
+  try {
+    const r = await api('/api/vaga');
+    if (odabran !== a) return;
+    if (!r.stabilno) toast('Vaga nije mirna, pričekajte pa ponovno F4', true);
+    else if (!(r.kg > 0)) toast('Vaga pokazuje nulu', true);
+    else { $('#kol-unos').value = r.kg.toFixed(3).replace('.', ','); $('#kol-unos').focus(); $('#kol-unos').select(); return; }
+  } catch (e) { toast(e.message, true); }
+  finally { vagaRadi = false; $('#kol-vaga').disabled = false; }
+  $('#kol-unos').focus(); $('#kol-unos').select();
+}
+$('#kol-vaga').addEventListener('click', vagaUKolicinu);
+async function crtajVagaPostavke() {
+  const el = $('#p-vaga'); let V;
+  try { V = await api('/api/vaga/postavke'); } catch (e) { el.innerHTML = '<p class="napomena">' + esc(e.message) + '</p>'; return; }
+  const P = V.postavke, opc = (L, v) => L.map(([k, n]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  const lab = (n, h) => `<label style="display:flex;flex-direction:column;font-size:13px;gap:3px">${n}${h}</label>`;
+  el.innerHTML = '<h2>Vaga spojena s kasom</h2><p class="napomena">Na vagi uključite slanje težine prema kasi (PC/ECR protokol) i upišite iste postavke kao na vagi. ' +
+    'Na kasi: odaberite artikl na kg, F4 ili gumb Vaga upiše težinu, Enter dodaje.' + (V.windows ? '' : ' COM port radi samo na Windowsu.') + '</p>' +
+    '<div class="red" style="flex-wrap:wrap;gap:10px;align-items:end">' +
+    lab('Veza', `<select id="pv-veza">${opc([['com', 'COM port (kabel)'], ['tcp', 'Mreža (IP:port)']], P.veza)}</select>`) +
+    lab('Protokol', `<select id="pv-protokol">${opc(V.protokoli.map(p => [p.kljuc, p.naziv]), P.protokol)}</select>`) +
+    `<span id="pv-com" style="display:contents">` +
+    lab('Port', `<input id="pv-port" value="${esc(P.port)}" style="width:80px">`) +
+    lab('Brzina', `<select id="pv-brzina">${opc([1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map(b => [b, b]), P.brzina)}</select>`) +
+    lab('Paritet', `<select id="pv-paritet">${opc([['N', 'nema (N)'], ['E', 'parni (E)'], ['O', 'neparni (O)']], P.paritet)}</select>`) +
+    lab('Bitovi', `<select id="pv-bitovi">${opc([[8, 8], [7, 7]], P.bitovi)}</select>`) +
+    lab('Stop', `<select id="pv-stop">${opc([[1, 1], [2, 2]], P.stop)}</select>`) + '</span>' +
+    lab('IP:port', `<input id="pv-adresa" value="${esc(P.adresa)}" placeholder="192.168.1.50:4001" style="width:170px">`) + '</div>' +
+    '<div class="red" id="pv-vlastito" style="flex-wrap:wrap;gap:10px;align-items:end">' +
+    lab('Upit vagi (prazno = vaga sama šalje)', `<input id="pv-upit" value="${esc(P.upit)}" placeholder="npr. $ ili \\x05 ili W\\r" style="width:200px">`) +
+    lab('Izraz za težinu (regex)', `<input id="pv-izraz" value="${esc(P.izraz)}" placeholder="(?P&lt;kg&gt;\\d+[.,]\\d+)" style="width:260px">`) + '</div>' +
+    '<div class="red"><button class="btn" id="pv-spremi">Spremi vagu</button><button class="btn" id="pv-test">Očitaj vagu</button></div>' +
+    '<pre id="pv-rez" style="white-space:pre-wrap;font-size:13px;background:var(--bg);padding:8px;border-radius:8px" hidden></pre>';
+  const PROT = Object.fromEntries(V.protokoli.map(p => [p.kljuc, p]));
+  const prikazi = () => {
+    const tcp = $('#pv-veza').value === 'tcp';
+    $('#pv-port').parentNode.style.display = tcp ? 'none' : 'flex';
+    $('#pv-adresa').parentNode.style.display = tcp ? 'flex' : 'none';
+    $('#pv-vlastito').style.display = $('#pv-protokol').value === 'prilagodjeno' ? 'flex' : 'none';
+  };
+  $('#pv-protokol').onchange = () => {
+    const p = PROT[$('#pv-protokol').value];
+    ['brzina', 'paritet', 'bitovi', 'stop'].forEach(k => $('#pv-' + k).value = p[k]);
+    prikazi();
+  };
+  $('#pv-veza').onchange = prikazi; prikazi();
+  const podaci = () => Object.fromEntries(['veza', 'protokol', 'port', 'brzina', 'paritet', 'bitovi', 'stop', 'adresa', 'upit', 'izraz'].map(k => [k, $('#pv-' + k).value]));
+  $('#pv-spremi').onclick = async () => { try { await api('/api/vaga/postavke', podaci()); toast('Postavke vage spremljene'); } catch (e) { toast(e.message, true); } };
+  $('#pv-test').onclick = async () => {
+    const out = $('#pv-rez'); out.hidden = false; out.textContent = 'Čitam vagu…';
+    try {
+      const r = await api('/api/vaga/test', podaci()), s = r.sirovo;
+      out.textContent = (r.greska ? 'Greška: ' + r.greska : 'Težina: ' + (r.kg === null ? '?' : kolTxt(r.kg)) + ' kg, ' + (r.stabilno ? 'mirna' : 'NIJE MIRNA')) +
+        '\n\nPrimljeno ' + (s ? s.bajtova : 0) + ' bajtova' + (s && s.bajtova ? ':\nTekst: ' + s.tekst + '\nHex:   ' + s.hex : '.');
+    } catch (e) { out.textContent = 'Greška: ' + e.message; }
+  };
+}
 // R1: račun tvrtki (naziv, adresa i OIB kupca na računu); vrijedi samo za sljedeću naplatu
 var R1 = null;
 function crtajR1() {
@@ -681,6 +747,7 @@ $('#ocisti').addEventListener('click', () => { kosarica = []; crtajKosaricu(); o
 document.addEventListener('keydown', e => {
   const naKasi = $('#v-kasa').classList.contains('on');
   if (e.key === 'F9') { e.preventDefault(); if (naKasi) naplati(); }
+  else if (e.key === 'F4' && naKasi && MODULI.vaga_veza) { e.preventDefault(); vagaUKolicinu(); }
   else if (MODULI.brzo_placanje && naKasi && (e.key === 'F5' || e.key === 'F6')) {
     e.preventDefault(); odaberiNacin(e.key === 'F5' ? /gotov/i : /kartic/i);
     if (e.key === 'F5') $('#primljeno').focus(); else $('#trazi').focus();
@@ -1886,6 +1953,7 @@ function primijeniModule() {
   $('#z-zpc-gumb').hidden = !m.zpc;
   $('#z-kpd-gumb').hidden = !m.kpd;
   $('#k-r1').hidden = !m.r1_kasa;
+  if (!m.vaga_veza) $('#kol-vaga').hidden = true;
   if (!m.r1_kasa && R1) { R1 = null; crtajR1(); }
   $('#n-eracun').hidden = !m.eracun_uvoz;
   if (!m.zpc) $('#z-zpc').hidden = true;
@@ -1910,9 +1978,11 @@ async function prikaziPostavke() {
     'Zakonske obveze (sidrena cijena, najniža cijena u 30 dana kod akcije, cijena za kg/l) vrijede uvijek i ne isključuju se.</p>' +
     P.map(m => `<label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0"><input type="checkbox" data-modul="${m.kljuc}" ${m.ukljucen ? 'checked' : ''} style="margin-top:3px">` +
       `<span><b>${esc(m.naziv)}</b><br><span class="napomena">${esc(m.opis)}</span></span></label>`).join('') +
+    (P.some(m => m.kljuc === 'vaga_veza' && m.ukljucen) ? '<div id="p-vaga"></div>' : '') +
     '<div class="red" style="position:sticky;bottom:-14px;background:var(--panel);padding:10px 0 4px;margin-bottom:0;border-top:1px solid var(--line)"><button class="btn prim" id="p-spremi">Spremi</button><button class="btn" id="p-zatvori">Zatvori</button></div>';
   box.hidden = false; box.scrollTop = 0;
   crtajNadogradnju(false);
+  if ($('#p-vaga')) crtajVagaPostavke();
   $('#p-zatvori').onclick = () => box.hidden = true;
   $('#p-spremi').onclick = async () => {
     const p = {};
