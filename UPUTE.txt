@@ -516,6 +516,32 @@ FISKALIZACIJA 2.0: KPD, R1 NA KASI, PRIMKA IZ eRACUNA (od 0.3.0)
     upozorenje kad se PDV na eRacunu razlikuje od PDV-a artikla.
     Primka se sprema tek kad kliknete Spremi. Nista se ne salje Poreznoj.
 
+POVRAT AMBALAZE NA KASI (POVRATNA NAKNADA)
+  Ukljucuje se u Postavkama ("Povrat ambalaze na kasi", zadano iskljuceno).
+  - Kupac vrati prazne boce/limenke: na Kasi gumb "Povrat ambalaze",
+    upisite broj komada po vrsti (+ / - / +10 ili tipkovnicom), Isplati.
+    Naknada je 0,10 EUR po komadu (od 1.1.2025., NN 137/2024); iznos po
+    vrsti i nove vrste (npr. tetrapak) mijenjaju se u "Vrste i iznosi".
+  - To NIJE prodaja ni stavka racuna: novac izlazi iz ladice, kupcu se
+    ispise potvrda PN-godina-broj "nije racun". Ako je u Blagajni otvorena
+    smjena, isplata se tamo upise sama (Povratna naknada PN-...), pa
+    prebrojana gotovina odgovara. Kriva isplata: Ponisti (u otvorenoj
+    smjeni se iznos vraca u blagajnu).
+  - "Pregled za Fond": komada i iznos po vrsti i po danu za razdoblje,
+    Preuzmi CSV. Isto je dostupno i na kartici Blagajna.
+  - Nije isto sto i "Gajbe i povratna ambalaza" (gajbe dobavljaca).
+  - Potvrdite s knjigovodjom i Fondom kako se vodi i potrazuje isplacena
+    naknada.
+
+ZASLON ZA KUPCA
+  Ukljucuje se u Postavkama ("Zaslon za kupca", zadano iskljuceno).
+  - Na Kasi gumb "Otvori zaslon za kupca": novi prozor koji pokazuje
+    stavke, ukupno i nakon naplate "Hvala! Vratiti: x EUR" (8 sekundi).
+    Prozor prebacite na drugi monitor okrenut kupcu i pritisnite F11.
+  - Tablet u istoj WiFi mrezi: gumb "Tablet", Ukljuci, na tabletu otvorite
+    pokazanu adresu (port 8769). Tablet samo prikazuje kosaricu, nista ne
+    moze upisati. Ako Windows pita za vatrozid, dopustite privatnu mrezu.
+
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
   inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,

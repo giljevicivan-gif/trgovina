@@ -497,6 +497,7 @@ function crtajKosaricu() {
   $('#naplati').disabled = !kosarica.length;
   vratiti();
   podijeljeno();
+  if (window.zaslonPosalji) zaslonPosalji();  // zaslon za kupca (kasa_kupac.js)
 }
 const nacinPo = re => PLACANJA.find(p => re.test(p.naziv));
 function crtajPlacanja() {
@@ -575,6 +576,7 @@ async function naplati() {
       ...(R1 ? {kupac_id: R1.id} : {}),
       stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
     if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
+    if (window.zaslonPlaceno) zaslonPlaceno(ukupno(), vrati);  // zaslon za kupca: Hvala! Vratiti...
     naplati.oznaka = null; R1 = null; crtajR1();
     kosarica = []; $('#primljeno').value = ''; $('#dio-gotovina').value = ''; crtajKosaricu();
     if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
@@ -1893,6 +1895,7 @@ function primijeniModule() {
   tab('bonovi').textContent = m.bonovi && m.vjernost ? 'Bonovi i vjernost' : m.bonovi ? 'Bonovi' : 'Vjernost';
   if (!m.inventura_mobitel) $('#z-mob').hidden = true;
   if (!m.akcije) $('#z-akc').hidden = true;
+  if (window.kasaKupacModuli) kasaKupacModuli(m);  // povrat ambalaže, zaslon za kupca (kasa_kupac.js)
   const on = document.querySelector('.tabs button.on');
   if (on && on.hidden) tab('danas').click();
 }
@@ -2495,5 +2498,6 @@ osvjeziArtikle().then(() => {
 }).catch(e => toast(e.message, true));
 ucitajKontrolu();
 </script>
+<script src="/kasa_kupac.js"></script>
 </body>
 </html>

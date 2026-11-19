@@ -57,6 +57,8 @@ import nabava
 import nadogradnja
 import narudzbe
 import postavke
+import povrat_ambalaze
+import zaslon_kupca
 from baza import DB_PATH, ZALIHA_SQL, pdv_iz_bruto, spoji, zaokruzi
 from nabava import Greska
 
@@ -352,6 +354,8 @@ PUTANJE_MODULA = (
     ("/api/kpd", "kpd"), ("/api/r1", "r1_kasa"), ("/api/eracun", "eracun_uvoz"),
     ("/api/ponud", "narudzbe"), ("/api/ponud", "ponude"), ("/ispis_ponuda", "narudzbe"), ("/ispis_ponuda", "ponude"),
     ("/api/zpc", "zpc"), ("/ispis_zpc", "zpc"),
+    ("/api/povrat_amb", "povrat_ambalaze"), ("/ispis_povrat_amb", "povrat_ambalaze"), ("/povrat_amb", "povrat_ambalaze"),
+    ("/api/zaslon", "zaslon_kupca"), ("/zaslon", "zaslon_kupca"),
 )
 
 
@@ -415,6 +419,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/verzija.txt":  # pokretač provjerava je li na portu naša kasa
             return self._obicno(200, "trgovina %s" % nadogradnja.POKRENUTA)
+        if u.path in ("/zaslon", "/api/zaslon", "/kasa_kupac.js"):  # zaslon za kupca: često, bez prijave i baze
+            return self._zaslon_get(u.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         danas = dt.date.today().isoformat()
 
@@ -459,6 +465,22 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"artikli": eracun.bez_kpd(con)})
             elif re.fullmatch(r"/api/kpd/prijedlog/\d+", u.path):
                 self._send(200, eracun.prijedlog_kpd(con, int(u.path.rsplit("/", 1)[1])))
+            elif u.path == "/api/povrat_amb":
+                self._send(200, {"vrste": povrat_ambalaze.vrste(con, q.get("sve") == "1"),
+                                 "zadnje": povrat_ambalaze.zadnje(con),
+                                 "danas": povrat_ambalaze.pregled(con, danas, danas),
+                                 "smjena": bool(con.execute("SELECT 1 FROM smjene WHERE zatvorena IS NULL").fetchone())})
+            elif u.path == "/api/povrat_amb/pregled":
+                self._send(200, povrat_ambalaze.pregled(con, q.get("od"), q.get("do")))
+            elif u.path == "/povrat_amb.csv":
+                p = povrat_ambalaze.pregled(con, q.get("od"), q.get("do"))
+                self._csv("povratna_naknada_%s_%s.csv" % (p["od"], p["do"]),
+                          povrat_ambalaze.csv_pregled(con, p["od"], p["do"]))
+            elif re.fullmatch(r"/ispis_povrat_amb/\d+", u.path):
+                self._send(200, povrat_ambalaze.potvrda_html(con, int(u.path.rsplit("/", 1)[1]), NAZIV_TRGOVINE),
+                           "text/html; charset=utf-8")
+            elif u.path == "/api/zaslon/mreza":
+                self._send(200, zaslon_kupca.stanje_mreze(con))
             elif u.path == "/api/r1/kupci":
                 self._send(200, {"kupci": eracun.kupci(con)})
             elif re.fullmatch(r"/api/artikl_info/\d+", u.path):
@@ -605,6 +627,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, {"greska": "Nema"})
         self._handle(go)
 
+    def _zaslon_get(self, put):
+        if put == "/kasa_kupac.js":
+            with open(os.path.join(SCRIPT_DIR, "kasa_kupac.js"), encoding="utf-8") as f:
+                return self._send(200, f.read(), "text/javascript; charset=utf-8")
+        if not zaslon_kupca.modul_ukljucen():
+            return self._send(403, {"greska": "Zaslon za kupca je isključen (Postavke)."})
+        if put == "/zaslon":
+            return self._send(200, zaslon_kupca.stranica(), "text/html; charset=utf-8")
+        return self._send(200, zaslon_kupca.procitaj())
+
     def do_POST(self):
         u = urlparse(self.path)
         n = int(self.headers.get("Content-Length") or 0)
@@ -626,6 +658,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError
         except ValueError:
             return self._send(400, {"greska": "Neispravan zahtjev."})
+        if u.path == "/api/zaslon":  # košarica za zaslon kupca (samo u memoriji, bez dnevnika radnji)
+            if not zaslon_kupca.modul_ukljucen():
+                return self._send(403, {"greska": "Zaslon za kupca je isključen."})
+            if not self.headers.get("Content-Type", "").startswith("application/json"):
+                return self._send(400, {"greska": "Neispravan zahtjev."})
+            zaslon_kupca.postavi(podaci)
+            return self._send(200, {"ok": True})
 
         def go(con):
             if dodaci.post(self, con, u.path, podaci):
@@ -682,6 +721,7 @@ class Handler(BaseHTTPRequestHandler):
                     haccp_mobitel.pri_pokretanju(con)
                 else:
                     haccp_mobitel.zaustavi()
+                zaslon_kupca.pri_pokretanju(con)
                 self._send(200, postavke.popis(con))
             elif u.path.startswith(("/api/rokovi/", "/api/kalo/", "/api/bonovi/", "/api/vjernost/",
                                     "/api/dugovanja/")):
@@ -750,6 +790,14 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/kpd/\d+", u.path):
                 eracun.spremi_kpd(con, int(u.path.rsplit("/", 1)[1]), podaci.get("kpd"))
                 self._send(200, {"ok": True})
+            elif u.path == "/api/povrat_amb/isplati":
+                self._send(200, povrat_ambalaze.isplati(con, podaci, dodaci._ime(self)))
+            elif u.path == "/api/povrat_amb/vrsta":
+                self._send(200, {"id": povrat_ambalaze.spremi_vrstu(con, podaci)})
+            elif u.path == "/api/povrat_amb/ponisti":
+                self._send(200, povrat_ambalaze.ponisti(con, podaci.get("id")))
+            elif u.path == "/api/zaslon/mreza":
+                self._send(200, zaslon_kupca.spremi_mrezu(con, podaci))
             elif u.path == "/api/r1/kupac":
                 self._send(200, {"id": eracun.novi_kupac(con, podaci)})
             elif u.path == "/api/eracun/procitaj":
@@ -1546,6 +1594,9 @@ def main():
     poruka = haccp_mobitel.pri_pokretanju(con)
     if poruka:
         print("HACCP s mobitela: %s" % poruka)
+    poruka = zaslon_kupca.pri_pokretanju(con)
+    if poruka:
+        print("Zaslon za kupca (tablet): %s" % poruka)
     if len(sys.argv) > 1:
         from uvoz import uvezi
         print("Uvoz iz Robe...")

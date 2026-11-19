@@ -54,6 +54,13 @@ MODULI = (
      "Pita za potvrdu kad se na kasi upiše više od 50 kg (npr. 1250 upisano u gramima umjesto 1,25).", True),
     ("podijeljeno_placanje", "Plaćanje dijelom gotovinom, dijelom karticom",
      "Na kasi gumb 'Gotovina + kartica'. Fiskalno se šalje kao način plaćanja 'O' (ostalo): potvrdite s knjigovođom.", False),
+    ("povrat_ambalaze", "Povrat ambalaže na kasi (povratna naknada)",
+     "Gumb na kasi: kupac vrati prazne boce i limenke, isplati mu se povratna naknada (0,10 € po komadu, "
+     "iznos po vrsti se može promijeniti) iz ladice uz potvrdu (nije račun). Upisuje se kao isplata u Blagajni; "
+     "pregled po danu i mjesecu za Fond (CSV). Potvrdite s knjigovođom i Fondom kako se vodi i potražuje "
+     "isplaćena naknada.", False),
+    ("zaslon_kupca", "Zaslon za kupca",
+     "Drugi prozor (drugi monitor) ili tablet u WiFi mreži kupcu pokazuje stavke, ukupno i koliko mu se vraća.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",
