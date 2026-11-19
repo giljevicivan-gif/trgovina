@@ -559,6 +559,19 @@ function fiskalPoruka(f) {
   if (f.status === 'poslan') toast('Fiskalizirano' + (f.okolina === 'test' ? ' (TEST)' : '') + ', JIR ' + f.jir.slice(0, 8) + '…');
   else toast('Račun izdan BEZ JIR-a (šalje se ponovno sam): ' + f.poruka, true);
 }
+// izravni ispis na termalni pisač (tisak.py); kad je isključen ili ne uspije, obični prozor za ispis
+function prozorIspisa(id) {
+  if (window.open('/ispis/' + id + '#ispis', 'ispis', 'width=420,height=640')) return;
+  const a = document.createElement('a');  // preglednik je blokirao prozor (prošlo je previše vremena od klika)
+  a.href = '/ispis/' + id + '#ispis'; a.target = 'ispis'; a.className = 'btn prim'; a.textContent = 'Otvori ispis računa';
+  a.style.cssText = 'position:fixed;right:16px;bottom:70px;z-index:60';
+  a.onclick = () => setTimeout(() => a.remove(), 100); document.body.appendChild(a); setTimeout(() => a.remove(), 20000);
+}
+async function ispisiRacun(id, ladica) {
+  if (!MODULI.termo_pisac) return prozorIspisa(id);
+  try { await api('/api/tisak/racun/' + id, {ladica: !!ladica}); }
+  catch (e) { toast('Pisač: ' + e.message + ' Otvaram obični ispis.', true); prozorIspisa(id); }
+}
 async function naplati() {
   if (!kosarica.length || $('#naplati').disabled) return;
   $('#naplati').disabled = true;
@@ -577,7 +590,9 @@ async function naplati() {
     const r = await api('/api/naplati', {nacin_placanja_id: nacin, oznaka_naplate: naplati.oznaka, ...(dijelovi ? {dijelovi} : {}),
       ...(R1 ? {kupac_id: R1.id} : {}),
       stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
-    if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
+    const gotovinom = placanje === 'split' || /gotov/i.test((PLACANJA.find(p => p.id === nacin) || {}).naziv || '');
+    if ($('#ispisi').checked) ispisiRacun(r.id, gotovinom);
+    else if (MODULI.termo_pisac && gotovinom) api('/api/tisak/ladica', {racun_id: r.id}).catch(e => toast('Ladica: ' + e.message, true));
     if (window.zaslonPlaceno) zaslonPlaceno(ukupno(), vrati);  // zaslon za kupca: Hvala! Vratiti...
     naplati.oznaka = null; R1 = null; crtajR1();
     kosarica = []; $('#primljeno').value = ''; $('#dio-gotovina').value = ''; crtajKosaricu();
@@ -779,7 +794,7 @@ async function prikaziRacun(id) {
     `<tr><th colspan="3">Ukupno</th><th class="r">${eur(r.ukupno)}</th></tr></table>` +
     `<div class="red" style="margin-top:12px"><button class="btn" id="r-ispis">Ispiši</button>` +
     (moze ? '<button class="btn opasno" id="r-storno">Storniraj</button>' : '') + '</div>';
-  $('#r-ispis').onclick = () => window.open('/ispis/' + id + '#ispis', 'ispis', 'width=420,height=640');
+  $('#r-ispis').onclick = () => ispisiRacun(id, false);
   if ($('#r-fiskal')) $('#r-fiskal').onclick = async () => {
     try { const x = await api('/api/fiskal/posalji', {id: +id}); toast(x.poslano ? 'Poslano, dobiven JIR' : 'Nije poslano: ' + x.poruka, !x.poslano); }
     catch (e) { toast(e.message, true); }
