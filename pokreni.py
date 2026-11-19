@@ -25,11 +25,16 @@ def procitaj_postavke():
     put = os.path.join(APP, "postavke.cmd")
     if not os.path.exists(put):
         return
-    with open(put, encoding="utf-8-sig", errors="replace") as f:
-        for red in f:
-            m = re.match(r'\s*set\s+"?([A-Za-z_][A-Za-z0-9_]*)=(.*?)"?\s*$', red, re.I)
-            if m and not os.environ.get(m.group(1)):
-                os.environ[m.group(1)] = m.group(2)
+    with open(put, "rb") as f:
+        sirovo = f.read()
+    try:  # Setup (NSIS) piše u kodnoj stranici Windowsa (cp1250), ručno uređena datoteka može biti UTF-8
+        tekst = sirovo.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        tekst = sirovo.decode("mbcs" if os.name == "nt" else "cp1250", errors="replace")
+    for red in tekst.splitlines():
+        m = re.match(r'\s*set\s+"?([A-Za-z_][A-Za-z0-9_]*)=(.*?)"?\s*$', red, re.I)
+        if m and not os.environ.get(m.group(1)):
+            os.environ[m.group(1)] = m.group(2)
 
 
 def pripremi_okolinu():
@@ -42,7 +47,21 @@ def pripremi_okolinu():
     os.environ.setdefault("TRGOVINA_CERT_MAPA", os.path.join(podaci, "certifikati"))
     os.environ.setdefault("TRGOVINA_PORT", "8790")
     os.chdir(podaci)
+    zapamti_postavke()
     return podaci
+
+
+def zapamti_postavke():
+    """Port i dodatnu mapu kopija (ručno upisane u postavke.cmd) zapamti u registru, da ih novi Setup ne prepiše."""
+    if os.name != "nt":
+        return
+    try:
+        import winreg
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Trgovina") as k:
+            winreg.SetValueEx(k, "Port", 0, winreg.REG_SZ, os.environ.get("TRGOVINA_PORT") or "8790")
+            winreg.SetValueEx(k, "KopijaMapa", 0, winreg.REG_SZ, os.environ.get("TRGOVINA_KOPIJA_MAPA") or "")
+    except Exception:
+        pass
 
 
 def poruka(tekst, greska=False):
@@ -115,8 +134,55 @@ def preusmjeri_ispis(podaci):
     print("\n===== %s =====" % time.strftime("%d.%m.%Y %H:%M:%S"))
 
 
+_brava = None
+
+
+def zakljucaj(podaci, cekaj=0):
+    """Samo jedna kasa na ovom računalu: drži zaključanu datoteku dok kasa radi."""
+    global _brava
+    put = os.path.join(podaci, "kasa.brava")
+    kraj = time.time() + cekaj
+    while True:
+        f = open(put, "a+b")
+        try:
+            if os.name == "nt":
+                import msvcrt
+                f.seek(0)
+                msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            _brava = f
+            return True
+        except OSError:
+            f.close()
+            if time.time() >= kraj:
+                return False
+            time.sleep(0.5)
+
+
 def main():
-    podaci = pripremi_okolinu()
+    try:
+        podaci = pripremi_okolinu()
+    except Exception as e:  # npr. mapa podataka se ne može napraviti (USB disk nije spojen, nema prava na C:\)
+        import tempfile
+        try:
+            with open(os.path.join(tempfile.gettempdir(), "kasa_greska.log"), "a", encoding="utf-8") as f:
+                f.write(time.strftime("%d.%m.%Y %H:%M:%S ") + traceback.format_exc())
+        except Exception:
+            pass
+        return poruka("Kasa se ne može pokrenuti: mapa podataka \"%s\" nije dostupna.\n\n%s\n\n"
+                      "Provjerite je li disk spojen ili ponovno pokrenite Setup i odaberite drugu mapu."
+                      % (os.environ.get("TRGOVINA_PODACI", ""), e), True)
+    try:
+        return _main(podaci)
+    except Exception as e:
+        traceback.print_exc()
+        poruka("Kasa se nije mogla pokrenuti:\n%s\n\nDetalji su u datoteci %s"
+               % (e, os.path.join(podaci, "kasa.log")), True)
+
+
+def _main(podaci):
     preusmjeri_ispis(podaci)
     if "--zatvori" in sys.argv:
         return zatvori()
@@ -133,8 +199,19 @@ def main():
             webbrowser.open("http://127.0.0.1:%d" % p)
             return
         return poruka("Port %d već koristi neki DRUGI program na ovom računalu.\n\n"
-                      "Ponovno pokrenite Setup kase ili u datoteci postavke.cmd (mapa programa) "
-                      "promijenite TRGOVINA_PORT, npr. na %d." % (p, p + 1), True)
+                      "U datoteci postavke.cmd (mapa programa) promijenite TRGOVINA_PORT, npr. na %d."
+                      % (p, p + 1), True)
+
+    if not zakljucaj(podaci, 30 if "--nakon-nadogradnje" in sys.argv else 0):
+        # kasa se upravo pokreće (sigurnosna kopija, uvoz iz Robe): ne pokreći drugu
+        for _ in range(60):
+            if zauzet(p) and nasa_kasa(p):
+                if "--nakon-nadogradnje" not in sys.argv:
+                    import webbrowser
+                    webbrowser.open("http://127.0.0.1:%d" % p)
+                return
+            time.sleep(1)
+        return poruka("Kasa se već pokreće (traje dulje nego inače). Pričekajte malo pa pokušajte ponovno.")
 
     with open(kljuc_datoteka(), "w", encoding="utf-8") as f:
         f.write(secrets.token_hex(16))

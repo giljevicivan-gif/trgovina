@@ -17,12 +17,14 @@ import narudzbe
 import postavke
 import rokovi
 
-# Rokovi propisa koji se tiču trgovine (provjereno 22. 10. 2026.)
+# Rokovi propisa koji se tiču trgovine (provjereno 19. 11. 2026.)
 ROKOVI = (
-    ("2026-11-17", "Sidrena cijena na etiketama postaje obvezna (NN 101/2026). "
+    ("2026-11-17", "Bazna cijena (prije zvana sidrena) na etiketama je obvezna (NN 132/2026). "
                    "Ispišite nove etikete (Zaliha, Etikete za police)."),
     ("2027-01-01", "Fiskalizacija 2.0: i obveznici koji nisu u sustavu PDV-a moraju izdavati eRačune "
                    "tvrtkama. Provjerite s knjigovođom vrijedi li to za vas i radi li Roba to."),
+    ("2027-01-01", "Porezna od danas odbija račune potpisane starim načinom (SHA-1). Provjerite da Roba "
+                   "ima nadogradnju za fiskalizaciju v2.7 (SHA-256); naša kasa je već spremna."),
 )
 ROK_UNAPRIJED = 45  # dana prije roka počinje podsjetnik
 
