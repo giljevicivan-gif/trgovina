@@ -54,6 +54,9 @@ MODULI = (
      "Pita za potvrdu kad se na kasi upiše više od 50 kg (npr. 1250 upisano u gramima umjesto 1,25).", True),
     ("podijeljeno_placanje", "Plaćanje dijelom gotovinom, dijelom karticom",
      "Na kasi gumb 'Gotovina + kartica'. Fiskalno se šalje kao način plaćanja 'O' (ostalo): potvrdite s knjigovođom.", False),
+    ("vaga_veza", "Vaga spojena s kasom",
+     "Kasa sama očita težinu s vage (COM port ili mreža): gumb Vaga (F4) kod artikla na kg. "
+     "Postavke veze i probno očitanje ispod popisa modula.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",

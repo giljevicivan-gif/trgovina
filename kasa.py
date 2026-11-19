@@ -46,6 +46,7 @@ import ponude
 import roba_dodatno
 import cijene
 import eracun
+import vaga
 import dodaci
 import inventura
 import izvjestaji
@@ -352,6 +353,7 @@ PUTANJE_MODULA = (
     ("/api/kpd", "kpd"), ("/api/r1", "r1_kasa"), ("/api/eracun", "eracun_uvoz"),
     ("/api/ponud", "narudzbe"), ("/api/ponud", "ponude"), ("/ispis_ponuda", "narudzbe"), ("/ispis_ponuda", "ponude"),
     ("/api/zpc", "zpc"), ("/ispis_zpc", "zpc"),
+    ("/api/vaga", "vaga_veza"),
 )
 
 
@@ -459,6 +461,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"artikli": eracun.bez_kpd(con)})
             elif re.fullmatch(r"/api/kpd/prijedlog/\d+", u.path):
                 self._send(200, eracun.prijedlog_kpd(con, int(u.path.rsplit("/", 1)[1])))
+            elif u.path == "/api/vaga":  # očitanje vage za kasu (blagajnik smije)
+                self._send(200, vaga.ocitaj(vaga.postavke(con)))
+            elif u.path == "/api/vaga/postavke":
+                self._send(200, {"postavke": vaga.postavke(con), "protokoli": vaga.opis_protokola(),
+                                 "windows": os.name == "nt"})
             elif u.path == "/api/r1/kupci":
                 self._send(200, {"kupci": eracun.kupci(con)})
             elif re.fullmatch(r"/api/artikl_info/\d+", u.path):
@@ -750,6 +757,13 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/kpd/\d+", u.path):
                 eracun.spremi_kpd(con, int(u.path.rsplit("/", 1)[1]), podaci.get("kpd"))
                 self._send(200, {"ok": True})
+            elif u.path == "/api/vaga/postavke":
+                self._send(200, {"postavke": vaga.spremi_postavke(con, podaci)})
+            elif u.path == "/api/vaga/test":  # probno očitanje: uvijek vraća i sirove bajtove
+                try:
+                    self._send(200, vaga.ocitaj(podaci))
+                except Greska as e:
+                    self._send(200, {"greska": str(e), "sirovo": getattr(e, "sirovo", None)})
             elif u.path == "/api/r1/kupac":
                 self._send(200, {"id": eracun.novi_kupac(con, podaci)})
             elif u.path == "/api/eracun/procitaj":
