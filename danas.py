@@ -106,4 +106,7 @@ def pregled(con, danas=None):
         do = (d - danas).days
         if 0 <= do <= ROK_UNAPRIJED:
             out["rokovi"].append({"datum": datum, "dana": do, "tekst": tekst})
+    if moduli.get("kopija_van"):
+        import kopija_van
+        out["kopija_van"] = kopija_van.upozorenje(con)
     return out

@@ -606,6 +606,31 @@ NARUDZBA DOBAVLJACU E-MAILOM (modul "narudzba_mail")
   "Posalji" je salje (tekst + HTML, odgovor dolazi na vasu adresu).
   Ispod je popis zadnjih narudzbi tom dobavljacu, i neuspjelih s
   greskom; svaka se moze ponovno ispisati.
+KOPIJA IZVAN RACUNALA I DONACIJE HRANE
+  Oba se ukljucuju u Postavkama (zadano iskljuceno):
+  - Kopija baze izvan racunala: u Postavkama (ispod popisa modula)
+    upisite mapu na USB disku (npr. E:\Trgovina) ili mapu koju
+    sinkronizira OneDrive / Google Drive (npr.
+    %USERPROFILE%\OneDrive\Trgovina). Kopija se radi sama kod pokretanja
+    (ako danas jos nije), kod zakljucka smjene i svaki sat dok danas ne
+    uspije; i na gumb "Napravi kopiju sada". Svaka kopija se provjeri
+    (cjelovitost baze i broj racuna, artikala i dokumenata). Cuva se
+    zadnjih 30 (postavka); brisu se samo datoteke
+    kopija_trgovina_....db. Na kartici Danas: crveno ako 2 dana nema
+    ispravne kopije ili mapa nije dostupna (USB nije utaknut), zuto ako
+    zadnji pokusaj nije uspio. Gumb "Provjeri" provjeri mapu i zadnju
+    kopiju. TRGOVINA_KOPIJA_MAPA u pokreni.bat radi kao i prije (i
+    koristi se ako mapa u Postavkama nije upisana).
+    Vracanje: zatvorite kasu, kopirajte kopiju preko trgovina.db.
+  - Donacije hrane: Nabava, "Donacije hrane", Nova donacija. Upisite
+    primatelja, OIB, je li registrirani posrednik, artikle i kolicine.
+    Spremanje napravi otpis (razlog "Donacija ...") koji smanji zalihu
+    po nabavnoj cijeni i otvori zapisnik za potpis (predao / preuzeo).
+    Storno donacije = storno tog otpisa. Gore je zbroj donacija u godini
+    prema 2 % prihoda prosle godine (prihod upisuje vlasnik; program
+    nudi promet iz Robe kao pomoc). Donacija hrane bez PDV-a: primatelj
+    mora biti registrirani posrednik, do 2 % prihoda prosle godine.
+    Potvrdite s knjigovodjom.
 
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,

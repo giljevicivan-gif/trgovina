@@ -53,6 +53,8 @@ import izvjestaji
 import kontrola
 import knjigovodja
 import kopija
+import kopija_van
+import donacije
 import usporedba
 import nabava
 import nadogradnja
@@ -363,6 +365,7 @@ PUTANJE_MODULA = (
     ("/api/zaslon", "zaslon_kupca"), ("/zaslon", "zaslon_kupca"),
     ("/api/vaga", "vaga_veza"),
     ("/api/uplata", "qr_uplata"), ("/api/dob_mail", "narudzba_mail"), ("/ispis_narudzba_dob", "narudzba_mail"),
+    ("/api/kopija_van", "kopija_van"), ("/api/donacij", "donacije"), ("/ispis_donacija", "donacije"),
 )
 
 
@@ -468,6 +471,18 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/ispis_zpc/\d+/\d+", u.path):
                 g, s = u.path.split("/")[2:4]
                 self._send(200, ispis_zpc_html(roba_dodatno.zpc(con, int(g), int(s))), "text/html; charset=utf-8")
+            elif u.path in ("/kopija_van.js", "/donacije.js"):
+                with open(os.path.join(SCRIPT_DIR, u.path[1:]), encoding="utf-8") as f:
+                    self._send(200, f.read(), "text/javascript; charset=utf-8")
+            elif u.path == "/api/kopija_van":
+                self._send(200, kopija_van.stanje(con))
+            elif u.path == "/api/donacije":
+                self._send(200, donacije.pregled(con, q.get("godina")))
+            elif re.fullmatch(r"/api/donacija/\d+", u.path):
+                self._send(200, donacije.donacija(con, int(u.path.rsplit("/", 1)[1])))
+            elif re.fullmatch(r"/ispis_donacija/\d+", u.path):
+                self._send(200, donacije.zapisnik_html(con, int(u.path.rsplit("/", 1)[1]), NAZIV_TRGOVINE),
+                           "text/html; charset=utf-8")
             elif u.path == "/api/kpd/bez":
                 self._send(200, {"artikli": eracun.bez_kpd(con)})
             elif re.fullmatch(r"/api/kpd/prijedlog/\d+", u.path):
@@ -738,6 +753,7 @@ class Handler(BaseHTTPRequestHandler):
                 if ROBA_MAPA:
                     osvjezi_robu(con)
                 self._send(200, {"id": blagajna.zatvori(con, podaci)})
+                kopija_van.nakon_zakljucka()
             elif u.path == "/api/uvoz":
                 if not ROBA_MAPA:
                     raise Greska("Mapa Robe nije zadana (pokrenite preko pokreni.bat).")
@@ -838,6 +854,17 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"id": eracun.novi_kupac(con, podaci)})
             elif u.path.startswith("/api/tisak/"):  # termalni pisač (tisak.py), poslije naplate
                 tisak.post(self, con, u.path, podaci, racun)
+            elif u.path == "/api/kopija_van/postavke":
+                self._send(200, kopija_van.spremi_postavke(con, podaci))
+            elif u.path == "/api/kopija_van/napravi":
+                r = kopija_van.napravi("gumb")
+                self._send(200 if r["ok"] else 400, r if r["ok"] else dict(r, greska=r["poruka"]))
+            elif u.path == "/api/kopija_van/provjeri":
+                self._send(200, kopija_van.provjeri(con))
+            elif u.path == "/api/donacija":
+                self._send(200, {"id": donacije.spremi(con, podaci, dodaci._ime(self))})
+            elif u.path == "/api/donacije/prihod":
+                self._send(200, donacije.spremi_prihod(con, podaci))
             elif u.path == "/api/eracun/procitaj":
                 self._send(200, eracun.procitaj(con, podaci.get("xml") or ""))
             elif u.path == "/api/eracun/veze":
@@ -1629,6 +1656,7 @@ def main():
         greska = inventura.pokreni()
         print("Inventura s mobitela: %s" % (greska or inventura.adresa()))
     dodaci.pri_pokretanju(con)
+    kopija_van.pri_pokretanju()
     poruka = haccp_mobitel.pri_pokretanju(con)
     if poruka:
         print("HACCP s mobitela: %s" % poruka)

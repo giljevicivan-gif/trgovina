@@ -72,6 +72,12 @@ MODULI = (
      "Treba IBAN (Postavke). Plaćanje po otpremnici prije računa potvrdite s knjigovođom.", False),
     ("narudzba_mail", "Narudžba dobavljaču e-mailom",
      "U Prijedlogu narudžbe gumb za slanje narudžbe dobavljaču e-mailom (SMTP iz večernjeg sažetka).", False),
+    ("kopija_van", "Kopija baze izvan računala",
+     "Jednom dnevno (i kod zaključka smjene) provjerena kopija baze na USB disk ili u OneDrive / Google Drive mapu. "
+     "Na kartici Danas crveno upozorenje ako kopije nema 2 dana.", False),
+    ("donacije", "Donacije hrane",
+     "Evidencija donirane hrane (smanjuje zalihu kao otpis), zapisnik za potpis i godišnji zbroj prema 2 % prihoda. "
+     "Potvrdite s knjigovođom.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",
