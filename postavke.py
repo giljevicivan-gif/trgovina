@@ -54,6 +54,9 @@ MODULI = (
      "Pita za potvrdu kad se na kasi upiše više od 50 kg (npr. 1250 upisano u gramima umjesto 1,25).", True),
     ("podijeljeno_placanje", "Plaćanje dijelom gotovinom, dijelom karticom",
      "Na kasi gumb 'Gotovina + kartica'. Fiskalno se šalje kao način plaćanja 'O' (ostalo): potvrdite s knjigovođom.", False),
+    ("termo_pisac", "Izravni ispis na termalni pisač",
+     "Račun ide ravno na termalni pisač 80/58 mm (ESC/POS: Windows pisač, mreža ili COM) bez prozora za ispis, "
+     "s QR kodom, rezanjem papira i otvaranjem ladice kod gotovine. Kad pisač ne radi, otvara se obični ispis.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",

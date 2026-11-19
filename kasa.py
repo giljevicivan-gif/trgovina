@@ -57,6 +57,7 @@ import nabava
 import nadogradnja
 import narudzbe
 import postavke
+import tisak
 from baza import DB_PATH, ZALIHA_SQL, pdv_iz_bruto, spoji, zaokruzi
 from nabava import Greska
 
@@ -350,6 +351,7 @@ PUTANJE_MODULA = (
     ("/api/vjernost", "vjernost"), ("/ispis_pristupnica", "vjernost"),
     ("/api/dugovanja", "dugovanja"),
     ("/api/kpd", "kpd"), ("/api/r1", "r1_kasa"), ("/api/eracun", "eracun_uvoz"),
+    ("/api/tisak/", "termo_pisac"),
     ("/api/ponud", "narudzbe"), ("/api/ponud", "ponude"), ("/ispis_ponuda", "narudzbe"), ("/ispis_ponuda", "ponude"),
     ("/api/zpc", "zpc"), ("/ispis_zpc", "zpc"),
 )
@@ -461,6 +463,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, eracun.prijedlog_kpd(con, int(u.path.rsplit("/", 1)[1])))
             elif u.path == "/api/r1/kupci":
                 self._send(200, {"kupci": eracun.kupci(con)})
+            elif u.path.startswith("/api/tisak/"):  # termalni pisač (tisak.py)
+                tisak.get(self, con, u.path, q, racun)
             elif re.fullmatch(r"/api/artikl_info/\d+", u.path):
                 a = con.execute("SELECT * FROM artikli WHERE id = ?", (int(u.path.rsplit("/", 1)[1]),)).fetchone()
                 if not a:
@@ -752,6 +756,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"ok": True})
             elif u.path == "/api/r1/kupac":
                 self._send(200, {"id": eracun.novi_kupac(con, podaci)})
+            elif u.path.startswith("/api/tisak/"):  # termalni pisač (tisak.py), poslije naplate
+                tisak.post(self, con, u.path, podaci, racun)
             elif u.path == "/api/eracun/procitaj":
                 self._send(200, eracun.procitaj(con, podaci.get("xml") or ""))
             elif u.path == "/api/eracun/veze":
