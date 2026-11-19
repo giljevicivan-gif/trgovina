@@ -46,17 +46,25 @@ import ponude
 import roba_dodatno
 import cijene
 import eracun
+import vaga
 import dodaci
 import inventura
 import izvjestaji
 import kontrola
 import knjigovodja
 import kopija
+import kopija_van
+import donacije
 import usporedba
 import nabava
 import nadogradnja
 import narudzbe
+import narudzba_mail
+import uplata
 import postavke
+import povrat_ambalaze
+import zaslon_kupca
+import tisak
 from baza import DB_PATH, ZALIHA_SQL, pdv_iz_bruto, spoji, zaokruzi
 from nabava import Greska
 
@@ -339,7 +347,7 @@ def storniraj(con, rid, prije_commita=None):
 
 # Putanje dodatnih modula; kad je modul isključen u Postavkama, API ih odbija.
 PUTANJE_MODULA = (
-    ("/api/narudzb", "narudzbe"), ("/api/kupac", "narudzbe"), ("/ispis_narudzba", "narudzbe"),
+    ("/api/narudzb", "narudzbe"), ("/api/kupac", "narudzbe"), ("/ispis_narudzba/", "narudzbe"),
     ("/api/inv/otvori", "inventura_mobitel"), ("/api/inv/pokreni", "inventura_mobitel"),
     ("/api/akcije", "akcije"), ("/api/usporedba", "usporedba"),
     ("/api/haccp", "haccp"), ("/ispis_haccp", "haccp"),
@@ -350,8 +358,14 @@ PUTANJE_MODULA = (
     ("/api/vjernost", "vjernost"), ("/ispis_pristupnica", "vjernost"),
     ("/api/dugovanja", "dugovanja"),
     ("/api/kpd", "kpd"), ("/api/r1", "r1_kasa"), ("/api/eracun", "eracun_uvoz"),
+    ("/api/tisak/", "termo_pisac"),
     ("/api/ponud", "narudzbe"), ("/api/ponud", "ponude"), ("/ispis_ponuda", "narudzbe"), ("/ispis_ponuda", "ponude"),
     ("/api/zpc", "zpc"), ("/ispis_zpc", "zpc"),
+    ("/api/povrat_amb", "povrat_ambalaze"), ("/ispis_povrat_amb", "povrat_ambalaze"), ("/povrat_amb", "povrat_ambalaze"),
+    ("/api/zaslon", "zaslon_kupca"), ("/zaslon", "zaslon_kupca"),
+    ("/api/vaga", "vaga_veza"),
+    ("/api/uplata", "qr_uplata"), ("/api/dob_mail", "narudzba_mail"), ("/ispis_narudzba_dob", "narudzba_mail"),
+    ("/api/kopija_van", "kopija_van"), ("/api/donacij", "donacije"), ("/ispis_donacija", "donacije"),
 )
 
 
@@ -415,6 +429,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urlparse(self.path)
         if u.path == "/verzija.txt":  # pokretač provjerava je li na portu naša kasa
             return self._obicno(200, "trgovina %s" % nadogradnja.POKRENUTA)
+        if u.path in ("/zaslon", "/api/zaslon", "/kasa_kupac.js"):  # zaslon za kupca: često, bez prijave i baze
+            return self._zaslon_get(u.path)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         danas = dt.date.today().isoformat()
 
@@ -455,12 +471,47 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/ispis_zpc/\d+/\d+", u.path):
                 g, s = u.path.split("/")[2:4]
                 self._send(200, ispis_zpc_html(roba_dodatno.zpc(con, int(g), int(s))), "text/html; charset=utf-8")
+            elif u.path in ("/kopija_van.js", "/donacije.js"):
+                with open(os.path.join(SCRIPT_DIR, u.path[1:]), encoding="utf-8") as f:
+                    self._send(200, f.read(), "text/javascript; charset=utf-8")
+            elif u.path == "/api/kopija_van":
+                self._send(200, kopija_van.stanje(con))
+            elif u.path == "/api/donacije":
+                self._send(200, donacije.pregled(con, q.get("godina")))
+            elif re.fullmatch(r"/api/donacija/\d+", u.path):
+                self._send(200, donacije.donacija(con, int(u.path.rsplit("/", 1)[1])))
+            elif re.fullmatch(r"/ispis_donacija/\d+", u.path):
+                self._send(200, donacije.zapisnik_html(con, int(u.path.rsplit("/", 1)[1]), NAZIV_TRGOVINE),
+                           "text/html; charset=utf-8")
             elif u.path == "/api/kpd/bez":
                 self._send(200, {"artikli": eracun.bez_kpd(con)})
             elif re.fullmatch(r"/api/kpd/prijedlog/\d+", u.path):
                 self._send(200, eracun.prijedlog_kpd(con, int(u.path.rsplit("/", 1)[1])))
+            elif u.path == "/api/povrat_amb":
+                self._send(200, {"vrste": povrat_ambalaze.vrste(con, q.get("sve") == "1"),
+                                 "zadnje": povrat_ambalaze.zadnje(con),
+                                 "danas": povrat_ambalaze.pregled(con, danas, danas),
+                                 "smjena": bool(con.execute("SELECT 1 FROM smjene WHERE zatvorena IS NULL").fetchone())})
+            elif u.path == "/api/povrat_amb/pregled":
+                self._send(200, povrat_ambalaze.pregled(con, q.get("od"), q.get("do")))
+            elif u.path == "/povrat_amb.csv":
+                p = povrat_ambalaze.pregled(con, q.get("od"), q.get("do"))
+                self._csv("povratna_naknada_%s_%s.csv" % (p["od"], p["do"]),
+                          povrat_ambalaze.csv_pregled(con, p["od"], p["do"]))
+            elif re.fullmatch(r"/ispis_povrat_amb/\d+", u.path):
+                self._send(200, povrat_ambalaze.potvrda_html(con, int(u.path.rsplit("/", 1)[1]), NAZIV_TRGOVINE),
+                           "text/html; charset=utf-8")
+            elif u.path == "/api/zaslon/mreza":
+                self._send(200, zaslon_kupca.stanje_mreze(con))
+            elif u.path == "/api/vaga":  # očitanje vage za kasu (blagajnik smije)
+                self._send(200, vaga.ocitaj(vaga.postavke(con)))
+            elif u.path == "/api/vaga/postavke":
+                self._send(200, {"postavke": vaga.postavke(con), "protokoli": vaga.opis_protokola(),
+                                 "windows": os.name == "nt"})
             elif u.path == "/api/r1/kupci":
                 self._send(200, {"kupci": eracun.kupci(con)})
+            elif u.path.startswith("/api/tisak/"):  # termalni pisač (tisak.py)
+                tisak.get(self, con, u.path, q, racun)
             elif re.fullmatch(r"/api/artikl_info/\d+", u.path):
                 a = con.execute("SELECT * FROM artikli WHERE id = ?", (int(u.path.rsplit("/", 1)[1]),)).fetchone()
                 if not a:
@@ -526,15 +577,24 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/kupci_zbirni/\d+", u.path):
                 self._send(200, kupci_tvrtke.zbirni(con, int(u.path.rsplit("/", 1)[1]), q.get("mjesec")))
             elif re.fullmatch(r"/ispis_zbirni/\d+", u.path):
-                self._send(200, ispis_zbirni_html(kupci_tvrtke.zbirni(con, int(u.path.rsplit("/", 1)[1]),
-                                                                       q.get("mjesec"))),
-                           "text/html; charset=utf-8")
+                z = kupci_tvrtke.zbirni(con, int(u.path.rsplit("/", 1)[1]), q.get("mjesec"))
+                self._send(200, uplata.za_zbirni(con, z, ispis_zbirni_html(z)), "text/html; charset=utf-8")
             elif re.fullmatch(r"/api/narudzba/\d+", u.path):
                 self._send(200, narudzbe.narudzba(con, int(u.path.rsplit("/", 1)[1])))
             elif re.fullmatch(r"/ispis_narudzba/\d+", u.path):
-                self._send(200, ispis_narudzba_html(narudzbe.narudzba(con, int(u.path.rsplit("/", 1)[1])),
-                                                    q.get("vrsta") == "otpremnica"),
-                           "text/html; charset=utf-8")
+                d = narudzbe.narudzba(con, int(u.path.rsplit("/", 1)[1]))
+                h = ispis_narudzba_html(d, q.get("vrsta") == "otpremnica")
+                if q.get("vrsta") == "otpremnica":
+                    h = uplata.za_otpremnicu(con, d, h)
+                self._send(200, h, "text/html; charset=utf-8")
+            elif u.path == "/api/uplata":
+                self._send(200, uplata.postavke_modula(con))
+            elif re.fullmatch(r"/api/dob_mail/\d+", u.path):
+                self._send(200, narudzba_mail.priprema(con, int(u.path.rsplit("/", 1)[1])))
+            elif u.path == "/api/dob_mail":
+                self._send(200, {"narudzbe": narudzba_mail.popis(con, 30)})
+            elif re.fullmatch(r"/ispis_narudzba_dob/\d+", u.path):
+                self._send(200, narudzba_mail.ispis(con, int(u.path.rsplit("/", 1)[1])), "text/html; charset=utf-8")
             elif u.path == "/api/danas":
                 self._send(200, jutro.pregled(con))
             elif u.path == "/api/usporedba":
@@ -605,6 +665,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(404, {"greska": "Nema"})
         self._handle(go)
 
+    def _zaslon_get(self, put):
+        if put == "/kasa_kupac.js":
+            with open(os.path.join(SCRIPT_DIR, "kasa_kupac.js"), encoding="utf-8") as f:
+                return self._send(200, f.read(), "text/javascript; charset=utf-8")
+        if not zaslon_kupca.modul_ukljucen():
+            return self._send(403, {"greska": "Zaslon za kupca je isključen (Postavke)."})
+        if put == "/zaslon":
+            return self._send(200, zaslon_kupca.stranica(), "text/html; charset=utf-8")
+        return self._send(200, zaslon_kupca.procitaj())
+
     def do_POST(self):
         u = urlparse(self.path)
         n = int(self.headers.get("Content-Length") or 0)
@@ -626,6 +696,13 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError
         except ValueError:
             return self._send(400, {"greska": "Neispravan zahtjev."})
+        if u.path == "/api/zaslon":  # košarica za zaslon kupca (samo u memoriji, bez dnevnika radnji)
+            if not zaslon_kupca.modul_ukljucen():
+                return self._send(403, {"greska": "Zaslon za kupca je isključen."})
+            if not self.headers.get("Content-Type", "").startswith("application/json"):
+                return self._send(400, {"greska": "Neispravan zahtjev."})
+            zaslon_kupca.postavi(podaci)
+            return self._send(200, {"ok": True})
 
         def go(con):
             if dodaci.post(self, con, u.path, podaci):
@@ -661,6 +738,12 @@ class Handler(BaseHTTPRequestHandler):
                             _NAPLATE[oznaka] = rid
                         odg = {"id": rid}
                 self._send(200, odg)
+            elif u.path == "/api/uplata":
+                self._send(200, uplata.spremi_postavke(con, podaci))
+            elif u.path == "/api/dob_mail/pregled":
+                self._send(200, narudzba_mail.pregled(con, podaci))
+            elif u.path == "/api/dob_mail/posalji":
+                self._send(200, narudzba_mail.posalji(con, podaci))
             elif u.path == "/api/smjena/otvori":
                 self._send(200, {"id": blagajna.otvori(con, podaci)})
             elif u.path == "/api/smjena/promet":
@@ -670,6 +753,7 @@ class Handler(BaseHTTPRequestHandler):
                 if ROBA_MAPA:
                     osvjezi_robu(con)
                 self._send(200, {"id": blagajna.zatvori(con, podaci)})
+                kopija_van.nakon_zakljucka()
             elif u.path == "/api/uvoz":
                 if not ROBA_MAPA:
                     raise Greska("Mapa Robe nije zadana (pokrenite preko pokreni.bat).")
@@ -682,6 +766,7 @@ class Handler(BaseHTTPRequestHandler):
                     haccp_mobitel.pri_pokretanju(con)
                 else:
                     haccp_mobitel.zaustavi()
+                zaslon_kupca.pri_pokretanju(con)
                 self._send(200, postavke.popis(con))
             elif u.path.startswith(("/api/rokovi/", "/api/kalo/", "/api/bonovi/", "/api/vjernost/",
                                     "/api/dugovanja/")):
@@ -750,8 +835,36 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/api/kpd/\d+", u.path):
                 eracun.spremi_kpd(con, int(u.path.rsplit("/", 1)[1]), podaci.get("kpd"))
                 self._send(200, {"ok": True})
+            elif u.path == "/api/povrat_amb/isplati":
+                self._send(200, povrat_ambalaze.isplati(con, podaci, dodaci._ime(self)))
+            elif u.path == "/api/povrat_amb/vrsta":
+                self._send(200, {"id": povrat_ambalaze.spremi_vrstu(con, podaci)})
+            elif u.path == "/api/povrat_amb/ponisti":
+                self._send(200, povrat_ambalaze.ponisti(con, podaci.get("id")))
+            elif u.path == "/api/zaslon/mreza":
+                self._send(200, zaslon_kupca.spremi_mrezu(con, podaci))
+            elif u.path == "/api/vaga/postavke":
+                self._send(200, {"postavke": vaga.spremi_postavke(con, podaci)})
+            elif u.path == "/api/vaga/test":  # probno očitanje: uvijek vraća i sirove bajtove
+                try:
+                    self._send(200, vaga.ocitaj(podaci))
+                except Greska as e:
+                    self._send(200, {"greska": str(e), "sirovo": getattr(e, "sirovo", None)})
             elif u.path == "/api/r1/kupac":
                 self._send(200, {"id": eracun.novi_kupac(con, podaci)})
+            elif u.path.startswith("/api/tisak/"):  # termalni pisač (tisak.py), poslije naplate
+                tisak.post(self, con, u.path, podaci, racun)
+            elif u.path == "/api/kopija_van/postavke":
+                self._send(200, kopija_van.spremi_postavke(con, podaci))
+            elif u.path == "/api/kopija_van/napravi":
+                r = kopija_van.napravi("gumb")
+                self._send(200 if r["ok"] else 400, r if r["ok"] else dict(r, greska=r["poruka"]))
+            elif u.path == "/api/kopija_van/provjeri":
+                self._send(200, kopija_van.provjeri(con))
+            elif u.path == "/api/donacija":
+                self._send(200, {"id": donacije.spremi(con, podaci, dodaci._ime(self))})
+            elif u.path == "/api/donacije/prihod":
+                self._send(200, donacije.spremi_prihod(con, podaci))
             elif u.path == "/api/eracun/procitaj":
                 self._send(200, eracun.procitaj(con, podaci.get("xml") or ""))
             elif u.path == "/api/eracun/veze":
@@ -1543,9 +1656,13 @@ def main():
         greska = inventura.pokreni()
         print("Inventura s mobitela: %s" % (greska or inventura.adresa()))
     dodaci.pri_pokretanju(con)
+    kopija_van.pri_pokretanju()
     poruka = haccp_mobitel.pri_pokretanju(con)
     if poruka:
         print("HACCP s mobitela: %s" % poruka)
+    poruka = zaslon_kupca.pri_pokretanju(con)
+    if poruka:
+        print("Zaslon za kupca (tablet): %s" % poruka)
     if len(sys.argv) > 1:
         from uvoz import uvezi
         print("Uvoz iz Robe...")

@@ -208,6 +208,7 @@ table.t tfoot td { font-weight: 600; border-bottom: 0; }
           <span id="kol-cijena" class="napomena"></span>
           <input id="kol-unos" inputmode="decimal" autocomplete="off">
           <span id="kol-jm"></span>
+          <button class="btn" id="kol-vaga" hidden title="Očitaj težinu s vage">Vaga (F4)</button>
           <label class="napomena">Popust % <input id="kol-popust" inputmode="decimal" autocomplete="off" style="width:70px;font-size:18px"></label>
           <button class="btn prim" id="kol-dodaj">Dodaj</button>
           <button class="btn opasno" id="kol-obrisi" hidden>Obriši stavku</button>
@@ -450,6 +451,7 @@ function odaberi(a) {
   const unos = $('#kol-unos');
   unos.value = a.jm.toLowerCase() === 'kg' ? '' : '1';
   unos.placeholder = a.jm.toLowerCase() === 'kg' ? '0,000' : '1';
+  $('#kol-vaga').hidden = !(MODULI.vaga_veza && a.jm.toLowerCase() === 'kg');
   $('#kol').classList.add('on');
   rezultati = []; prikaziRez();
   unos.focus(); unos.select();
@@ -497,6 +499,7 @@ function crtajKosaricu() {
   $('#naplati').disabled = !kosarica.length;
   vratiti();
   podijeljeno();
+  if (window.zaslonPosalji) zaslonPosalji();  // zaslon za kupca (kasa_kupac.js)
 }
 const nacinPo = re => PLACANJA.find(p => re.test(p.naziv));
 function crtajPlacanja() {
@@ -556,6 +559,19 @@ function fiskalPoruka(f) {
   if (f.status === 'poslan') toast('Fiskalizirano' + (f.okolina === 'test' ? ' (TEST)' : '') + ', JIR ' + f.jir.slice(0, 8) + '…');
   else toast('Račun izdan BEZ JIR-a (šalje se ponovno sam): ' + f.poruka, true);
 }
+// izravni ispis na termalni pisač (tisak.py); kad je isključen ili ne uspije, obični prozor za ispis
+function prozorIspisa(id) {
+  if (window.open('/ispis/' + id + '#ispis', 'ispis', 'width=420,height=640')) return;
+  const a = document.createElement('a');  // preglednik je blokirao prozor (prošlo je previše vremena od klika)
+  a.href = '/ispis/' + id + '#ispis'; a.target = 'ispis'; a.className = 'btn prim'; a.textContent = 'Otvori ispis računa';
+  a.style.cssText = 'position:fixed;right:16px;bottom:70px;z-index:60';
+  a.onclick = () => setTimeout(() => a.remove(), 100); document.body.appendChild(a); setTimeout(() => a.remove(), 20000);
+}
+async function ispisiRacun(id, ladica) {
+  if (!MODULI.termo_pisac) return prozorIspisa(id);
+  try { await api('/api/tisak/racun/' + id, {ladica: !!ladica}); }
+  catch (e) { toast('Pisač: ' + e.message + ' Otvaram obični ispis.', true); prozorIspisa(id); }
+}
 async function naplati() {
   if (!kosarica.length || $('#naplati').disabled) return;
   $('#naplati').disabled = true;
@@ -574,7 +590,10 @@ async function naplati() {
     const r = await api('/api/naplati', {nacin_placanja_id: nacin, oznaka_naplate: naplati.oznaka, ...(dijelovi ? {dijelovi} : {}),
       ...(R1 ? {kupac_id: R1.id} : {}),
       stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
-    if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
+    const gotovinom = placanje === 'split' || /gotov/i.test((PLACANJA.find(p => p.id === nacin) || {}).naziv || '');
+    if ($('#ispisi').checked) ispisiRacun(r.id, gotovinom);
+    else if (MODULI.termo_pisac && gotovinom) api('/api/tisak/ladica', {racun_id: r.id}).catch(e => toast('Ladica: ' + e.message, true));
+    if (window.zaslonPlaceno) zaslonPlaceno(ukupno(), vrati);  // zaslon za kupca: Hvala! Vratiti...
     naplati.oznaka = null; R1 = null; crtajR1();
     kosarica = []; $('#primljeno').value = ''; $('#dio-gotovina').value = ''; crtajKosaricu();
     if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
@@ -630,6 +649,70 @@ $('#brzi-novac').addEventListener('click', e => {
   const n = +b.dataset.n || ukupno();
   $('#primljeno').value = (n / 100).toFixed(2).replace('.', ','); vratiti(); $('#trazi').focus();
 });
+// Vaga spojena s kasom (modul vaga_veza): F4 ili gumb upiše težinu u količinu, Enter dodaje
+let vagaRadi = false;
+async function vagaUKolicinu() {
+  if (!odabran || odabran.jm.toLowerCase() !== 'kg') { toast('Prvo odaberite artikl na kg', true); return; }
+  if (vagaRadi) return;
+  vagaRadi = true; $('#kol-vaga').disabled = true;
+  const a = odabran;
+  try {
+    const r = await api('/api/vaga');
+    if (odabran !== a) return;
+    if (!r.stabilno) toast('Vaga nije mirna, pričekajte pa ponovno F4', true);
+    else if (!(r.kg > 0)) toast('Vaga pokazuje nulu', true);
+    else { $('#kol-unos').value = r.kg.toFixed(3).replace('.', ','); $('#kol-unos').focus(); $('#kol-unos').select(); return; }
+  } catch (e) { toast(e.message, true); }
+  finally { vagaRadi = false; $('#kol-vaga').disabled = false; }
+  $('#kol-unos').focus(); $('#kol-unos').select();
+}
+$('#kol-vaga').addEventListener('click', vagaUKolicinu);
+async function crtajVagaPostavke() {
+  const el = $('#p-vaga'); let V;
+  try { V = await api('/api/vaga/postavke'); } catch (e) { el.innerHTML = '<p class="napomena">' + esc(e.message) + '</p>'; return; }
+  const P = V.postavke, opc = (L, v) => L.map(([k, n]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(n)}</option>`).join('');
+  const lab = (n, h) => `<label style="display:flex;flex-direction:column;font-size:13px;gap:3px">${n}${h}</label>`;
+  el.innerHTML = '<h2>Vaga spojena s kasom</h2><p class="napomena">Na vagi uključite slanje težine prema kasi (PC/ECR protokol) i upišite iste postavke kao na vagi. ' +
+    'Na kasi: odaberite artikl na kg, F4 ili gumb Vaga upiše težinu, Enter dodaje.' + (V.windows ? '' : ' COM port radi samo na Windowsu.') + '</p>' +
+    '<div class="red" style="flex-wrap:wrap;gap:10px;align-items:end">' +
+    lab('Veza', `<select id="pv-veza">${opc([['com', 'COM port (kabel)'], ['tcp', 'Mreža (IP:port)']], P.veza)}</select>`) +
+    lab('Protokol', `<select id="pv-protokol">${opc(V.protokoli.map(p => [p.kljuc, p.naziv]), P.protokol)}</select>`) +
+    `<span id="pv-com" style="display:contents">` +
+    lab('Port', `<input id="pv-port" value="${esc(P.port)}" style="width:80px">`) +
+    lab('Brzina', `<select id="pv-brzina">${opc([1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200].map(b => [b, b]), P.brzina)}</select>`) +
+    lab('Paritet', `<select id="pv-paritet">${opc([['N', 'nema (N)'], ['E', 'parni (E)'], ['O', 'neparni (O)']], P.paritet)}</select>`) +
+    lab('Bitovi', `<select id="pv-bitovi">${opc([[8, 8], [7, 7]], P.bitovi)}</select>`) +
+    lab('Stop', `<select id="pv-stop">${opc([[1, 1], [2, 2]], P.stop)}</select>`) + '</span>' +
+    lab('IP:port', `<input id="pv-adresa" value="${esc(P.adresa)}" placeholder="192.168.1.50:4001" style="width:170px">`) + '</div>' +
+    '<div class="red" id="pv-vlastito" style="flex-wrap:wrap;gap:10px;align-items:end">' +
+    lab('Upit vagi (prazno = vaga sama šalje)', `<input id="pv-upit" value="${esc(P.upit)}" placeholder="npr. $ ili \\x05 ili W\\r" style="width:200px">`) +
+    lab('Izraz za težinu (regex)', `<input id="pv-izraz" value="${esc(P.izraz)}" placeholder="(?P&lt;kg&gt;\\d+[.,]\\d+)" style="width:260px">`) + '</div>' +
+    '<div class="red"><button class="btn" id="pv-spremi">Spremi vagu</button><button class="btn" id="pv-test">Očitaj vagu</button></div>' +
+    '<pre id="pv-rez" style="white-space:pre-wrap;font-size:13px;background:var(--bg);padding:8px;border-radius:8px" hidden></pre>';
+  const PROT = Object.fromEntries(V.protokoli.map(p => [p.kljuc, p]));
+  const prikazi = () => {
+    const tcp = $('#pv-veza').value === 'tcp';
+    $('#pv-port').parentNode.style.display = tcp ? 'none' : 'flex';
+    $('#pv-adresa').parentNode.style.display = tcp ? 'flex' : 'none';
+    $('#pv-vlastito').style.display = $('#pv-protokol').value === 'prilagodjeno' ? 'flex' : 'none';
+  };
+  $('#pv-protokol').onchange = () => {
+    const p = PROT[$('#pv-protokol').value];
+    ['brzina', 'paritet', 'bitovi', 'stop'].forEach(k => $('#pv-' + k).value = p[k]);
+    prikazi();
+  };
+  $('#pv-veza').onchange = prikazi; prikazi();
+  const podaci = () => Object.fromEntries(['veza', 'protokol', 'port', 'brzina', 'paritet', 'bitovi', 'stop', 'adresa', 'upit', 'izraz'].map(k => [k, $('#pv-' + k).value]));
+  $('#pv-spremi').onclick = async () => { try { await api('/api/vaga/postavke', podaci()); toast('Postavke vage spremljene'); } catch (e) { toast(e.message, true); } };
+  $('#pv-test').onclick = async () => {
+    const out = $('#pv-rez'); out.hidden = false; out.textContent = 'Čitam vagu…';
+    try {
+      const r = await api('/api/vaga/test', podaci()), s = r.sirovo;
+      out.textContent = (r.greska ? 'Greška: ' + r.greska : 'Težina: ' + (r.kg === null ? '?' : kolTxt(r.kg)) + ' kg, ' + (r.stabilno ? 'mirna' : 'NIJE MIRNA')) +
+        '\n\nPrimljeno ' + (s ? s.bajtova : 0) + ' bajtova' + (s && s.bajtova ? ':\nTekst: ' + s.tekst + '\nHex:   ' + s.hex : '.');
+    } catch (e) { out.textContent = 'Greška: ' + e.message; }
+  };
+}
 // R1: račun tvrtki (naziv, adresa i OIB kupca na računu); vrijedi samo za sljedeću naplatu
 var R1 = null;
 function crtajR1() {
@@ -679,6 +762,7 @@ $('#ocisti').addEventListener('click', () => { kosarica = []; crtajKosaricu(); o
 document.addEventListener('keydown', e => {
   const naKasi = $('#v-kasa').classList.contains('on');
   if (e.key === 'F9') { e.preventDefault(); if (naKasi) naplati(); }
+  else if (e.key === 'F4' && naKasi && MODULI.vaga_veza) { e.preventDefault(); vagaUKolicinu(); }
   else if (MODULI.brzo_placanje && naKasi && (e.key === 'F5' || e.key === 'F6')) {
     e.preventDefault(); odaberiNacin(e.key === 'F5' ? /gotov/i : /kartic/i);
     if (e.key === 'F5') $('#primljeno').focus(); else $('#trazi').focus();
@@ -710,7 +794,7 @@ async function prikaziRacun(id) {
     `<tr><th colspan="3">Ukupno</th><th class="r">${eur(r.ukupno)}</th></tr></table>` +
     `<div class="red" style="margin-top:12px"><button class="btn" id="r-ispis">Ispiši</button>` +
     (moze ? '<button class="btn opasno" id="r-storno">Storniraj</button>' : '') + '</div>';
-  $('#r-ispis').onclick = () => window.open('/ispis/' + id + '#ispis', 'ispis', 'width=420,height=640');
+  $('#r-ispis').onclick = () => ispisiRacun(id, false);
   if ($('#r-fiskal')) $('#r-fiskal').onclick = async () => {
     try { const x = await api('/api/fiskal/posalji', {id: +id}); toast(x.poslano ? 'Poslano, dobiven JIR' : 'Nije poslano: ' + x.poruka, !x.poslano); }
     catch (e) { toast(e.message, true); }
@@ -1120,7 +1204,7 @@ async function prikaziPrijedlog() {
     `<p class="napomena">Prosjek prodaje iz Robe od ${datumHr(PRIJ.od)} do ${datumHr(PRIJ.do)}. Prijedlog = prodaja za odabrani broj dana + minimalna zaliha − trenutna zaliha (zaliha u minusu se računa kao 0).</p>` +
     (Object.keys(grupe).length ? Object.entries(grupe).map(([d, st]) =>
       `<div class="card" style="margin-bottom:12px"><h2 style="display:flex;justify-content:space-between">${esc(d)}` +
-      (st[0].partner_id ? `<button class="btn" data-primka="${esc(d)}">Napravi primku</button>` : '') + '</h2>' +
+      (st[0].partner_id ? `<span>${MODULI.narudzba_mail ? `<button class="btn" data-mail="${esc(d)}">Pošalji narudžbu e-mailom</button> ` : ''}<button class="btn" data-primka="${esc(d)}">Napravi primku</button></span>` : '') + '</h2>' +
       '<table class="t"><tr><th>Artikl</th><th class="r">Zaliha</th><th class="r">Prodaja/dan</th><th class="r" title="Otvorene narudžbe kupaca s rokom u tom razdoblju">Za kupce</th><th class="r">Dosta za</th><th class="r">Naručiti</th></tr>' +
       st.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r ${s.zaliha < 0 ? 'minus' : ''}">${kolTxt(s.zaliha)}</td><td class="r">${kolTxt(s.dnevno)}</td><td class="r">${s.narudzbe ? kolTxt(s.narudzbe) : ''}</td>` +
         `<td class="r">${s.dana_zalihe === null ? '' : String(Math.max(0, s.dana_zalihe)).replace('.', ',') + ' d'}</td>` +
@@ -1136,6 +1220,7 @@ async function prikaziPrijedlog() {
       '<script>print()<\/script>');
     w.document.close();
   };
+  $('#n-desno').querySelectorAll('[data-mail]').forEach(b => b.onclick = () => narudzbaMail(grupe[b.dataset.mail]));
   $('#n-desno').querySelectorAll('[data-primka]').forEach(b => b.onclick = () => {
     const st = grupe[b.dataset.primka];
     noviDokument('primka');
@@ -1150,6 +1235,41 @@ async function prikaziPrijedlog() {
   });
 }
 $('#n-dobavljaci').addEventListener('click', () => ucitajZalihu().then(prikaziDobavljace).catch(e => toast(e.message, true)));
+
+// ---- narudžba dobavljaču e-mailom (modul narudzba_mail, narudzba_mail.py)
+async function narudzbaMail(st) {
+  let M;
+  try { M = await api('/api/dob_mail/' + st[0].partner_id); } catch (e) { toast(e.message, true); return; }
+  const podaci = () => ({partner_id: M.partner_id, za: $('#nm-za').value, napomena: $('#nm-napomena').value,
+    kopija_meni: $('#nm-kopija').checked,
+    stavke: st.map((s, i) => ({artikl_id: s.id, kolicina: $('#nm-k' + i).value.replace(',', '.') || 0}))});
+  $('#n-desno').innerHTML = `<h2>Narudžba e-mailom: ${esc(M.partner)}</h2>` +
+    (M.smtp ? '' : '<p class="minus"><b>E-mail nije postavljen.</b> SMTP poslužitelj, korisnika i lozinku upišite u kartici Dodaci, "Večernji sažetak na e-mail" ' +
+      (M.sazetak_ukljucen ? '' : '(prvo uključite modul "Večernji sažetak na e-mail" u Postavkama; ako sažetak ne želite primati, odznačite "Pošalji kad se zaključi smjena" i ostavite vrijeme prazno)') + '. Do tada narudžbu možete ispisati.</p>') +
+    `<div class="polja"><label>Kome (e-mail dobavljača)<input id="nm-za" value="${esc(M.email)}" placeholder="narudzbe@dobavljac.hr" style="width:300px"></label>` +
+    `<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="nm-kopija" ${M.od ? '' : 'disabled'}> kopija meni${M.od ? ' (' + esc(M.od) + ')' : ''}</label></div>` +
+    '<table class="t"><tr><th>Artikl</th><th class="r">Zaliha</th><th class="r">Količina</th><th>JM</th></tr>' +
+    st.map((s, i) => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.zaliha)}</td><td class="r"><input id="nm-k${i}" value="${kolTxt(s.kolicina)}" inputmode="decimal" style="width:80px;text-align:right"></td><td>${esc(s.jm)}</td></tr>`).join('') +
+    '</table><p class="napomena">Količina 0 = ne naručuje se.</p>' +
+    '<label style="display:block;margin:8px 0">Napomena dobavljaču<br><textarea id="nm-napomena" rows="3" style="width:100%" placeholder="npr. isporuka u utorak do 7 h"></textarea></label>' +
+    `<div class="red"><button class="btn prim" id="nm-posalji" ${M.smtp ? '' : 'disabled'}>Pošalji</button><button class="btn" id="nm-pregled">Pregled / ispis</button><button class="btn" id="nm-natrag">Natrag na prijedlog</button></div>` +
+    '<h3>Zadnje narudžbe ovom dobavljaču</h3>' + (M.zadnje.length ? '<table class="t"><tr><th>Vrijeme</th><th>Kome</th><th class="r">Stavki</th><th>Stanje</th><th></th></tr>' +
+      M.zadnje.map(x => `<tr><td>${datumHr(x.vrijeme.slice(0, 10))} ${x.vrijeme.slice(11, 16)}</td><td>${esc(x.za)}</td><td class="r">${x.stavke.length}</td>` +
+        `<td class="${x.status === 'poslano' ? '' : 'minus'}">${x.status === 'poslano' ? 'poslano' : 'nije poslano: ' + esc(x.greska)}</td>` +
+        `<td><a href="/ispis_narudzba_dob/${x.id}" target="_blank">Ispis</a></td></tr>`).join('') + '</table>' : '<p class="napomena">Još nijedna.</p>');
+  $('#nm-natrag').onclick = prikaziPrijedlog;
+  $('#nm-pregled').onclick = async () => {
+    let P;
+    try { P = await api('/api/dob_mail/pregled', podaci()); } catch (e) { toast(e.message, true); return; }
+    const w = window.open('', 'narudzba_dob', 'width=850,height=900');
+    w.document.write(P.ispis); w.document.close();
+  };
+  $('#nm-posalji').onclick = async () => {
+    const b = $('#nm-posalji'); b.disabled = true; b.textContent = 'Šaljem…';
+    try { const r = await api('/api/dob_mail/posalji', podaci()); toast('Narudžba poslana: ' + r.za); narudzbaMail(st); }
+    catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Pošalji'; narudzbaMail(st); }
+  };
+}
 
 // ---- usporedba nabavnih cijena po dobavljačima
 async function prikaziUsporedbu() {
@@ -1884,6 +2004,7 @@ function primijeniModule() {
   $('#z-zpc-gumb').hidden = !m.zpc;
   $('#z-kpd-gumb').hidden = !m.kpd;
   $('#k-r1').hidden = !m.r1_kasa;
+  if (!m.vaga_veza) $('#kol-vaga').hidden = true;
   if (!m.r1_kasa && R1) { R1 = null; crtajR1(); }
   $('#n-eracun').hidden = !m.eracun_uvoz;
   if (!m.zpc) $('#z-zpc').hidden = true;
@@ -1893,6 +2014,7 @@ function primijeniModule() {
   tab('bonovi').textContent = m.bonovi && m.vjernost ? 'Bonovi i vjernost' : m.bonovi ? 'Bonovi' : 'Vjernost';
   if (!m.inventura_mobitel) $('#z-mob').hidden = true;
   if (!m.akcije) $('#z-akc').hidden = true;
+  if (window.kasaKupacModuli) kasaKupacModuli(m);  // povrat ambalaže, zaslon za kupca (kasa_kupac.js)
   const on = document.querySelector('.tabs button.on');
   if (on && on.hidden) tab('danas').click();
 }
@@ -1907,9 +2029,12 @@ async function prikaziPostavke() {
     'Zakonske obveze (sidrena cijena, najniža cijena u 30 dana kod akcije, cijena za kg/l) vrijede uvijek i ne isključuju se.</p>' +
     P.map(m => `<label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0"><input type="checkbox" data-modul="${m.kljuc}" ${m.ukljucen ? 'checked' : ''} style="margin-top:3px">` +
       `<span><b>${esc(m.naziv)}</b><br><span class="napomena">${esc(m.opis)}</span></span></label>`).join('') +
+    (P.some(m => m.kljuc === 'vaga_veza' && m.ukljucen) ? '<div id="p-vaga"></div>' : '') +
     '<div class="red" style="position:sticky;bottom:-14px;background:var(--panel);padding:10px 0 4px;margin-bottom:0;border-top:1px solid var(--line)"><button class="btn prim" id="p-spremi">Spremi</button><button class="btn" id="p-zatvori">Zatvori</button></div>';
   box.hidden = false; box.scrollTop = 0;
   crtajNadogradnju(false);
+  if ($('#p-vaga')) crtajVagaPostavke();
+  if (MODULI.qr_uplata) ucitajUplatu();
   $('#p-zatvori').onclick = () => box.hidden = true;
   $('#p-spremi').onclick = async () => {
     const p = {};
@@ -1924,6 +2049,32 @@ async function prikaziPostavke() {
   };
 }
 $('#postavke-gumb').addEventListener('click', prikaziPostavke);
+
+// ---- barkod za plaćanje na otpremnici (modul qr_uplata, uplata.py)
+async function ucitajUplatu() {
+  let U;
+  try { U = await api('/api/uplata'); } catch (e) { return; }
+  const div = document.createElement('div');
+  div.className = 'card'; div.id = 'p-uplata'; div.style.margin = '12px 0';
+  const polje = (k, n, extra) => `<label>${n}<input id="up-${k}" value="${esc(U[k] || '')}" ${extra || ''}></label>`;
+  div.innerHTML = '<h2>Barkod za plaćanje (otpremnica, zbirni pregled)</h2><p class="napomena">Kupac skenira 2D barkod (HUB-3) u mobilnom bankarstvu i dobije popunjen nalog. ' +
+    'Bez IBAN-a se barkod ne ispisuje. Poziv na broj: broj otpremnice (godina-broj) ili kupac-mjesec za zbirni pregled.</p>' +
+    '<div class="polja">' + polje('iban', 'IBAN primatelja', 'style="width:230px" placeholder="HR12 3456 7890 1234 5678 9"') +
+    polje('naziv', 'Primatelj (naziv, do 25 znakova)', 'maxlength="25" style="width:220px"') + '</div><div class="polja">' +
+    polje('adresa', 'Ulica i broj', 'maxlength="25"') + polje('mjesto', 'Poštanski broj i mjesto', 'maxlength="27"') +
+    `<label>Model<select id="up-model">${U.modeli.map(m => `<option ${m === U.model ? 'selected' : ''}>${m}</option>`).join('')}</select></label>` +
+    `<label>Šifra namjene<select id="up-namjena">${U.namjene.map(n => `<option value="${n.sifra}" ${n.sifra === U.namjena ? 'selected' : ''}>${n.sifra} ${esc(n.opis)}</option>`).join('')}</select></label>` +
+    '<button class="btn" id="up-spremi">Spremi podatke za uplatu</button></div>' +
+    '<p class="napomena">HR00 = bez kontrolnog broja, HR01 = s kontrolnim brojem (MOD 11), HR99 = bez poziva na broj. Plaćanje po otpremnici prije računa iz Robe: potvrdite s knjigovođom.</p>';
+  const box = $('#postavke'); box.insertBefore(div, box.lastElementChild);
+  $('#up-spremi').onclick = async () => {
+    try {
+      await api('/api/uplata', {iban: $('#up-iban').value, naziv: $('#up-naziv').value, adresa: $('#up-adresa').value,
+        mjesto: $('#up-mjesto').value, model: $('#up-model').value, namjena: $('#up-namjena').value});
+      toast('Podaci za uplatu spremljeni');
+    } catch (e) { toast(e.message, true); }
+  };
+}
 
 // ---- nadogradnja programa s GitHuba (samo instalirana verzija)
 async function crtajNadogradnju(odmah) {
@@ -2423,6 +2574,7 @@ async function ucitajDanas() {
   const red = (l, d, cls) => `<tr><td>${l}</td><td class="r ${cls || ''}">${d}</td></tr>`;
   let h = '';
   if (J.rokovi.length) h += J.rokovi.map(r => `<div class="card upoz j-rok"><b>Za ${r.dana} ${r.dana === 1 ? 'dan' : 'dana'} (${datumHr(r.datum)}):</b> ${esc(r.tekst)}</div>`).join('');
+  if (J.kopija_van) h += `<div class="card upoz j-kopija" style="${J.kopija_van.razina === 'crveno' ? 'background:var(--danger-soft);color:var(--danger)' : ''}"><b>${esc(J.kopija_van.naslov)}.</b> ${esc(J.kopija_van.opis)} <button class="btn" onclick="prikaziPostavke()" style="padding:2px 10px">Postavke</button></div>`;
   if (J.upozorenja.length) h += '<div class="i-grid" style="grid-template-columns:1fr;margin-bottom:16px">' + kartica('Treba odmah', '<ul>' + J.upozorenja.map(u => `<li><b>${esc(u.naslov)}</b>${u.ukupno ? ' (' + u.ukupno + ')' : ''}<br><span class="napomena">${esc(u.opis)}</span></li>`).join('') + '</ul>', gumb('kontrola', 'Kontrola')) + '</div>';
   const P = J.promet, T = J.promet_tjedan_prije;
   let promet = '<p class="napomena">Podaci iz Robe nisu učitani.</p>';
@@ -2495,5 +2647,8 @@ osvjeziArtikle().then(() => {
 }).catch(e => toast(e.message, true));
 ucitajKontrolu();
 </script>
+<script src="/kasa_kupac.js"></script>
+<script src="/kopija_van.js"></script>
+<script src="/donacije.js"></script>
 </body>
 </html>

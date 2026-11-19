@@ -37,7 +37,8 @@
   view.className = 'view'; view.id = 'v-dodaci';
   view.innerHTML = '<div id="d-snizenje" class="card" hidden></div><div id="d-ambalaza" class="card" hidden></div>' +
     '<div id="d-lanci" class="card" hidden></div><div id="d-prijedlog" class="card" hidden></div>' +
-    '<div id="d-radnici" class="card" hidden></div><div id="d-sazetak" class="card" hidden></div><div id="d-fiskal" class="card" hidden></div>';
+    '<div id="d-radnici" class="card" hidden></div><div id="d-sazetak" class="card" hidden></div><div id="d-fiskal" class="card" hidden></div>' +
+    '<div id="d-tisak" class="card" hidden></div>';
   document.querySelector('main').appendChild(view);
   tabBtn.addEventListener('click', () => {
     document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === tabBtn));
@@ -93,7 +94,7 @@
       $('#postavke-gumb').hidden = !smije('postavke');
     } else $('#postavke-gumb').hidden = false;
     tabBtn.hidden = !(m.snizenje || m.ambalaza || (m.lanci && smije('cijene')) || (m.prijedlog_dan && smije('nabava')) ||
-                      (smije('postavke') && (m.radnici || m.sazetak || m.fiskalizacija)));
+                      (smije('postavke') && (m.radnici || m.sazetak || m.fiskalizacija || m.termo_pisac)));
     const on = document.querySelector('.tabs button.on');
     if (on && on.hidden) tab('danas').click();
   }
@@ -160,7 +161,7 @@
     const sekcije = [['snizenje', m.snizenje, ucitajSnizenje], ['ambalaza', m.ambalaza, ucitajAmbalazu],
       ['lanci', m.lanci && smije('cijene'), ucitajLance], ['prijedlog', m.prijedlog_dan && smije('nabava'), ucitajPrijedlogPostavke],
       ['radnici', m.radnici && smije('postavke'), ucitajRadnike], ['sazetak', m.sazetak && smije('postavke'), ucitajSazetak],
-      ['fiskal', m.fiskalizacija && smije('postavke'), ucitajFiskal]];
+      ['fiskal', m.fiskalizacija && smije('postavke'), ucitajFiskal], ['tisak', m.termo_pisac && smije('postavke'), ucitajTisak]];
     sekcije.forEach(([id, ukljucen, fn]) => { $('#d-' + id).hidden = !ukljucen; if (ukljucen) fn(); });
   }
 
@@ -525,6 +526,57 @@
     gumb('fk-instaliraj', async () => (await api('/api/fiskal/instaliraj', {})).poruka);
     gumb('fk-prod', async () => { await spremi(); await api('/api/fiskal/postavke', {okolina: 'produkcija', potvrda: $('#fk-potvrda').value}); await osvjeziArtikle(); return 'Prava fiskalizacija je uključena.'; });
     gumb('fk-natest', async () => { await api('/api/fiskal/postavke', {okolina: 'test'}); await osvjeziArtikle(); return 'Vraćeno na test.'; });
+  }
+
+  // ---- termalni pisač (tisak.py)
+  async function ucitajTisak() {
+    let P;
+    try { P = await api('/api/tisak/postavke'); } catch (e) { toast(e.message, true); return; }
+    const box = $('#d-tisak');
+    const polje = (k, n, extra) => `<label>${n}<input id="ts-${k}" value="${esc(P[k] || '')}" ${extra || ''}></label>`;
+    const kv = (k, n) => `<label style="flex-direction:row;align-items:center;gap:6px;color:var(--ink)"><input type="checkbox" id="ts-${k}" ${P[k] === '1' ? 'checked' : ''}> ${n}</label>`;
+    const izbor = (k, n, opcije) => `<label>${n}<select id="ts-${k}">` + opcije.map(([v, t]) => `<option value="${v}" ${String(P[k]) === v ? 'selected' : ''}>${esc(t)}</option>`).join('') + '</select></label>';
+    box.innerHTML = '<h2>Termalni pisač (izravni ispis)</h2><p class="napomena">Račun ide ravno na pisač, bez prozora za ispis. Kad pisač ne radi, kasa javi grešku i otvori obični ispis. ' +
+      'Prodaja je spremljena prije ispisa, pa problem s pisačem nikad ne poništi račun.</p>' +
+      '<div class="polja">' + izbor('veza', 'Veza', [['windows', 'Windows pisač (USB)'], ['mreza', 'Mrežni pisač (IP)'], ['com', 'COM port']]) +
+      `<label data-veza="windows">Windows pisač<input id="ts-pisac" list="ts-popis" value="${esc(P.pisac)}" style="width:240px"><datalist id="ts-popis"></datalist></label>` +
+      '<button class="btn mali" data-veza="windows" id="ts-trazi" type="button">Popis pisača</button>' +
+      `<span data-veza="mreza">${polje('adresa', 'IP adresa[:port]', 'placeholder="192.168.1.50:9100" style="width:180px"')}</span>` +
+      `<span data-veza="com" style="display:flex;gap:10px">${polje('com', 'COM port', 'style="width:80px"')}` +
+      izbor('brzina', 'Brzina', [['', 'kako je postavljeno'], ['9600', '9600'], ['19200', '19200'], ['38400', '38400'], ['115200', '115200']]) + '</span></div>' +
+      '<div class="polja">' + izbor('sirina', 'Papir', [['80', '80 mm'], ['58', '58 mm']]) +
+      polje('znakova', `Znakova u retku (prazno = ${P.sirina === '58' ? 32 : 48})`, 'style="width:90px" inputmode="numeric"') +
+      izbor('kodna', 'Hrvatska slova', P.kodne) + kv('rezanje', 'Odreži papir') + polje('redova', 'Praznih redova prije reza', 'style="width:60px" inputmode="numeric"') + '</div>' +
+      '<div class="polja">' + kv('qr', 'QR kod (inače se ispiše adresa)') + polje('qr_velicina', 'Veličina QR (1-16)', 'style="width:60px" inputmode="numeric"') +
+      kv('ladica', 'Otvori ladicu kod gotovine') + izbor('ladica_pin', 'Ladica na', [['2', 'pin 2 (obično)'], ['5', 'pin 5']]) + '</div>' +
+      '<p class="napomena">Ako umjesto č ć ž š đ izlaze krivi znakovi, probajte drugu kodnu stranicu ili "bez kvačica". QR kod na računu mora biti najmanje 2 x 2 cm (veličina 5 je oko 2,5 cm na 80 mm pisaču).</p>' +
+      '<div class="red"><button class="btn prim" id="ts-spremi">Spremi</button><button class="btn" id="ts-probni">Probni ispis</button><button class="btn" id="ts-ladica">Otvori ladicu</button></div>' +
+      '<p id="ts-rez" class="napomena"></p>' +
+      (P.zadnje ? `<p class="napomena">Zadnji ispis: ${esc(P.zadnje)}</p>` : '') + (P.zadnja_greska ? `<p class="minus">Zadnja greška: ${esc(P.zadnja_greska)}</p>` : '') +
+      (P.pregled ? `<h3>Zadnji račun, kako ide na pisač</h3><pre style="font-family:monospace;width:fit-content">${esc(P.pregled)}</pre>` : '');
+    const veza = () => box.querySelectorAll('[data-veza]').forEach(el => el.style.display = el.dataset.veza !== $('#ts-veza').value ? 'none' : el.tagName === 'BUTTON' ? '' : 'flex');
+    $('#ts-veza').onchange = veza; veza();
+    const podaci = () => {
+      const o = {};
+      ['veza', 'pisac', 'adresa', 'com', 'brzina', 'sirina', 'znakova', 'kodna', 'redova', 'qr_velicina', 'ladica_pin'].forEach(k => o[k] = $('#ts-' + k).value);
+      ['rezanje', 'qr', 'ladica'].forEach(k => o[k] = $('#ts-' + k).checked);
+      return o;
+    };
+    const rez = (t, err) => { const el = $('#ts-rez'); el.textContent = t; el.className = err ? 'minus' : 'napomena'; };
+    const gumb = (id, fn) => { $('#' + id).onclick = async () => {
+      $('#' + id).disabled = true; rez('Radim…');
+      try { const t = await fn(); await ucitajTisak(); rez(t); } catch (e) { rez(e.message, true); $('#' + id).disabled = false; }
+    }; };
+    gumb('ts-spremi', async () => { await api('/api/tisak/postavke', podaci()); toast('Spremljeno'); return 'Spremljeno.'; });
+    gumb('ts-probni', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/probni', {}); return 'Probni ispis poslan pisaču.'; });
+    gumb('ts-ladica', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/otvori_ladicu', {}); return 'Ladica: naredba poslana.'; });
+    $('#ts-trazi').onclick = async () => {
+      try {
+        const x = await api('/api/tisak/pisaci');
+        $('#ts-popis').innerHTML = x.pisaci.map(n => `<option value="${esc(n)}">`).join('');
+        rez(x.windows ? (x.pisaci.length ? 'Pisači: ' + x.pisaci.join(', ') + '. Kliknite polje i odaberite.' : 'Nema instaliranih pisača.') : 'Popis pisača radi samo na Windowsima.', !x.pisaci.length);
+      } catch (e) { rez(e.message, true); }
+    };
   }
 
   // ---------------------------------------------------------------- Danas: sniženja i gajbe

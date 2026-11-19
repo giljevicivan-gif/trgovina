@@ -54,6 +54,30 @@ MODULI = (
      "Pita za potvrdu kad se na kasi upiše više od 50 kg (npr. 1250 upisano u gramima umjesto 1,25).", True),
     ("podijeljeno_placanje", "Plaćanje dijelom gotovinom, dijelom karticom",
      "Na kasi gumb 'Gotovina + kartica'. Fiskalno se šalje kao način plaćanja 'O' (ostalo): potvrdite s knjigovođom.", False),
+    ("povrat_ambalaze", "Povrat ambalaže na kasi (povratna naknada)",
+     "Gumb na kasi: kupac vrati prazne boce i limenke, isplati mu se povratna naknada (0,10 € po komadu, "
+     "iznos po vrsti se može promijeniti) iz ladice uz potvrdu (nije račun). Upisuje se kao isplata u Blagajni; "
+     "pregled po danu i mjesecu za Fond (CSV). Potvrdite s knjigovođom i Fondom kako se vodi i potražuje "
+     "isplaćena naknada.", False),
+    ("zaslon_kupca", "Zaslon za kupca",
+     "Drugi prozor (drugi monitor) ili tablet u WiFi mreži kupcu pokazuje stavke, ukupno i koliko mu se vraća.", False),
+    ("vaga_veza", "Vaga spojena s kasom",
+     "Kasa sama očita težinu s vage (COM port ili mreža): gumb Vaga (F4) kod artikla na kg. "
+     "Postavke veze i probno očitanje ispod popisa modula.", False),
+    ("termo_pisac", "Izravni ispis na termalni pisač",
+     "Račun ide ravno na termalni pisač 80/58 mm (ESC/POS: Windows pisač, mreža ili COM) bez prozora za ispis, "
+     "s QR kodom, rezanjem papira i otvaranjem ladice kod gotovine. Kad pisač ne radi, otvara se obični ispis.", False),
+    ("qr_uplata", "Barkod za plaćanje na otpremnici",
+     "Na otpremnici i zbirnom pregledu za tvrtke 2D barkod (HUB-3) koji kupac skenira mobilnim bankarstvom. "
+     "Treba IBAN (Postavke). Plaćanje po otpremnici prije računa potvrdite s knjigovođom.", False),
+    ("narudzba_mail", "Narudžba dobavljaču e-mailom",
+     "U Prijedlogu narudžbe gumb za slanje narudžbe dobavljaču e-mailom (SMTP iz večernjeg sažetka).", False),
+    ("kopija_van", "Kopija baze izvan računala",
+     "Jednom dnevno (i kod zaključka smjene) provjerena kopija baze na USB disk ili u OneDrive / Google Drive mapu. "
+     "Na kartici Danas crveno upozorenje ako kopije nema 2 dana.", False),
+    ("donacije", "Donacije hrane",
+     "Evidencija donirane hrane (smanjuje zalihu kao otpis), zapisnik za potpis i godišnji zbroj prema 2 % prihoda. "
+     "Potvrdite s knjigovođom.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",

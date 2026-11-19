@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zaslon za kupca</title>
+<style>
+:root { --bg: #f4f5f2; --panel: #ffffff; --ink: #1d2320; --muted: #66706a; --line: #dfe3dd; --accent: #2f7d4f; --accent-soft: #e4f2e8; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 22px/1.3 system-ui, "Segoe UI", sans-serif;
+       display: flex; flex-direction: column; overflow: hidden; }
+header { background: var(--accent); color: #fff; padding: 12px 24px; font-size: 30px; font-weight: 700;
+         display: flex; justify-content: space-between; align-items: center; }
+header #sat { font-weight: 400; font-size: 24px; font-variant-numeric: tabular-nums; }
+#stavke { flex: 1; overflow: hidden; padding: 6px 24px; display: flex; flex-direction: column; justify-content: flex-end; }
+.st { display: grid; grid-template-columns: 1fr auto; gap: 0 16px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.st .n { font-size: 28px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st .i { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+.st .d { grid-column: 1 / -1; color: var(--muted); font-size: 21px; font-variant-numeric: tabular-nums; }
+.st.zadnja { background: var(--accent-soft); margin: 0 -24px; padding: 8px 24px; }
+footer { background: var(--panel); border-top: 2px solid var(--line); padding: 14px 24px; display: flex;
+         justify-content: space-between; align-items: baseline; }
+footer span { font-size: 32px; color: var(--muted); }
+footer b { font-size: 64px; font-variant-numeric: tabular-nums; }
+.sredina { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+.sredina h1 { font-size: 64px; margin: 0 0 16px; }
+.sredina p { font-size: 40px; margin: 8px 0; }
+.sredina .vrati { font-size: 72px; font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+#veza { position: fixed; bottom: 6px; right: 10px; font-size: 14px; color: var(--muted); }
+[hidden] { display: none !important; }
+@media (max-height: 640px) {
+  header { font-size: 26px; padding: 8px 18px; }
+  .st .n, .st .i { font-size: 25px; } .st .d { font-size: 19px; }
+  footer b { font-size: 54px; } footer span { font-size: 28px; }
+  .sredina h1 { font-size: 54px; } .sredina p { font-size: 34px; } .sredina .vrati { font-size: 60px; }
+}
+</style>
+</head>
+<body>
+<header><span id="naziv">Trgovina</span><span id="sat"></span></header>
+<div id="v-kosarica" hidden style="flex:1;display:flex;flex-direction:column;min-height:0">
+  <div id="stavke"></div>
+  <footer><span>Ukupno</span><b id="ukupno">0,00 €</b></footer>
+</div>
+<div id="v-hvala" class="sredina" hidden>
+  <h1>Hvala!</h1>
+  <p id="h-ukupno"></p>
+  <p id="h-vrati-red">Vratiti: <span class="vrati" id="h-vrati"></span></p>
+  <p>Doviđenja i dođite opet.</p>
+</div>
+<div id="v-prazno" class="sredina">
+  <h1>Dobro došli!</h1>
+  <p id="p-naziv"></p>
+</div>
+<div id="veza"></div>
+<script>
+// Samo prikaz: svakih 500 ms pita /api/zaslon. Ništa se odavde ne šalje.
+const $ = s => document.querySelector(s);
+const eur = c => (c / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' €';
+let zadnji = -1;
+function prikazi(d) {
+  $('#naziv').textContent = d.naziv || 'Trgovina';
+  $('#p-naziv').textContent = d.naziv || '';
+  document.title = 'Zaslon za kupca - ' + (d.naziv || '');
+  if (d.n === zadnji && d.stanje !== 'prazno') return;
+  zadnji = d.n;
+  $('#v-kosarica').hidden = d.stanje !== 'kosarica';
+  $('#v-hvala').hidden = d.stanje !== 'placeno';
+  $('#v-prazno').hidden = d.stanje !== 'prazno';
+  if (d.stanje === 'kosarica') {
+    const el = $('#stavke');
+    el.innerHTML = '';
+    d.stavke.forEach((s, i) => {
+      const r = document.createElement('div');
+      r.className = 'st' + (i === d.stavke.length - 1 ? ' zadnja' : '');
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = s.naziv;
+      const iz = document.createElement('span'); iz.className = 'i'; iz.textContent = eur(s.iznos);
+      const dd = document.createElement('span'); dd.className = 'd';
+      dd.textContent = `${s.kol} ${s.jm} × ${eur(s.cijena)}` + (s.popust ? ` − ${s.popust} %` : '');
+      r.append(n, iz, dd); el.append(r);
+    });
+    // stane li sve? ako ne, sakrij najstarije (najnovija stavka mora se vidjeti)
+    while (el.children.length > 1 && el.scrollHeight > el.clientHeight) el.removeChild(el.firstChild);
+    $('#ukupno').textContent = eur(d.ukupno);
+  } else if (d.stanje === 'placeno') {
+    $('#h-ukupno').textContent = 'Ukupno: ' + eur(d.ukupno);
+    $('#h-vrati-red').hidden = d.vratiti === null || d.vratiti === undefined || d.vratiti <= 0;
+    $('#h-vrati').textContent = eur(d.vratiti || 0);
+  }
+}
+async function osvjezi() {
+  try {
+    const r = await fetch('/api/zaslon', {cache: 'no-store'});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.greska || 'Greška');
+    prikazi(d);
+    $('#veza').textContent = '';
+  } catch (e) {
+    $('#veza').textContent = 'Nema veze s kasom…';
+  }
+  setTimeout(osvjezi, 500);
+}
+function sat() {
+  const d = new Date();
+  $('#sat').textContent = d.toLocaleDateString('hr-HR') + ' ' + d.toLocaleTimeString('hr-HR', {hour: '2-digit', minute: '2-digit'});
+}
+sat(); setInterval(sat, 10000);
+osvjezi();
+</script>
+</body>
+</html>

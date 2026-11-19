@@ -516,6 +516,122 @@ FISKALIZACIJA 2.0: KPD, R1 NA KASI, PRIMKA IZ eRACUNA (od 0.3.0)
     upozorenje kad se PDV na eRacunu razlikuje od PDV-a artikla.
     Primka se sprema tek kad kliknete Spremi. Nista se ne salje Poreznoj.
 
+POVRAT AMBALAZE NA KASI (POVRATNA NAKNADA)
+  Ukljucuje se u Postavkama ("Povrat ambalaze na kasi", zadano iskljuceno).
+  - Kupac vrati prazne boce/limenke: na Kasi gumb "Povrat ambalaze",
+    upisite broj komada po vrsti (+ / - / +10 ili tipkovnicom), Isplati.
+    Naknada je 0,10 EUR po komadu (od 1.1.2025., NN 137/2024); iznos po
+    vrsti i nove vrste (npr. tetrapak) mijenjaju se u "Vrste i iznosi".
+  - To NIJE prodaja ni stavka racuna: novac izlazi iz ladice, kupcu se
+    ispise potvrda PN-godina-broj "nije racun". Ako je u Blagajni otvorena
+    smjena, isplata se tamo upise sama (Povratna naknada PN-...), pa
+    prebrojana gotovina odgovara. Kriva isplata: Ponisti (u otvorenoj
+    smjeni se iznos vraca u blagajnu).
+  - "Pregled za Fond": komada i iznos po vrsti i po danu za razdoblje,
+    Preuzmi CSV. Isto je dostupno i na kartici Blagajna.
+  - Nije isto sto i "Gajbe i povratna ambalaza" (gajbe dobavljaca).
+  - Potvrdite s knjigovodjom i Fondom kako se vodi i potrazuje isplacena
+    naknada.
+
+ZASLON ZA KUPCA
+  Ukljucuje se u Postavkama ("Zaslon za kupca", zadano iskljuceno).
+  - Na Kasi gumb "Otvori zaslon za kupca": novi prozor koji pokazuje
+    stavke, ukupno i nakon naplate "Hvala! Vratiti: x EUR" (8 sekundi).
+    Prozor prebacite na drugi monitor okrenut kupcu i pritisnite F11.
+  - Tablet u istoj WiFi mrezi: gumb "Tablet", Ukljuci, na tabletu otvorite
+    pokazanu adresu (port 8769). Tablet samo prikazuje kosaricu, nista ne
+    moze upisati. Ako Windows pita za vatrozid, dopustite privatnu mrezu.
+VAGA SPOJENA S KASOM (modul "Vaga spojena s kasom", zadano iskljuceno)
+  Kasa sama ocita tezinu s vage, ne treba je prepisivati.
+  - Postavke (gore desno): ukljucite modul, Spremi, ponovno otvorite
+    Postavke; ispod popisa modula je "Vaga spojena s kasom".
+  - Veza: COM port (kabel RS-232 ili USB pretvarac, broj porta vidi se u
+    Upravitelju uredaja) ili Mreza (IP:port) za mreznu vagu / pretvarac
+    serijski-mreza. Brzina, paritet, bitovi i stop moraju biti isti kao
+    na vagi.
+  - Protokol: Kontinuirano (vaga stalno salje, npr. ST,GS,+ 1.250kg),
+    Mettler Toledo 8217 (W), NCI / Avery Berkel (W + CR), CAS ECR
+    (ENQ/ACK/DC1) ili Prilagodjeno (svoj upit, npr. $ ili \x05, i izraz).
+    Na vagi u izborniku odaberite isti protokol za kasu/PC.
+  - "Ocitaj vagu" pokazuje tezinu i sto je vaga tocno poslala (tekst i
+    hex); to posaljite serviseru ako ne radi.
+  - Na kasi: odaberite artikl na kg, pritisnite F4 ili gumb "Vaga (F4)".
+    Tezina se upise u kolicinu; Enter je dodaje. Ako se vaga mice,
+    pokazuje nulu ili minus, tezina se ne upisuje.
+  - Barkod s etikete vage (20-29...) radi kao i prije.
+  - COM port nije isproban na stvarnoj vagi; prvo probajte "Ocitaj vagu".
+IZRAVNI ISPIS NA TERMALNI PISAC I LADICA (modul "termo_pisac")
+  Ukljucuje se u Postavkama (zadano iskljuceno). Namjesta se u Dodaci,
+  Termalni pisac:
+  - Veza: Windows pisac (USB pisac s instaliranim driverom; "Popis
+    pisaca" pokaze instalirane), mrezni pisac (IP, port 9100) ili COM
+    port (npr. COM3; brzina obicno 9600 ili 115200, prazno = kako je
+    postavljeno u Windowsima).
+  - Papir 80 mm (48 znakova) ili 58 mm (32); broj znakova se moze
+    promijeniti ako red prelazi u novi.
+  - Hrvatska slova: CP852 (vecina pisaca), CP1250 ili "bez kvacica".
+    Kliknite Probni ispis i pogledajte jesu li c c z s d ispravni.
+  - Rezanje papira, prazni redovi prije reza, QR kod (velicina 5 je
+    oko 2,5 cm; mora biti najmanje 2 x 2 cm), ladica na pinu 2 ili 5.
+  Na kasi: kvacica "Ispisi nakon naplate" salje racun ravno pisacu.
+  Kod gotovine se otvara ladica (i kad se racun ne ispisuje). U
+  Racunima gumb Ispisi takodjer ide na pisac (ladica se tada NE
+  otvara). Kad pisac ne radi, kasa javi gresku i otvori obicni ispis
+  (ako preglednik blokira prozor, kliknite "Otvori ispis racuna").
+  Racun je spremljen prije ispisa, pa greska pisaca ne ponistava
+  prodaju. Windows pisac: ako ispis ne izlazi, u driveru pisaca
+  probajte "Generic / Text Only" ili driver proizvodjaca.
+BARKOD ZA PLACANJE NA OTPREMNICI (modul "qr_uplata")
+  Ukljucuje se u Postavkama (zadano iskljuceno). U Postavkama, ispod
+  popisa modula, upisite IBAN (provjerava se kontrolni broj), naziv,
+  ulicu i mjesto primatelja, model (HR00 bez kontrole, HR01 s kontrolnim
+  brojem, HR99 bez poziva na broj) i sifru namjene (GDSV = roba i usluge).
+  Na ispisu otpremnice i zbirnog pregleda za tvrtke tada je dolje desno
+  okvir "Plati mobilnim bankarstvom" s 2D barkodom HUB-3 (PDF417, isti
+  kao na uplatnicama). Kupac ga skenira u aplikaciji banke i dobije
+  popunjen nalog: iznos, IBAN, poziv na broj (otpremnica: godina-broj,
+  zbirni: sifra kupca-godinamjesec) i opis. Bez IBAN-a ili iznosa nema
+  barkoda. Ispisujte laserskim pisacem; prije prave upotrebe skenirajte
+  jedan ispis svojom aplikacijom banke. Placanje po otpremnici prije
+  racuna iz Robe: potvrdite s knjigovodjom.
+
+NARUDZBA DOBAVLJACU E-MAILOM (modul "narudzba_mail")
+  Ukljucuje se u Postavkama (zadano iskljuceno). E-mail se salje preko
+  SMTP postavki vecernjeg sazetka (Dodaci, Vecernji sazetak na e-mail;
+  ako sazetak ne zelite primati, odznacite "Posalji kad se zakljuci
+  smjena" i ostavite vrijeme prazno). Nabava, Prijedlog narudzbe: kod
+  dobavljaca gumb "Posalji narudzbu e-mailom". Upisite ili provjerite
+  adresu (prvi put upisana ostaje na dobavljacu), promijenite kolicine
+  (0 = ne narucuje se) i napomenu, "Pregled / ispis" pokaze A4 narudzbu,
+  "Posalji" je salje (tekst + HTML, odgovor dolazi na vasu adresu).
+  Ispod je popis zadnjih narudzbi tom dobavljacu, i neuspjelih s
+  greskom; svaka se moze ponovno ispisati.
+KOPIJA IZVAN RACUNALA I DONACIJE HRANE
+  Oba se ukljucuju u Postavkama (zadano iskljuceno):
+  - Kopija baze izvan racunala: u Postavkama (ispod popisa modula)
+    upisite mapu na USB disku (npr. E:\Trgovina) ili mapu koju
+    sinkronizira OneDrive / Google Drive (npr.
+    %USERPROFILE%\OneDrive\Trgovina). Kopija se radi sama kod pokretanja
+    (ako danas jos nije), kod zakljucka smjene i svaki sat dok danas ne
+    uspije; i na gumb "Napravi kopiju sada". Svaka kopija se provjeri
+    (cjelovitost baze i broj racuna, artikala i dokumenata). Cuva se
+    zadnjih 30 (postavka); brisu se samo datoteke
+    kopija_trgovina_....db. Na kartici Danas: crveno ako 2 dana nema
+    ispravne kopije ili mapa nije dostupna (USB nije utaknut), zuto ako
+    zadnji pokusaj nije uspio. Gumb "Provjeri" provjeri mapu i zadnju
+    kopiju. TRGOVINA_KOPIJA_MAPA u pokreni.bat radi kao i prije (i
+    koristi se ako mapa u Postavkama nije upisana).
+    Vracanje: zatvorite kasu, kopirajte kopiju preko trgovina.db.
+  - Donacije hrane: Nabava, "Donacije hrane", Nova donacija. Upisite
+    primatelja, OIB, je li registrirani posrednik, artikle i kolicine.
+    Spremanje napravi otpis (razlog "Donacija ...") koji smanji zalihu
+    po nabavnoj cijeni i otvori zapisnik za potpis (predao / preuzeo).
+    Storno donacije = storno tog otpisa. Gore je zbroj donacija u godini
+    prema 2 % prihoda prosle godine (prihod upisuje vlasnik; program
+    nudi promet iz Robe kao pomoc). Donacija hrane bez PDV-a: primatelj
+    mora biti registrirani posrednik, do 2 % prihoda prosle godine.
+    Potvrdite s knjigovodjom.
+
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
   inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,

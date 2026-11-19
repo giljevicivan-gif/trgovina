@@ -253,6 +253,14 @@ def spoji(path=DB_PATH):
     dugovanja.pripremi(con)
     import eracun
     eracun.pripremi(con)
+    import povrat_ambalaze
+    povrat_ambalaze.pripremi(con)
+    import narudzba_mail
+    narudzba_mail.pripremi(con)
+    import kopija_van
+    import donacije
+    kopija_van.pripremi(con)
+    donacije.pripremi(con)
     return con
 
 

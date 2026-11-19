@@ -52,6 +52,12 @@ PUTANJE = (
     ("/api/storno/", "storno"), ("/ispis_popisna", "cijene"),
     ("/api/eracun", "nabava"), ("/api/kpd", "zaliha"),
     ("/api/postavke", "postavke"), ("/api/fiskal", "postavke"), ("/api/radnici", "postavke"), ("/api/sazetak", "postavke"),
+    ("/api/povrat_amb/vrsta", "postavke"), ("/api/zaslon/mreza", "postavke"),
+    ("/api/vaga/", "postavke"),
+    ("/api/tisak/postavke", "postavke"), ("/api/tisak/pisaci", "postavke"), ("/api/tisak/probni", "postavke"),
+    ("/api/tisak/otvori_ladicu", "postavke"), ("/api/tisak/tekst", "postavke"),
+    ("/api/uplata", "postavke"), ("/api/dob_mail", "nabava"), ("/ispis_narudzba_dob", "nabava"),
+    ("/api/kopija_van", "postavke"), ("/api/donacij", "nabava"), ("/ispis_donacija", "nabava"),
 )
 # GET koji radnik bez ovlasti ipak smije (Zaliha i Nabava ih koriste i drugdje)
 GET_SLOBODNO = ("/api/postavke", "/api/zaliha", "/api/partneri", "/api/kontrola")
@@ -266,6 +272,11 @@ OPISI = (
     ("/api/vjernost/", "Kartica vjernosti"), ("/api/dugovanja/", "Dugovanja"), ("/api/kopija", "Sigurnosna kopija"),
     ("/api/snizenje/", "Sniženje"), ("/api/ambalaza/", "Gajbe i ambalaža"), ("/api/lanci/", "Cijene lanaca"),
     ("/api/radnici/", "Radnici"), ("/api/sazetak/", "E-mail sažetak"),
+    ("/api/povrat_amb/", "Povratna naknada za ambalažu"), ("/api/zaslon/", "Zaslon za kupca"),
+    ("/api/tisak/ladica", "Ladica (gotovina)"), ("/api/tisak/otvori_ladicu", "Ladica otvorena ručno"),
+    ("/api/tisak/", "Termalni pisač"),
+    ("/api/uplata", "Postavke barkoda za plaćanje"), ("/api/dob_mail/posalji", "Narudžba dobavljaču e-mailom"),
+    ("/api/kopija_van/", "Kopija izvan računala"), ("/api/donacij", "Donacija hrane"),
 )
 
 
