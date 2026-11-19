@@ -23,6 +23,7 @@ Broj računa za fiskalizaciju ide posebno po okolini, godini, prostoru i uređaj
 """
 
 import base64
+import http.client
 import datetime as dt
 import hashlib
 import html
@@ -508,7 +509,10 @@ def posalji_soap(pst, tijelo, akcija):
         headers={"Content-Type": "text/xml; charset=utf-8", "SOAPAction": AKCIJA + akcija})
     try:
         with urllib.request.urlopen(zahtjev, timeout=int(pst["timeout"]), context=_ssl(pst)) as r:
-            return r.read().decode("utf-8", "replace")
+            tekst = r.read().decode("utf-8", "replace")
+        if "Envelope" not in tekst:  # npr. stranica proxyja ili Wi-Fi prijave, a ne Porezna
+            raise NemaVeze("Odgovor nije stigao od Porezne (%s)." % re.sub(r"\s+", " ", tekst)[:80])
+        return tekst
     except urllib.error.HTTPError as e:  # SOAP greška dolazi s HTTP 500, ali tijelo je odgovor
         tekst = e.read().decode("utf-8", "replace")
         if "Envelope" in tekst:
@@ -518,6 +522,8 @@ def posalji_soap(pst, tijelo, akcija):
         raise NemaVeze("Provjera certifikata poslužitelja nije uspjela (%s). Za test: u postavkama "
                        "fiskalizacije uključite 'Ne provjeravaj poslužitelja (samo test)' ili stavite "
                        "FINA CA certifikat u mapu certifikati." % getattr(e, "verify_message", e))
+    except http.client.HTTPException as e:  # prekinut ili neispravan odgovor
+        raise NemaVeze("Veza s Poreznom je prekinuta (%s)." % (type(e).__name__))
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         razlog = getattr(e, "reason", e)
         raise NemaVeze("Nema veze s poslužiteljem Porezne (%s)." % razlog)
@@ -597,11 +603,15 @@ def posalji(con, rid):
             jir, greske, status = "", [("veza", str(e))], "ceka"
         except Greska as e:
             jir, greske, status = "", [("postavke", str(e))], "ceka"
+        except Exception as e:  # bilo što drugo: račun ostaje za ponovno slanje, naplata se ne ruši
+            jir, greske, status = "", [("veza", "Neočekivana greška pri slanju (%s: %s)." % (type(e).__name__, e))], "ceka"
         else:
             if jir:
                 status = "poslan"
-            elif greske and all(g[0] in PRIVREMENE for g in greske):
+            elif greske and all(g[0] in PRIVREMENE or g[0] == "xml" for g in greske):
                 status = "ceka"
+            elif not greske:  # odgovor bez JIR-a i bez greške: pokušaj ponovno
+                status, greske = "ceka", [("?", "Odgovor bez JIR-a, šalje se ponovno.")]
             else:
                 status = "greska"
                 if not greske:

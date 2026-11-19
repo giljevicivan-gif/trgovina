@@ -47,6 +47,8 @@ Var Podaci
 Var hRoba
 Var hNaziv
 Var hPodaci
+Var Port
+Var KopijaMapa
 
 !define MUI_WELCOMEPAGE_TITLE "Instalacija programa Trgovina"
 !define MUI_WELCOMEPAGE_TEXT "Ovo instalira nas program za trgovinu (kasa, nabava, zaliha, izvjestaji).$\r$\n$\r$\nOvo je PROBNA verzija. Kasa nije fiskalna dok fiskalizaciju sami ne ukljucite i postavite (test s demo certifikatom).$\r$\n$\r$\nPython i svi potrebni dodaci dolaze s instalacijom, nista drugo ne treba instalirati.$\r$\n$\r$\nAko je kasa otvorena, instalacija ce je zatvoriti. Vasi podaci (baza, kopije, certifikati) se ne diraju."
@@ -80,6 +82,12 @@ Function .onInit
   ${If} $Podaci == ""
     StrCpy $Podaci "C:\TrgovinaPodaci"
   ${EndIf}
+  ; port i dodatnu mapu kopija upisuje kasa pri pokretanju (iz postavke.cmd), da ih Setup ne izbrise
+  ReadRegStr $Port HKCU "${REGKEY}" "Port"
+  ${If} $Port == ""
+    StrCpy $Port "8790"
+  ${EndIf}
+  ReadRegStr $KopijaMapa HKCU "${REGKEY}" "KopijaMapa"
 FunctionEnd
 
 Function PostavkePage
@@ -182,9 +190,13 @@ Section "Program" SecMain
   FileWrite $0 "set $\"TRGOVINA_NAZIV=$Naziv$\"$\r$\n"
   FileWrite $0 "set $\"TRGOVINA_PODACI=$Podaci$\"$\r$\n"
   FileWrite $0 "REM Port kase u pregledniku (http://127.0.0.1:PORT). 8766 koristi drugi program.$\r$\n"
-  FileWrite $0 "set $\"TRGOVINA_PORT=8790$\"$\r$\n"
+  FileWrite $0 "set $\"TRGOVINA_PORT=$Port$\"$\r$\n"
   FileWrite $0 "REM Dodatna mapa za sigurnosne kopije (USB...). Maknite REM i upisite mapu:$\r$\n"
-  FileWrite $0 "REM set $\"TRGOVINA_KOPIJA_MAPA=D:\Kopije_trgovina$\"$\r$\n"
+  ${If} $KopijaMapa == ""
+    FileWrite $0 "REM set $\"TRGOVINA_KOPIJA_MAPA=D:\Kopije_trgovina$\"$\r$\n"
+  ${Else}
+    FileWrite $0 "set $\"TRGOVINA_KOPIJA_MAPA=$KopijaMapa$\"$\r$\n"
+  ${EndIf}
   FileClose $0
 
   ; mapa za podatke; ako je prazna, ponudi kopiju postojece baze (stari nacin rada s Radne povrsine)

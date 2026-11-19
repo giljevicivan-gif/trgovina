@@ -373,8 +373,11 @@ let uredjuje = -1;
 let FISKAL = '', KASA = true, ARTIKLI = [], PO_ID = {}, PLACANJA = [], kosarica = [], placanje = null, odabran = null, rezultati = [], sel = 0;
 
 async function api(url, body) {
-  const r = await fetch(url, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
-  const j = await r.json();
+  let r, j;
+  try { r = await fetch(url, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {}); }
+  catch (e) { throw new Error('Nema veze s kasom (program ne radi ili se ponovno pokreće). Pokušajte ponovno.'); }
+  try { j = await r.json(); }
+  catch (e) { throw new Error('Kasa je vratila neispravan odgovor (' + r.status + '). Pokušajte ponovno.'); }
   if (!r.ok) throw new Error(j.greska || 'Greška');
   return j;
 }
@@ -465,6 +468,7 @@ function dodaj(a, kol, popust) {
 function iznos(s) { return Math.round(s.a.cijena * s.kol * (1 - (s.popust || 0) / 100)); }
 function ukupno() { return kosarica.reduce((z, s) => z + iznos(s), 0); }
 function crtajKosaricu() {
+  naplati.oznaka = null;  // nova košarica = nova naplata
   const el = $('#kosarica');
   el.innerHTML = kosarica.length ? kosarica.map((s, i) =>
     `<div class="stavka" data-i="${i}" title="Kliknite za izmjenu količine ili popusta"><span class="n">${esc(s.a.naziv)}</span>` +
@@ -484,7 +488,9 @@ function crtajPlacanja() {
 }
 function vratiti() {
   const p = parseFloat($('#primljeno').value.replace(',', '.'));
-  $('#vratiti').textContent = p > 0 ? eur(Math.round(p * 100) - ukupno()) : '-';
+  const raz = Math.round(p * 100) - ukupno();
+  $('#vratiti').textContent = p > 0 ? (raz < 0 ? 'NEDOSTAJE ' + eur(-raz) : eur(raz)) : '-';
+  $('#vratiti').style.color = p > 0 && raz < 0 ? '#c0392b' : '';
 }
 // oznake kase: vježba, test fiskalizacija (demo certifikat) ili prava fiskalizacija
 function oznaciKasu() {
@@ -514,12 +520,21 @@ function fiskalPoruka(f) {
 async function naplati() {
   if (!kosarica.length || $('#naplati').disabled) return;
   $('#naplati').disabled = true;
+  // ista oznaka dok se košarica ne promijeni: ponovni klik nakon izgubljenog odgovora ne daje drugi račun
+  if (!naplati.oznaka) naplati.oznaka = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  const prim = parseFloat($('#primljeno').value.replace(',', '.'));
+  const vrati = prim > 0 && $('#gotovina').style.visibility !== 'hidden' ? Math.round(prim * 100) - ukupno() : null;
   try {
-    const r = await api('/api/naplati', {nacin_placanja_id: placanje,
+    const r = await api('/api/naplati', {nacin_placanja_id: placanje, oznaka_naplate: naplati.oznaka,
       stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
     if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
+    naplati.oznaka = null;
     kosarica = []; $('#primljeno').value = ''; crtajKosaricu();
     if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
+    if (vrati !== null && vrati >= 0) {
+      $('#vratiti').textContent = eur(vrati) + ' (zadnji račun)';
+      if (!r.fiskal || r.fiskal.status === 'poslan') toast((r.fiskal ? 'Fiskalizirano. ' : 'Spremljeno. ') + 'VRATITI ' + eur(vrati));
+    }
   } catch (e) { toast(e.message, true); $('#naplati').disabled = false; }
   $('#trazi').focus();
 }
@@ -533,6 +548,7 @@ $('#trazi').addEventListener('keydown', e => {
     if (v && v.greska) { toast(v.greska, true); e.target.select(); }
     else if (v) { uredjuje = -1; dodaj(v.a, v.tezina, 0); toast(v.a.naziv + ' ' + kolTxt(v.tezina) + ' kg (vaga)'); }
     else if (rezultati[sel]) odaberi(rezultati[sel]);
+    else if (e.target.value.trim()) { toast('Nepoznat barkod/šifra: ' + e.target.value.trim(), true); e.target.select(); }
   }
   else if (e.key === 'Escape') odustani();
 });
@@ -554,12 +570,14 @@ $('#kosarica').addEventListener('click', e => {
   const st = e.target.closest('.stavka'); if (st) urediStavku(+st.dataset.i);
 });
 $('#plac').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (b) { placanje = +b.dataset.id; crtajPlacanja(); }
+  const b = e.target.closest('button'); if (b) { placanje = +b.dataset.id; crtajPlacanja(); vratiti(); $('#trazi').focus(); }
 });
 $('#primljeno').addEventListener('input', vratiti);
 $('#naplati').addEventListener('click', naplati);
 $('#ocisti').addEventListener('click', () => { kosarica = []; crtajKosaricu(); odustani(); });
-document.addEventListener('keydown', e => { if (e.key === 'F9') { e.preventDefault(); naplati(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === 'F9') { e.preventDefault(); if ($('#v-kasa').classList.contains('on')) naplati(); }
+});
 
 // ---------------------------------------------------------------- Računi
 async function ucitajRacune() {
@@ -594,7 +612,10 @@ async function prikaziRacun(id) {
   };
   const sb = $('#r-storno');
   if (sb) sb.onclick = async () => {
-    if (!sb.dataset.potvrda) { sb.dataset.potvrda = 1; sb.textContent = 'Sigurno stornirati? Kliknite opet'; return; }
+    if (!sb.dataset.potvrda) {
+      sb.dataset.potvrda = 1; const stari = sb.textContent; sb.textContent = 'Sigurno stornirati? Kliknite opet';
+      setTimeout(() => { delete sb.dataset.potvrda; sb.textContent = stari; }, 4000); return;
+    }
     try {
       const n = await api('/api/storno/' + id, {});
       if (n.fiskal) fiskalPoruka(n.fiskal); else toast('Račun storniran');
@@ -668,7 +689,10 @@ async function prikaziDokument(id) {
   $('#n-ispis').onclick = () => window.open('/ispis_dok/' + id + (d.vrsta === 'primka' && broj(MARZA) > 0 ? '?marza=' + encodeURIComponent(MARZA) : '') + '#ispis', 'ispisdok', 'width=900,height=900');
   const sb = $('#n-storno');
   if (sb) sb.onclick = async () => {
-    if (!sb.dataset.potvrda) { sb.dataset.potvrda = 1; sb.textContent = 'Sigurno stornirati? Kliknite opet'; return; }
+    if (!sb.dataset.potvrda) {
+      sb.dataset.potvrda = 1; const stari = sb.textContent; sb.textContent = 'Sigurno stornirati? Kliknite opet';
+      setTimeout(() => { delete sb.dataset.potvrda; sb.textContent = stari; }, 4000); return;
+    }
     try {
       const n = await api('/api/storno_dok/' + id, {});
       toast('Dokument storniran'); await ucitajZalihu(); await ucitajDokumente(); prikaziDokument(n.id);
@@ -2245,7 +2269,7 @@ async function ucitajDanas() {
   J.naruciti.forEach(s => (grupe[s.dobavljac || 'Bez dobavljača'] = grupe[s.dobavljac || 'Bez dobavljača'] || []).push(s));
   h += kartica(`Za naručiti (${J.naruciti.length})`, J.naruciti.length ? '<div class="scroll" style="max-height:260px">' + Object.entries(grupe).map(([d, st]) =>
       `<p style="margin:6px 0 2px"><b>${esc(d)}</b></p><table class="t">` + st.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r ${s.zaliha <= 0 ? 'minus' : ''}">ima ${kolTxt(Math.max(0, s.zaliha))}</td><td class="r"><b>${kolTxt(s.kolicina)} ${esc(s.jm)}</b></td></tr>`).join('') + '</table>').join('') +
-      '</div><p class="napomena">Prodaja zadnjih 28 dana, zaliha za 2 dana i minimalna zaliha.</p>' : '<p class="napomena">Zalihe je dovoljno.</p>', gumb('nabava', 'Prijedlog narudžbe', 'data-prijedlog="1"'));
+      '</div><p class="napomena">Prodaja zadnjih 28 dana, zaliha za 2 dana i minimalna zaliha.</p>' : '<p class="napomena">Zaliha je dovoljna.</p>', gumb('nabava', 'Prijedlog narudžbe', 'data-prijedlog="1"'));
   if (J.moduli.akcije || J.akcije_ceka.length) h += kartica('Akcije i roba koja stoji', (J.akcije_ceka.length ? '<table class="t">' + J.akcije_ceka.map(a => `<tr><td>${esc(a.naziv)}</td><td class="minus">${esc(a.stanje)}</td></tr>`).join('') + '</table>' : '') +
       `<p>Akcija u tijeku: <b>${J.akcije_traju}</b>. Roba bez prodaje 7 dana: <b>${J.roba_stoji}</b>.</p>` +
       (J.roba_stoji ? '<p class="napomena">Pogledajte je li pokvarena (otpis) ili je stavite na akciju.</p>' : ''), gumb('zaliha', 'Akcije', 'data-akcije="1"'));

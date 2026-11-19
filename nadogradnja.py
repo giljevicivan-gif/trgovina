@@ -125,7 +125,12 @@ def instaliraj(sadrzaj):
     for ime in os.listdir(MAPA):
         if os.path.isfile(os.path.join(MAPA, ime)):
             shutil.copy2(os.path.join(MAPA, ime), os.path.join(STARA, ime))
+    stare = [ime for ime in os.listdir(MAPA)  # datoteke koje nova verzija više nema (STARA ih čuva)
+             if ime not in datoteke and ime.endswith((".py", ".html", ".js"))
+             and os.path.isfile(os.path.join(MAPA, ime))]
     try:
+        for ime in stare:
+            os.remove(os.path.join(MAPA, ime))
         for ime, d in datoteke.items():
             privremena = os.path.join(MAPA, ime + ".novo")
             with open(privremena, "wb") as f:
@@ -134,12 +139,23 @@ def instaliraj(sadrzaj):
         shutil.rmtree(os.path.join(MAPA, "__pycache__"), ignore_errors=True)
         _provjeri_novu()
     except Exception:
-        for ime in datoteke:  # vrati staru verziju
+        neuspjeh = []
+        for ime in list(datoteke) + stare:  # vrati staru verziju (svaku datoteku posebno, s ponavljanjem)
             put = os.path.join(MAPA, ime)
-            if os.path.exists(os.path.join(STARA, ime)):
-                shutil.copy2(os.path.join(STARA, ime), put)
-            elif os.path.exists(put):
-                os.remove(put)
+            for pokusaj in range(5):
+                try:
+                    if os.path.exists(os.path.join(STARA, ime)):
+                        shutil.copy2(os.path.join(STARA, ime), put)
+                    elif os.path.exists(put):
+                        os.remove(put)
+                    break
+                except OSError:
+                    time.sleep(0.5)
+            else:
+                neuspjeh.append(ime)
+        if neuspjeh:
+            raise ValueError("Nadogradnja nije uspjela, a stara verzija se nije mogla do kraja vratiti (%s). "
+                             "Pokrenite Setup ponovno." % ", ".join(neuspjeh))
         raise
     return nova
 
@@ -152,7 +168,20 @@ def ponovno_pokreni():
     threading.Timer(1.5, lambda: os._exit(0)).start()
 
 
+_nadogradnja_traje = threading.Lock()
+
+
 def nadogradi():
+    if not _nadogradnja_traje.acquire(blocking=False):
+        raise ValueError("Nadogradnja je već u tijeku, pričekajte.")
+    try:
+        return _nadogradi()
+    except Exception:
+        _nadogradnja_traje.release()
+        raise  # nakon uspjeha brava ostaje zaključana dok se kasa ne ugasi
+
+
+def _nadogradi():
     if not os.path.exists(os.path.join(MAPA, "pokreni.py")) or not os.path.isdir(os.path.join(os.path.dirname(MAPA), "python")):
         raise ValueError("Nadogradnja radi samo u instaliranoj verziji (Setup).")
     sadrzaj = _dohvati(API + "/zipball/main", 120)

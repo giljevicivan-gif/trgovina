@@ -27,6 +27,7 @@ import os
 import re
 import sys
 import threading
+import traceback
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -186,6 +187,19 @@ def pregled_dana(con, datum):
 def _sljedeci_broj(con, godina):
     return con.execute("SELECT COALESCE(MAX(broj), 0) + 1 FROM racuni WHERE godina = ?",
                        (godina,)).fetchone()[0]
+
+
+def _fiskal_posalji(con, rid):
+    """Račun je već spremljen: greška pri slanju ne smije izgledati kao neuspjela naplata."""
+    try:
+        return fiskal.posalji(con, rid)
+    except Exception as e:
+        traceback.print_exc()
+        return {"status": "ceka", "poruka": "Slanje nije uspjelo (%s), šalje se ponovno samo." % e, "jir": ""}
+
+
+_NAPLATE = {}  # oznaka naplate iz preglednika -> id računa (dok kasa radi)
+_NAPLATE_BRAVA = threading.Lock()
 
 
 def naplati(con, podaci, prije_commita=None):
@@ -574,12 +588,27 @@ class Handler(BaseHTTPRequestHandler):
                 if not KASA_VJEZBA:
                     raise Greska("Kasa za vježbu je isključena. Prodaja se naplaćuje u Robi.")
             if u.path == "/api/naplati":
-                if postavke.ukljucen(con, "fiskalizacija"):
-                    fiskal.spreman(con)  # bez certifikata i OIB-a nema naplate
-                    rid = naplati(con, podaci, lambda c, i: fiskal.pri_naplati(c, i, dodaci._ime(self)))
-                    self._send(200, {"id": rid, "fiskal": fiskal.posalji(con, rid)})
-                else:
-                    self._send(200, {"id": naplati(con, podaci)})
+                # ista naplata poslana dvaput (izgubljen odgovor pa ponovni klik) ne smije dati dva računa
+                oznaka = str(podaci.get("oznaka_naplate") or "")[:64]
+                with _NAPLATE_BRAVA:
+                    if oznaka and oznaka in _NAPLATE:
+                        rid = _NAPLATE[oznaka]
+                        odg = {"id": rid, "ponovljeno": True}
+                        if postavke.ukljucen(con, "fiskalizacija"):
+                            odg["fiskal"] = _fiskal_posalji(con, rid)
+                        return self._send(200, odg)
+                    if postavke.ukljucen(con, "fiskalizacija"):
+                        fiskal.spreman(con)  # bez certifikata i OIB-a nema naplate
+                        rid = naplati(con, podaci, lambda c, i: fiskal.pri_naplati(c, i, dodaci._ime(self)))
+                        if oznaka:
+                            _NAPLATE[oznaka] = rid
+                        odg = {"id": rid, "fiskal": _fiskal_posalji(con, rid)}
+                    else:
+                        rid = naplati(con, podaci)
+                        if oznaka:
+                            _NAPLATE[oznaka] = rid
+                        odg = {"id": rid}
+                self._send(200, odg)
             elif u.path == "/api/smjena/otvori":
                 self._send(200, {"id": blagajna.otvori(con, podaci)})
             elif u.path == "/api/smjena/promet":
@@ -681,7 +710,7 @@ class Handler(BaseHTTPRequestHandler):
                 rid = int(u.path.rsplit("/", 1)[1])
                 hook = fiskal_storno(con, rid, dodaci._ime(self))
                 novi = storniraj(con, rid, hook)
-                self._send(200, {"id": novi, "fiskal": fiskal.posalji(con, novi) if hook else None})
+                self._send(200, {"id": novi, "fiskal": _fiskal_posalji(con, novi) if hook else None})
             else:
                 self._send(404, {"greska": "Nema"})
         self._handle(go)
@@ -753,13 +782,15 @@ hr { border: 0; border-top: 1px dashed #000; }
 <div class=gumbi><button onclick="print()">Ispiši</button> <button onclick="close()">Zatvori</button></div>
 <script>if (location.hash === '#ispis') { addEventListener('load', () => print()); }</script>
 </body></html>""" % (esc(r["oznaka"]), esc(NAZIV_TRGOVINE), storno, esc(r["oznaka"]),
-                     esc(r["vrijeme"]), esc(r["placanje"]), "".join(red), eur(r["ukupno"]), pdv)
+                     esc(dt.datetime.strptime(r["vrijeme"], "%Y-%m-%d %H:%M:%S").strftime("%d.%m.%Y. %H:%M:%S")),
+                     esc(r["placanje"]), "".join(red), eur(r["ukupno"]), pdv)
 
 
 def ispis_fiskalni_html(r, f, stavke, pdv):
     """Fiskalni račun (test ili pravi): podaci obveznika, broj, operater, ZKI, JIR i QR kod."""
     test = f["okolina"] == "test"
-    upoz = ("<div class=upoz>TEST FISKALIZACIJA (DEMO)<br>NIJE VAŽEĆI RAČUN</div>" if test else "")
+    upoz = ("<div class=upoz>OVO NIJE FISKALIZIRANI RAČUN<br>TEST FISKALIZACIJA (DEMO), NIJE VAŽEĆI RAČUN</div>"
+            if test else "")
     if not f["jir"]:
         upoz += "<div class=upoz>Račun još nije potvrđen u Poreznoj (bez JIR-a).<br>Šalje se naknadno.</div>"
     storno = ("<p class=c><b>STORNO računa %s</b></p>" % esc(f.get("storno_od") or "K-%s-%s" % (r["o_godina"], r["o_broj"]))
@@ -1315,7 +1346,7 @@ def ispis_etiketa_html(artikli, voce_povrce=True):
                   % (esc(a["naziv"]), eur(a["cijena"]), uz_cijenu,
                      ("<b>AKCIJA</b> · Najniža cijena u 30 dana prije akcije: %s %s<br>"
                       % (eur(a["akcija_prije"]), jed)) if 0 < a["cijena"] < a["akcija_prije"] else "",
-                     ("Cijena na %s: %s %s" % (cijene.datum_hr(a["sidrena_datum"]), eur(a["sidrena"]), jed))
+                     ("Bazna cijena (%s): %s %s" % (cijene.datum_hr(a["sidrena_datum"]), eur(a["sidrena"]), jed))
                      if a["sidrena_datum"] else "&nbsp;",
                      ("<small>Podrijetlo</small>" if a["podrijetlo"] and voce_povrce else "") + podrijetlo,
                      ("Klasa: %s · " % esc(a["klasa"])) if a["klasa"] and voce_povrce else "",
@@ -1336,7 +1367,7 @@ body { font-family: Arial, sans-serif; margin: 0; color: #000; }
 .p { font-size: 26pt; font-weight: bold; line-height: 1; }
 .p small { display: block; font-size: 8pt; font-weight: normal; }
 .k { font-size: 8pt; color: #333; }
-/* sidrena (dodatna) cijena, od 17. 11. 2026. (NN 101/2026): jasno i čitko uz MPC */
+/* bazna (prije: sidrena) cijena, od 17. 11. 2026. (NN 132/2026): jasno i čitko uz MPC */
 .s { font-size: 10pt; }
 .upoz { background: #fdf0dc; padding: 8px; margin: 8px 0; font-size: 13px; }
 @media print { .gumbi, .upoz { display: none; } }
@@ -1454,6 +1485,7 @@ def main():
         con.execute("INSERT INTO nacini_placanja (naziv) VALUES ('Gotovina'), ('Kartica')")
         con.commit()
     con.close()
+    ThreadingHTTPServer.allow_reuse_address = os.name != "nt"  # na Windowsu bi dopustilo dvije kase na istom portu
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     url = "http://127.0.0.1:%d" % PORT
     print("Kasa radi na %s  (zatvorite ovaj prozor za kraj)" % url)

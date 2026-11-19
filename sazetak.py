@@ -151,7 +151,7 @@ def sadrzaj(con, datum=None, smjena_id=None):
         if len(st) > 40:
             red.append("  ... i još %d (Nabava, Prijedlog narudžbe)" % (len(st) - 40))
         if not st:
-            red.append("  Zalihe je dovoljno.")
+            red.append("  Zaliha je dovoljna.")
         dijelovi.append("\n".join(red))
     except Exception as e:
         dijelovi.append("ZA NARUČITI\n  Nije izračunato: %s" % e)
