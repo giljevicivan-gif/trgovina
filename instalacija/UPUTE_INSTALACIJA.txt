@@ -1,0 +1,53 @@
+TRGOVINA - KASA (probna verzija)
+================================
+
+INSTALACIJA
+  1. Dvoklik na Trgovina_Setup_0.1.0.exe
+     Ako Windows napise "Windows je zastitio vase racunalo":
+     kliknite "Vise informacija" pa "Svejedno pokreni".
+     (Program nije potpisan, zato se to pojavi. Normalno je.)
+  2. Naprijed, Naprijed. Na stranici "Postavke trgovine" provjerite:
+       - mapu programa Roba (obicno C:\Roba)
+       - naziv trgovine za ispis
+       - mapu za podatke (zadano C:\TrgovinaPodaci)
+  3. Instaliraj. Gotovo. Na Radnoj povrsini je ikona "Kasa".
+  Administrator ne treba. Python i sve ostalo dolazi s instalacijom.
+
+POKRETANJE I ZATVARANJE
+  Dvoklik na ikonu "Kasa". Kasa se otvori u pregledniku na
+  http://127.0.0.1:8790 (ne 8766, tu je drugi program, Narudzbe knjiga).
+  Crnog prozora vise nema, kasa radi u pozadini. Zatvaranje preglednika
+  NE gasi kasu; ponovni dvoklik na ikonu samo otvori preglednik.
+  Gasenje (obicno ne treba, ugasi se s racunalom):
+    Start > Trgovina > "Zatvori kasu".
+  Ako nesto ne radi: Start > Trgovina > "Kasa s prozorom (za greske)"
+  pokaze poruke. Poruke su i u datoteci kasa.log u mapi za podatke.
+
+GDJE SU PODACI
+  Sve vase je u mapi za podatke (zadano C:\TrgovinaPodaci):
+    trgovina.db          baza (racuni, primke, zaliha, postavke...)
+    sigurnosne_kopije\   kopija baze kod svakog pokretanja (zadnjih 30)
+    certifikati\         certifikat za fiskalizaciju, ako ga ucitate
+  Tu mapu kopirajte na USB za sigurnost.
+  U izborniku Start > Trgovina > "Mapa s podacima" je otvara.
+
+NOVA VERZIJA
+  U kasi: Postavke > "Provjeri nadogradnju" > "Nadogradi".
+  Program skine novu verziju s GitHuba, sam se ponovno pokrene,
+  podaci ostaju. Kad ima nove verzije, gumb pise "Postavke (nova verzija)".
+  Novi Setup treba samo ako se mijenja nesto oko same instalacije.
+
+PROMJENA POSTAVKI (mapa Robe, naziv)
+  Ponovno pokrenite Setup i upisite nove vrijednosti.
+
+DEINSTALACIJA
+  Start > Trgovina > Deinstaliraj (ili Postavke > Aplikacije).
+  Podaci u mapi za podatke se NE brisu.
+
+FISKALIZACIJA
+  Certifikat i lozinka NISU dio instalacije. Ucitavate ih sami u kasi:
+  Dodaci > Fiskalizacija. Paket za fiskalizaciju (cryptography) je
+  vec ukljucen, gumb "Instaliraj" ne treba.
+
+AKO NESTO NE RADI
+  Poslikajte crni prozor i posaljite.

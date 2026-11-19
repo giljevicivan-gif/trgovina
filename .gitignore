@@ -1,0 +1,17 @@
+# Podaci, certifikati i lozinke NIKAD ne idu na GitHub
+*.db
+*.db-*
+*.p12
+*.pfx
+*.pem
+*.key
+*.log
+*.kljuc
+*.exe
+certifikati/
+sigurnosne_kopije/
+stara_verzija/
+python/
+build/
+__pycache__/
+postavke.cmd

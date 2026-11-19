@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inventura</title>
+<style>
+:root {
+  --bg: #f4f5f2; --panel: #ffffff; --ink: #1d2320; --muted: #66706a; --line: #dfe3dd;
+  --accent: #2f7d4f; --accent-ink: #ffffff; --danger: #b3261e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 17px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+header { background: var(--accent); color: var(--accent-ink); padding: 12px 16px; font-weight: 600; display: flex; justify-content: space-between; }
+main { padding: 16px; max-width: 560px; margin: 0 auto; }
+input, button { font: inherit; }
+input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); }
+button { padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button.prim { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; width: 100%; font-size: 19px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+label { display: block; color: var(--muted); font-size: 14px; margin: 10px 0 4px; }
+ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.rez li { padding: 12px 10px; border-bottom: 1px solid var(--line); }
+.rez li small { color: var(--muted); margin-left: 6px; }
+.odabran { font-size: 20px; font-weight: 600; }
+.kolred { display: flex; gap: 8px; align-items: center; } .kolred input { font-size: 24px; text-align: right; } .kolred span { min-width: 40px; }
+.unosi li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.unosi li.pon { text-decoration: line-through; color: var(--muted); }
+.unosi button { padding: 6px 10px; font-size: 14px; color: var(--danger); border-color: var(--danger); }
+.poruka { padding: 10px; border-radius: 10px; margin-bottom: 12px; display: none; }
+.poruka.ok { display: block; background: #e4f2e8; color: var(--accent); } .poruka.err { display: block; background: #fbe9e7; color: var(--danger); }
+.napomena { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<header><span>Inventura</span><span id="ime"></span></header>
+<main>
+  <div class="poruka" id="poruka"></div>
+
+  <div class="card" id="prijava">
+    <p>Upišite PIN koji piše na računalu (Zaliha, Inventura s mobitela).</p>
+    <label for="pin">PIN</label><input id="pin" inputmode="numeric" autocomplete="off">
+    <label for="ime-unos">Tko broji (npr. Ana)</label><input id="ime-unos" autocomplete="off">
+    <p><button class="prim" id="prijavi">Prijava</button></p>
+  </div>
+
+  <div id="brojanje" hidden>
+    <div class="card">
+      <label for="trazi">Artikl: naziv, šifra ili barkod</label>
+      <input id="trazi" autocomplete="off" enterkeyhint="search">
+      <ul class="rez" id="rez"></ul>
+      <div id="odabrano" hidden>
+        <p class="odabran" id="o-naziv"></p>
+        <label for="kol">Prebrojana količina</label>
+        <div class="kolred"><input id="kol" inputmode="decimal" autocomplete="off" enterkeyhint="done"><span id="o-jm"></span></div>
+        <p class="napomena">Isti artikl na više mjesta (polica, skladište) upišite posebno, zbroji se.</p>
+        <p><button class="prim" id="spremi">Spremi</button></p>
+      </div>
+    </div>
+    <div class="card">
+      <b>Moji zadnji unosi</b>
+      <ul class="unosi" id="unosi"></ul>
+    </div>
+  </div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let TOKEN = '', ARTIKLI = [], odabran = null;
+try { TOKEN = sessionStorage.getItem('inv_token') || ''; } catch (e) { /* bez spremanja */ }
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+const kolTxt = k => String(Math.round(k * 1000) / 1000).replace('.', ',');
+function poruka(t, err) {
+  const p = $('#poruka'); p.textContent = t; p.className = 'poruka ' + (err ? 'err' : 'ok');
+  clearTimeout(poruka.t); poruka.t = setTimeout(() => p.className = 'poruka', 2500);
+}
+async function api(url, body) {
+  const r = await fetch(url, {method: body ? 'POST' : 'GET', headers: {'Content-Type': 'application/json', 'X-Token': TOKEN},
+    body: body ? JSON.stringify(body) : undefined});
+  const d = await r.json();
+  if (r.status === 401) { odjava(); throw new Error(d.greska); }
+  if (!r.ok) throw new Error(d.greska || 'Greška');
+  return d;
+}
+function odjava() {
+  TOKEN = ''; try { sessionStorage.removeItem('inv_token'); } catch (e) { /* bez spremanja */ }
+  $('#prijava').hidden = false; $('#brojanje').hidden = true;
+}
+async function start() {
+  ARTIKLI = await api('/m/api/artikli');
+  $('#prijava').hidden = true; $('#brojanje').hidden = false; $('#trazi').focus();
+  crtajUnose();
+}
+$('#prijavi').onclick = async () => {
+  try {
+    const r = await api('/m/api/prijava', {pin: $('#pin').value, ime: $('#ime-unos').value});
+    TOKEN = r.token; try { sessionStorage.setItem('inv_token', TOKEN); } catch (e) { /* bez spremanja */ }
+    $('#ime').textContent = r.ime; await start();
+  } catch (e) { poruka(e.message, true); }
+};
+$('#pin').onkeydown = e => { if (e.key === 'Enter') $('#ime-unos').focus(); };
+$('#ime-unos').onkeydown = e => { if (e.key === 'Enter') $('#prijavi').click(); };
+$('#trazi').oninput = () => {
+  const v = $('#trazi').value.trim(), q = norm(v);
+  odabran = null; $('#odabrano').hidden = true;
+  if (!q) { $('#rez').innerHTML = ''; return; }
+  const tocno = ARTIKLI.filter(a => a.barkod === v || a.sifra === v);
+  const rez = tocno.concat(ARTIKLI.filter(a => !tocno.includes(a) && norm(a.naziv).includes(q))).slice(0, 8);
+  $('#rez').innerHTML = rez.map(a => `<li data-id="${a.id}">${esc(a.naziv)}<small>${esc(a.jm)}</small></li>`).join('') ||
+    '<li class="napomena">Nema takvog artikla.</li>';
+  if (tocno.length === 1 && v.length >= 8) odaberi(tocno[0]);  // barkod skener
+};
+$('#trazi').onkeydown = e => {
+  if (e.key === 'Enter') { const li = $('#rez li[data-id]'); if (li) odaberi(ARTIKLI.find(a => a.id === +li.dataset.id)); }
+};
+$('#rez').onclick = e => { const li = e.target.closest('li[data-id]'); if (li) odaberi(ARTIKLI.find(a => a.id === +li.dataset.id)); };
+function odaberi(a) {
+  odabran = a; $('#rez').innerHTML = '';
+  $('#o-naziv').textContent = a.naziv; $('#o-jm').textContent = a.jm; $('#kol').value = '';
+  $('#odabrano').hidden = false; $('#kol').focus();
+}
+$('#kol').onkeydown = e => { if (e.key === 'Enter') $('#spremi').click(); };
+$('#spremi').onclick = async () => {
+  const kol = parseFloat($('#kol').value.replace(',', '.'));
+  if (!odabran || isNaN(kol) || kol < 0) { poruka('Upišite količinu', true); return; }
+  try {
+    await api('/m/api/brojanje', {artikl_id: odabran.id, kolicina: kol});
+    poruka(odabran.naziv + ': ' + kolTxt(kol) + ' ' + odabran.jm);
+    odabran = null; $('#odabrano').hidden = true; $('#trazi').value = ''; $('#trazi').focus();
+    crtajUnose();
+  } catch (e) { poruka(e.message, true); }
+};
+async function crtajUnose() {
+  const u = await api('/m/api/moji');
+  $('#unosi').innerHTML = u.map(x => `<li class="${x.ponisteno ? 'pon' : ''}"><span>${esc(x.naziv)} <b>${kolTxt(x.kolicina)} ${esc(x.jm)}</b></span>` +
+    (x.ponisteno ? '' : `<button data-id="${x.id}">Poništi</button>`) + '</li>').join('') || '<li class="napomena">Još ništa.</li>';
+}
+$('#unosi').onclick = async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  try { await api('/m/api/ponisti', {id: +b.dataset.id}); crtajUnose(); } catch (err) { poruka(err.message, true); }
+};
+if (TOKEN) start().catch(() => odjava());
+</script>
+</body>
+</html>

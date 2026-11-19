@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HACCP</title>
+<style>
+:root {
+  --bg: #f4f5f2; --panel: #ffffff; --ink: #1d2320; --muted: #66706a; --line: #dfe3dd;
+  --accent: #2f7d4f; --accent-ink: #ffffff; --danger: #b3261e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 17px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--ink); }
+header { background: var(--accent); color: var(--accent-ink); padding: 12px 16px; font-weight: 600; display: flex; justify-content: space-between; }
+main { padding: 16px; max-width: 560px; margin: 0 auto; }
+input, button { font: inherit; }
+input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); }
+button { padding: 12px 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+button.prim { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; width: 100%; font-size: 19px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+label { display: block; color: var(--muted); font-size: 14px; margin: 10px 0 4px; }
+ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.rez li { padding: 12px 10px; border-bottom: 1px solid var(--line); }
+.rez li small { color: var(--muted); margin-left: 6px; }
+.odabran { font-size: 20px; font-weight: 600; }
+.kolred { display: flex; gap: 8px; align-items: center; } .kolred input { font-size: 24px; text-align: right; } .kolred span { min-width: 40px; }
+.unosi li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.unosi li.pon { text-decoration: line-through; color: var(--muted); }
+.unosi button { padding: 6px 10px; font-size: 14px; color: var(--danger); border-color: var(--danger); }
+.poruka { padding: 10px; border-radius: 10px; margin-bottom: 12px; display: none; }
+.poruka.ok { display: block; background: #e4f2e8; color: var(--accent); } .poruka.err { display: block; background: #fbe9e7; color: var(--danger); }
+.napomena { color: var(--muted); font-size: 14px; }
+.uredj { display: flex; gap: 8px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.uredj .ime { flex: 1; } .uredj input { width: 84px; font-size: 20px; text-align: right; } .uredj button { white-space: nowrap; }
+.minus { color: var(--danger); } .ok { color: var(--accent); }
+.tabsm { display: flex; gap: 6px; margin-bottom: 12px; } .tabsm button { flex: 1; } .tabsm button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+select { font: inherit; width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); }
+.pon { text-decoration: line-through; color: var(--muted); }
+</style>
+</head>
+<body>
+<header><span>HACCP</span><span id="ime"></span></header>
+<main>
+  <div class="poruka" id="poruka"></div>
+
+  <div class="card" id="prijava">
+    <p>Upišite PIN koji piše na računalu (HACCP, Upis s mobitela).</p>
+    <label for="pin">PIN</label><input id="pin" inputmode="numeric" autocomplete="off">
+    <label for="ime-unos">Tko upisuje (npr. Ana)</label><input id="ime-unos" autocomplete="off">
+    <p><button class="prim" id="prijavi">Prijava</button></p>
+  </div>
+
+  <div id="upis" hidden>
+    <div class="tabsm"><button data-t="temp" class="on">Temperature</button><button data-t="cis">Čišćenje</button><button data-t="prijem">Prijem</button></div>
+    <div class="card" id="t-temp"></div>
+    <div class="card" id="t-cis" hidden></div>
+    <div class="card" id="t-prijem" hidden>
+      <label for="p-dob">Dobavljač</label><input id="p-dob" list="dobavljaci" autocomplete="off"><datalist id="dobavljaci"></datalist>
+      <label for="p-dok">Otpremnica / račun br.</label><input id="p-dok" autocomplete="off">
+      <label for="p-roba">Roba</label><input id="p-roba" autocomplete="off" placeholder="npr. jogurt, sir, salata">
+      <label for="p-temp">Temperatura hladne robe °C (inače prazno)</label><input id="p-temp" inputmode="decimal" autocomplete="off">
+      <label for="p-ok">Stanje</label><select id="p-ok"><option value="1">prihvaćeno</option><option value="0">odbijeno / vraćeno</option></select>
+      <label for="p-nap">Napomena (obavezno ako je odbijeno)</label><input id="p-nap" autocomplete="off">
+      <p class="napomena">Pogledajte ambalažu, rok trajanja, izgled robe i temperaturu hladne robe.</p>
+      <p><button class="prim" id="p-upisi">Upiši prijem</button></p>
+      <div id="p-danas"></div>
+    </div>
+    <p class="napomena">Krivi upis poništava se na računalu (HACCP), uz razlog.</p>
+  </div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let TOKEN = '', P = null;
+try { TOKEN = sessionStorage.getItem('haccp_token') || ''; } catch (e) { /* bez spremanja */ }
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const tTxt = t => String(t).replace('.', ',') + ' °C';
+function poruka(t, err) {
+  const p = $('#poruka'); p.textContent = t; p.className = 'poruka ' + (err ? 'err' : 'ok');
+  clearTimeout(poruka.t); poruka.t = setTimeout(() => p.className = 'poruka', err ? 4000 : 2500);
+  window.scrollTo(0, 0);
+}
+async function api(url, body) {
+  const r = await fetch(url, {method: body ? 'POST' : 'GET', headers: {'Content-Type': 'application/json', 'X-Token': TOKEN},
+    body: body ? JSON.stringify(body) : undefined});
+  const d = await r.json();
+  if (r.status === 401) { odjava(); throw new Error(d.greska); }
+  if (!r.ok) throw new Error(d.greska || 'Greška');
+  return d;
+}
+function odjava() {
+  TOKEN = ''; try { sessionStorage.removeItem('haccp_token'); } catch (e) { /* bez spremanja */ }
+  $('#prijava').hidden = false; $('#upis').hidden = true;
+}
+async function osvjezi() {
+  P = await api('/m/api/pregled');
+  $('#prijava').hidden = true; $('#upis').hidden = false;
+  $('#t-temp').innerHTML = P.uredjaji.length ? P.uredjaji.map(u => {
+    const vazeci = u.danas.filter(t => !t.ponisteno);
+    const zadnja = vazeci[vazeci.length - 1];
+    return `<div class="uredj"><div class="ime"><b>${esc(u.naziv)}</b><br><span class="napomena">${tTxt(u.min_t)} do ${tTxt(u.max_t)}</span><br>` +
+      (zadnja ? `<span class="${zadnja.temperatura < u.min_t || zadnja.temperatura > u.max_t ? 'minus' : 'ok'}">${zadnja.vrijeme.slice(11, 16)} ${tTxt(zadnja.temperatura)}</span>` : '<span class="minus">danas nije upisano</span>') +
+      `</div><input data-temp="${u.id}" inputmode="decimal" placeholder="°C" autocomplete="off"><button data-upisi="${u.id}">Upiši</button></div>`;
+  }).join('') : '<p>Nema uređaja. Dodajte ih na računalu (HACCP, Uređaji i plan čišćenja).</p>';
+  const uc = {dnevno: 'dnevno', tjedno: 'tjedno', mjesecno: 'mjesečno'};
+  $('#t-cis').innerHTML = P.plan.length ? P.plan.map(p =>
+    `<div class="uredj"><div class="ime"><b>${esc(p.podrucje)}</b><br><span class="napomena">${uc[p.ucestalost]} · ${esc(p.nacin)}</span><br>` +
+    `<span class="${p.napravljeno ? 'ok' : 'minus'}">${p.napravljeno ? 'napravljeno' : 'treba'}</span></div><button data-ocisceno="${p.id}">Očišćeno</button></div>`).join('')
+    : '<p>Nema plana čišćenja. Napravite ga na računalu.</p>';
+  $('#dobavljaci').innerHTML = P.dobavljaci.map(d => `<option value="${esc(d)}">`).join('');
+  $('#p-danas').innerHTML = P.prijem.length ? '<b>Danas upisano</b><ul class="unosi">' + P.prijem.map(x =>
+    `<li class="${x.ponisteno ? 'pon' : ''}"><span>${x.vrijeme.slice(11, 16)} ${esc(x.dobavljac)}: ${esc(x.roba)}</span><span class="${x.prihvaceno ? '' : 'minus'}">${x.prihvaceno ? 'OK' : 'odbijeno'}</span></li>`).join('') + '</ul>' : '';
+}
+$('#prijavi').onclick = async () => {
+  try {
+    const r = await api('/m/api/prijava', {pin: $('#pin').value, ime: $('#ime-unos').value});
+    TOKEN = r.token; try { sessionStorage.setItem('haccp_token', TOKEN); } catch (e) { /* bez spremanja */ }
+    $('#ime').textContent = r.ime; await osvjezi();
+  } catch (e) { poruka(e.message, true); }
+};
+$('#pin').onkeydown = e => { if (e.key === 'Enter') $('#ime-unos').focus(); };
+$('#ime-unos').onkeydown = e => { if (e.key === 'Enter') $('#prijavi').click(); };
+document.querySelectorAll('.tabsm button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabsm button').forEach(x => x.classList.toggle('on', x === b));
+  ['temp', 'cis', 'prijem'].forEach(t => $('#t-' + t).hidden = t !== b.dataset.t);
+});
+$('#upis').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  try {
+    if (b.dataset.upisi) {
+      const u = P.uredjaji.find(x => x.id === +b.dataset.upisi), inp = $(`[data-temp="${u.id}"]`);
+      const t = parseFloat(inp.value.replace(',', '.'));
+      if (isNaN(t)) { inp.focus(); throw new Error('Upišite temperaturu.'); }
+      let mjera = '';
+      if (t < u.min_t || t > u.max_t) {
+        mjera = (prompt(`${u.naziv}: ${tTxt(t)} je izvan granica.\nŠto ste napravili? (npr. roba premještena, pozvan serviser, roba povučena iz prodaje)`) || '').trim();
+        if (!mjera) return;
+      }
+      await api('/m/api/temperatura', {uredjaj_id: u.id, temperatura: inp.value, mjera});
+      poruka(u.naziv + ': ' + tTxt(t)); await osvjezi();
+    } else if (b.dataset.ocisceno) {
+      await api('/m/api/ciscenje', {plan_id: +b.dataset.ocisceno});
+      poruka('Upisano'); await osvjezi();
+    } else if (b.id === 'p-upisi') {
+      await api('/m/api/prijem', {dobavljac: $('#p-dob').value, dokument: $('#p-dok').value, roba: $('#p-roba').value,
+        temperatura: $('#p-temp').value, prihvaceno: $('#p-ok').value === '1', napomena: $('#p-nap').value});
+      ['#p-dok', '#p-roba', '#p-temp', '#p-nap'].forEach(s => $(s).value = ''); $('#p-ok').value = '1';
+      poruka('Prijem upisan'); await osvjezi();
+    }
+  } catch (err) { poruka(err.message, true); }
+});
+if (TOKEN) osvjezi().catch(() => odjava());
+</script>
+</body>
+</html>

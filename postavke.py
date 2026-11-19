@@ -1,0 +1,105 @@
+# -*- coding: utf-8 -*-
+"""
+Postavke: koji su dodatni moduli uključeni.
+
+Program koriste različite trgovine, pa se ono što ne treba svima uključuje
+ili isključuje ovdje. Zakonske obveze koje vrijede za svaku trgovinu na malo
+(sidrena cijena, najniža cijena u 30 dana kod akcije, cijena za jedinicu mjere,
+"OVO NIJE FISKALIZIRANI RAČUN") nisu modul i ne mogu se isključiti.
+Isključen modul ne briše podatke; kad se ponovno uključi, sve je tu.
+"""
+
+from nabava import Greska
+
+# kljuc, naziv, opis, uključen u novoj instalaciji
+MODULI = (
+    ("narudzbe", "Narudžbe kupaca", "Narudžbe i otpremnice za restorane, škole i sl.", True),
+    ("kupci_tvrtke", "Kupci na tvrtku i cjenik po kupcu",
+     "Rabat i ugovorene cijene po kupcu, zbirni pregled isporuka za račun u Robi (radi uz narudžbe).", False),
+    ("inventura_mobitel", "Inventura s mobitela", "Brojanje robe s mobitela preko WiFi-ja.", True),
+    ("akcije", "Prijedlog akcija", "Akcije za robu koja stoji (pravilo najniže cijene u 30 dana vrijedi uvijek).", True),
+    ("usporedba", "Usporedba dobavljača", "Tko je za koji artikl jeftiniji.", True),
+    ("voce_povrce", "Voće i povrće", "Zemlja podrijetla i klasa na etiketama i u Kontroli (Pravilnik NN 156/2025).", True),
+    ("haccp", "HACCP dnevnik", "Temperature hladnjaka, čišćenje i prijem robe, s ispisom za sanitarnu inspekciju.", False),
+    ("rokovi", "Rokovi trajanja i kalo", "Upozorenje prije isteka roka na pakiranoj robi i pregled kala (gubitka) po artiklu.", False),
+    ("bonovi", "Poklon bonovi", "Evidencija bonova: broj, iznos, rok, koliko je ostalo. Bon se prodaje i naplaćuje u Robi.", False),
+    ("vjernost", "Kartica vjernosti", "Bodovi za kupnje i nagrada popust, uz privolu člana (GDPR).", False),
+    ("roba_sidrena", "Sidrena cijena iz Robe",
+     "Kad je Roba ima (novija verzija), etiketa koristi Robinu sidrenu cijenu; ručno upisana kod nas ostaje.", False),
+    ("zpc", "Zapisnici o promjeni cijena iz Robe",
+     "Povijest cijena po artiklu i točnija najniža cijena u 30 dana kod akcije.", False),
+    ("kpd", "KPD šifre (eRačun)", "Provjera da artikli prodani tvrtkama imaju KPD šifru u Robi.", False),
+    ("ponude", "Ponude i broj narudžbenice",
+     "Ponude kupcima (pretvaraju se u narudžbu) i broj narudžbenice kupca na otpremnici (radi uz narudžbe).", False),
+    ("dugovanja", "Računi dobavljača i dugovanja", "Dospijeće i plaćanje računa dobavljača (primke), tko koliko duguje i što kasni.", False),
+    ("prijedlog_dan", "Prijedlog narudžbe po danima",
+     "Prijedlog narudžbe gleda koliko se prodaje koji dan u tjednu, praznike i (ako upišete mjesto) vremensku prognozu.", False),
+    ("snizenje", "Brzo sniženje robe koja vene",
+     "Popust jednim klikom za robu koja se kvari, etiketa sa sniženjem i koliko je spašeno od otpisa.", False),
+    ("ambalaza", "Gajbe i povratna ambalaža",
+     "Koliko gajbi i paleta duguješ kojem dobavljaču i koliko je vraćeno, s potvrdom za vozača.", False),
+    ("lanci", "Usporedba s cijenama lanaca",
+     "Vaše MPC prema javnim cjenicima lanaca (Konzum, Lidl, Plodine, Spar...). Treba internet.", False),
+    ("radnici", "Radnici s PIN-om",
+     "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
+    ("fiskalizacija", "Fiskalizacija računa (kasa)",
+     "Kasa šalje račune Poreznoj (FINA certifikat). Prvo na testu s demo certifikatom; prava fiskalizacija tek uz potvrdu.", False),
+    ("sazetak", "Večernji sažetak na e-mail",
+     "Kod zaključka smjene (ili u zadano vrijeme) stiže e-mail s prometom, blagajnom i što treba naručiti. Treba internet.", False),
+)
+ZADANO = {m[0]: m[3] for m in MODULI}
+
+SHEMA = """
+CREATE TABLE IF NOT EXISTS postavke (
+    kljuc      TEXT PRIMARY KEY,
+    vrijednost TEXT NOT NULL
+);
+"""
+
+
+def pripremi(con):
+    con.executescript(SHEMA)
+
+
+def moduli(con):
+    """{kljuc: True/False} za sve module."""
+    spremljeno = {r[0]: r[1] for r in con.execute(
+        "SELECT kljuc, vrijednost FROM postavke WHERE kljuc LIKE 'modul.%'")}
+    return {k: spremljeno.get("modul." + k, "1" if z else "0") == "1" for k, z in ZADANO.items()}
+
+
+def ukljucen(con, kljuc):
+    return moduli(con).get(kljuc, False)
+
+
+def popis(con):
+    m = moduli(con)
+    return [{"kljuc": k, "naziv": n, "opis": o, "ukljucen": m[k]} for k, n, o, _ in MODULI]
+
+
+def spremi(con, p):
+    """p = {kljuc: bool}. Nepoznati ključevi se odbijaju."""
+    for k in p:
+        if k not in ZADANO:
+            raise Greska("Nepoznat modul: %s." % k)
+    with con:
+        for k, v in p.items():
+            con.execute("INSERT OR REPLACE INTO postavke (kljuc, vrijednost) VALUES (?, ?)",
+                        ("modul." + k, "1" if v in (True, 1, "1", "true") else "0"))
+
+
+def provjeri(con, kljuc):
+    """Greška ako je modul isključen (za API)."""
+    if not ukljucen(con, kljuc):
+        naziv = next(n for k, n, _, _ in MODULI if k == kljuc)
+        raise Greska("Modul \"%s\" je isključen (gumb Postavke gore desno)." % naziv)
+
+
+def vrijednost(con, kljuc, zadano=""):
+    r = con.execute("SELECT vrijednost FROM postavke WHERE kljuc = ?", (kljuc,)).fetchone()
+    return r[0] if r else zadano
+
+
+def postavi(con, kljuc, v):
+    with con:
+        con.execute("INSERT OR REPLACE INTO postavke (kljuc, vrijednost) VALUES (?, ?)", (kljuc, str(v)))

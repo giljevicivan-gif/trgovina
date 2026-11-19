@@ -1,0 +1,2280 @@
+<!doctype html>
+<html lang="hr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kasa - {{NAZIV}}</title>
+<style>
+:root {
+  --bg: #f4f5f2; --panel: #ffffff; --ink: #1d2320; --muted: #66706a; --line: #dfe3dd;
+  --accent: #2f7d4f; --accent-ink: #ffffff; --accent-soft: #e4f2e8;
+  --warn: #a35a00; --warn-soft: #fdf0dc; --danger: #b3261e; --danger-soft: #fbe9e7;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, "Segoe UI", sans-serif; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+.top { display: flex; align-items: center; gap: 18px; padding: 8px 16px; background: var(--panel);
+       border-bottom: 1px solid var(--line); }
+.top h1 { font-size: 17px; margin: 0; }
+.tabs { display: flex; gap: 4px; }
+.tabs button { border: 0; background: none; padding: 8px 11px; white-space: nowrap; border-radius: 8px; color: var(--muted); }
+.tabs button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.top > .btn { padding: 6px 12px; font-size: 14px; }
+#osvjezi { margin-left: 8px; }
+.badge { margin-left: auto; background: var(--warn-soft); color: var(--warn); padding: 4px 10px;
+         border-radius: 999px; font-size: 13px; font-weight: 600; }
+main { padding: 16px; height: calc(100% - 53px); }
+.view { display: none; height: 100%; } .view.on { display: block; }
+.kasa { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; height: 100%; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.lijevo { display: flex; flex-direction: column; gap: 12px; min-height: 0; }
+#trazi { width: 100%; font-size: 20px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 10px; }
+#trazi:focus { outline: none; border-color: var(--accent); }
+.rez { list-style: none; margin: 0; padding: 0; overflow: auto; }
+.rez li { display: flex; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; align-items: baseline; }
+.rez li.sel, .rez li:hover { background: var(--accent-soft); }
+.rez .s { color: var(--muted); width: 48px; font-variant-numeric: tabular-nums; }
+.rez .n { flex: 1; font-weight: 500; }
+.rez .c { font-variant-numeric: tabular-nums; }
+.brzi { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; overflow: auto; }
+.brzi button { border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 12px 8px;
+               text-align: left; min-height: 64px; }
+.brzi button:hover { border-color: var(--accent); }
+.brzi b { display: block; font-size: 14px; } .brzi span { color: var(--muted); font-size: 13px; }
+.kol { display: none; gap: 12px; align-items: center; flex-wrap: wrap; }
+.kol.on { display: flex; }
+.kol .ime { font-size: 18px; font-weight: 600; flex: 1; }
+.kol input { width: 140px; font-size: 22px; padding: 8px 10px; border: 2px solid var(--accent); border-radius: 8px;
+             text-align: right; }
+.btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 9px 14px; }
+.btn.prim { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.opasno { color: var(--danger); border-color: var(--danger); }
+.btn:disabled { opacity: .45; cursor: default; }
+.desno { display: flex; flex-direction: column; min-height: 0; }
+.kosarica { flex: 1; overflow: auto; margin: 0 -14px; }
+.stavka { display: grid; grid-template-columns: 1fr auto auto; gap: 6px 10px; padding: 8px 14px;
+          border-bottom: 1px solid var(--line); align-items: center; }
+.z-ime { color: inherit; text-decoration: underline dotted; }
+.stavka { cursor: pointer; } .stavka:hover { background: var(--accent-soft); }
+.stavka .n { font-weight: 500; }
+.stavka .d { color: var(--muted); font-size: 13px; grid-column: 1; }
+.stavka .i { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; grid-row: 1 / span 2; grid-column: 2; }
+.stavka .x { grid-row: 1 / span 2; grid-column: 3; border: 1px solid var(--danger); background: var(--panel); color: var(--danger);
+             border-radius: 8px; font-size: 14px; padding: 7px 10px; font-weight: 600; }
+.stavka .x:hover { background: var(--danger); color: #fff; }
+.prazno { color: var(--muted); text-align: center; padding: 40px 0; }
+.ukupno { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 0 8px; }
+.ukupno b { font-size: 34px; font-variant-numeric: tabular-nums; }
+.plac { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.plac button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 11px; font-size: 14px; }
+.plac button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.gotovina { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.gotovina input { width: 110px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; text-align: right; }
+#naplati { width: 100%; font-size: 20px; padding: 14px; }
+.opcije { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; color: var(--muted); font-size: 14px; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff;
+         padding: 10px 18px; border-radius: 10px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+.toast.on { opacity: 1; } .toast.err { background: var(--danger); }
+table.t { width: 100%; border-collapse: collapse; }
+table.t th, table.t td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+table.t th { color: var(--muted); font-weight: 500; font-size: 13px; }
+table.t td.r, table.t th.r { text-align: right; font-variant-numeric: tabular-nums; }
+table.t tr.klik { cursor: pointer; } table.t tr.klik:hover { background: var(--accent-soft); }
+.storn { color: var(--muted); text-decoration: line-through; }
+.minus { color: var(--danger); }
+.vjezba { margin: 0 0 8px; padding: 6px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-weight: 600; font-size: 14px; }
+.brojka { background: var(--danger); color: #fff; border-radius: 10px; padding: 0 7px; font-size: 12px; margin-left: 4px; }
+.prov { background: var(--panel); border: 1px solid var(--line); border-left: 6px solid var(--line); border-radius: 10px;
+        margin-bottom: 10px; padding: 10px 14px; }
+.prov.crveno { border-left-color: var(--danger); } .prov.zuto { border-left-color: var(--warn); }
+.prov.ok { border-left-color: var(--accent); }
+.prov summary { cursor: pointer; font-weight: 600; } .prov summary span { color: var(--muted); font-weight: 400; }
+.mob-adr { display: flex; gap: 24px; flex-wrap: wrap; align-items: baseline; margin: 8px 0 12px; }
+.mob-adr b { font-size: 26px; letter-spacing: .5px; } .mob-adr span { color: var(--muted); font-size: 13px; display: block; }
+.prov p { margin: 6px 0 0; color: var(--muted); font-size: 14px; } .prov table { margin-top: 8px; }
+.red { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.red input { padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; }
+.dva { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+#v-nabava .dva { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+#n-desno { overflow-x: auto; }
+.kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.kpi div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.kpi span { color: var(--muted); font-size: 13px; } .kpi b { display: block; font-size: 24px; font-variant-numeric: tabular-nums; }
+.scroll { overflow: auto; max-height: calc(100vh - 160px); }
+h2 { font-size: 16px; margin: 0 0 10px; }
+.napomena { color: var(--muted); font-size: 13px; }
+table.t input { width: 96px; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; text-align: right; }
+table.t input:focus { outline: none; border-color: var(--accent); }
+table.t tfoot td { font-weight: 600; border-bottom: 0; }
+.polja { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.polja label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 13px; }
+.polja input, .polja select, .red select { padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--panel); }
+.trazi-dok { position: relative; margin-bottom: 8px; }
+.trazi-dok input { width: 100%; padding: 9px 12px; border: 2px solid var(--line); border-radius: 8px; }
+.trazi-dok input:focus { outline: none; border-color: var(--accent); }
+.trazi-dok .rez { position: absolute; z-index: 5; left: 0; right: 0; top: 100%; box-shadow: 0 8px 24px rgba(0,0,0,.12); max-height: 320px; }
+.sazetak { display: flex; justify-content: flex-end; gap: 22px; padding: 12px 0; flex-wrap: wrap; }
+.sazetak b { font-variant-numeric: tabular-nums; }
+.upoz { background: var(--warn-soft); color: var(--warn); padding: 8px 12px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+#e-stavke td.r { white-space: nowrap; } #e-stavke input { width: 80px; }
+.razlika-ok { color: var(--accent); } .razlika-ne { color: var(--danger); }
+.i-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.i-grid .card h2 { display: flex; justify-content: space-between; align-items: center; }
+.i-grid .card h2 button { font-size: 12px; padding: 4px 9px; font-weight: 400; }
+.i-siroko { grid-column: 1 / -1; }
+.bar { height: 8px; background: var(--accent); border-radius: 4px; min-width: 2px; }
+#v-izvjestaji .scroll { max-height: 420px; }
+#v-izvjestaji .kpi { grid-template-columns: repeat(5, 1fr); }
+@media print {
+  .top, .red button, .i-grid h2 button, .toast { display: none !important; }
+  main { padding: 0; height: auto; } body { background: #fff; }
+  .view { display: none !important; } #v-izvjestaji.on, #v-danas.on { display: block !important; }
+  .card, .kpi div { border: 0; padding: 4px 0; } .i-grid { grid-template-columns: 1fr; }
+  #v-izvjestaji .scroll, #v-danas .scroll { max-height: none !important; overflow: visible !important; }
+}
+@media (max-width: 900px) {
+  .top { flex-wrap: wrap; gap: 8px; } .tabs { order: 3; width: 100%; overflow-x: auto; }
+  .i-grid { grid-template-columns: 1fr; } #v-izvjestaji .kpi { grid-template-columns: 1fr 1fr; }
+  .kasa, .dva { grid-template-columns: 1fr; height: auto; }
+  main { height: auto; }
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>{{NAZIV}}</h1>
+  <nav class="tabs">
+    <button data-v="danas">Danas</button>
+    <button data-v="kasa" class="on">Kasa</button>
+    <button data-v="racuni">Računi</button>
+    <button data-v="dan">Blagajna</button>
+    <button data-v="narudzbe">Narudžbe</button>
+    <button data-v="nabava">Nabava</button>
+    <button data-v="zaliha">Zaliha</button>
+    <button data-v="izvjestaji">Izvještaji</button>
+    <button data-v="bonovi" hidden>Bonovi</button>
+    <button data-v="haccp" hidden>HACCP</button>
+    <button data-v="kontrola">Kontrola <span class="brojka" id="k-broj" hidden></span></button>
+  </nav>
+  <span class="badge" id="znacka" title="Ovaj program ne izdaje fiskalizirane račune; fiskalne račune i e-Račune izdaje Roba">Račune izdaje Roba</span>
+  <button class="btn" id="osvjezi" title="Ponovno pročita podatke iz Robe (Roba se ne mijenja)">Osvježi iz Robe</button>
+  <button class="btn" id="kopija" title="Sigurnosna kopija baze; radi se i sama kod svakog pokretanja">Sigurnosna kopija</button>
+  <button class="btn" id="postavke-gumb" title="Uključivanje dodatnih modula">Postavke</button>
+</div>
+<div class="card" id="postavke" hidden style="position:fixed;right:16px;top:64px;z-index:20;max-width:480px;width:calc(100% - 32px);max-height:calc(100vh - 80px);overflow-y:auto;overscroll-behavior:contain;box-shadow:0 12px 32px rgba(0,0,0,.18)"></div>
+<main>
+  <section class="view" id="v-bonovi">
+    <div class="card" id="b-bonovi" hidden></div>
+    <div class="card" id="b-vjernost" hidden></div>
+  </section>
+
+  <section class="view" id="v-haccp">
+    <div class="red">
+      <h2 style="margin:0">HACCP dnevnik</h2>
+      <label>Tko upisuje <input id="h-tko" autocomplete="off" style="width:140px"></label>
+      <label>Mjesec <input type="month" id="h-mj"></label>
+      <button class="btn" id="h-ispis">Ispiši mjesec</button>
+      <button class="btn" id="h-postavke-gumb">Uređaji i plan čišćenja</button>
+      <button class="btn" id="h-mob-gumb">Upis s mobitela</button>
+    </div>
+    <div class="card" id="h-mob" hidden></div>
+    <div class="card" id="h-postavke" hidden></div>
+    <div class="i-grid">
+      <div class="card"><h2>Temperature danas</h2><div id="h-temp"></div></div>
+      <div class="card"><h2>Čišćenje prema planu</h2><div id="h-cis"></div></div>
+      <div class="card i-siroko" style="grid-column:1/-1"><h2>Prijem robe</h2><div id="h-prijem"></div></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-danas">
+    <div class="red"><h2 style="margin:0" id="j-naslov">Danas</h2><button class="btn" id="j-osvjezi">Osvježi</button><button class="btn" id="j-ispis">Ispiši</button></div>
+    <div id="j-sadrzaj"></div>
+  </section>
+
+  <section class="view on" id="v-kasa">
+    <div class="kasa">
+      <div class="lijevo">
+        <p class="vjezba">VJEŽBA: ovdje se ne naplaćuje. Svaku prodaju naplatite i izdajte račun u Robi.</p>
+        <input id="trazi" placeholder="Šifra, barkod ili naziv artikla…" autocomplete="off" autofocus>
+        <div class="card kol" id="kol">
+          <span class="ime" id="kol-ime"></span>
+          <span id="kol-cijena" class="napomena"></span>
+          <input id="kol-unos" inputmode="decimal" autocomplete="off">
+          <span id="kol-jm"></span>
+          <label class="napomena">Popust % <input id="kol-popust" inputmode="decimal" autocomplete="off" style="width:70px;font-size:18px"></label>
+          <button class="btn prim" id="kol-dodaj">Dodaj</button>
+          <button class="btn opasno" id="kol-obrisi" hidden>Obriši stavku</button>
+          <button class="btn" id="kol-odustani">Odustani</button>
+        </div>
+        <ul class="rez card" id="rez" hidden></ul>
+        <div class="brzi" id="brzi"></div>
+      </div>
+      <div class="desno card">
+        <div class="kosarica" id="kosarica"></div>
+        <div class="ukupno"><span>Ukupno EUR</span><b id="ukupno">0,00</b></div>
+        <div class="plac" id="plac"></div>
+        <div class="gotovina" id="gotovina">
+          <label>Primljeno <input id="primljeno" inputmode="decimal"></label>
+          <span>Vratiti: <b id="vratiti">-</b></span>
+        </div>
+        <button class="btn prim" id="naplati" disabled>Naplati (F9)</button>
+        <div class="opcije">
+          <label><input type="checkbox" id="ispisi"> Ispiši nakon naplate</label>
+          <button class="btn" id="ocisti">Očisti</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="v-racuni">
+    <div class="dva">
+      <div class="card">
+        <div class="red"><label>Datum <input type="date" id="r-datum"></label></div>
+        <div class="scroll"><table class="t" id="r-tablica"></table></div>
+      </div>
+      <div class="card" id="r-detalj"><p class="napomena">Kliknite račun za detalje.</p></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-dan">
+    <div class="dva" style="margin-bottom:16px">
+      <div class="card" id="b-smjena"></div>
+      <div class="card"><h2>Zaključene smjene</h2><div class="scroll" style="max-height:300px"><table class="t" id="b-povijest"></table></div></div>
+    </div>
+    <div id="d-kasa">
+    <h2>Računi s kase za vježbu po danu</h2>
+    <div class="red"><label>Datum <input type="date" id="d-datum"></label></div>
+    <div class="kpi" id="d-kpi"></div>
+    <div class="dva">
+      <div class="card"><h2>Po načinu plaćanja</h2><table class="t" id="d-plac"></table></div>
+      <div class="card"><h2>PDV po stopama</h2><table class="t" id="d-pdv"></table></div>
+    </div>
+    <p class="napomena">Ovo su samo zapisi kase za vježbu, ne i računi iz Robe.</p>
+    </div>
+  </section>
+
+  <section class="view" id="v-nabava">
+    <div class="red">
+      <button class="btn prim" id="n-nova-primka">Nova primka</button>
+      <button class="btn" id="n-novi-otpis">Novi otpis (kalo, kvar)</button>
+      <button class="btn" id="n-novi-povrat">Povrat dobavljaču</button>
+      <button class="btn" id="n-prijedlog">Prijedlog narudžbe</button>
+      <button class="btn" id="n-dobavljaci">Dobavljači</button>
+      <button class="btn" id="n-usporedba" title="Tko je za koji artikl jeftiniji">Usporedba dobavljača</button>
+      <button class="btn" id="n-dug" hidden title="Računi dobavljača: dospijeće, plaćanja, što kasni">Dugovanja</button>
+      <label>Mjesec <input type="month" id="n-mjesec"></label>
+      <select id="n-vrsta"><option value="">Svi dokumenti</option><option value="primka">Primke</option>
+        <option value="otpis">Otpisi</option><option value="povrat">Povrati</option><option value="inventura">Inventure</option></select>
+    </div>
+    <div class="dva">
+      <div class="card"><div class="scroll"><table class="t" id="n-tablica"></table></div></div>
+      <div class="card" id="n-desno"><p class="napomena">Kliknite dokument za detalje, ili započnite novu primku.</p></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-zaliha">
+    <div class="card">
+      <div class="red">
+        <input id="z-trazi" placeholder="Traži artikl…">
+        <label><input type="checkbox" id="z-minus"> samo u minusu</label>
+        <label><input type="checkbox" id="z-kraj"> pri kraju (ispod minimalne)</label>
+        <button class="btn" id="z-inventura">Inventura</button>
+        <button class="btn prim" id="z-spremi" hidden>Spremi inventuru</button>
+        <button class="btn" id="z-mob-gumb">Inventura s mobitela</button>
+        <button class="btn" id="z-akc-gumb" title="Prijedlog akcije za robu koja stoji, i akcije koje traju">Akcije</button>
+        <button class="btn" id="z-rok-gumb" hidden title="Rokovi trajanja pakirane robe i kalo">Rokovi i kalo</button>
+        <button class="btn" id="z-zpc-gumb" hidden title="Zapisnici o promjeni cijena iz Robe">Promjene cijena</button>
+        <button class="btn" id="z-ispis">Ispiši stanje zalihe</button>
+        <button class="btn" id="z-etikete" title="Etikete za police za artikle koji su trenutno na popisu (suzite pretragom)">Etikete za police</button>
+        <button class="btn" id="z-cjenik" title="Cjenik u CSV obliku za web stranicu (obvezno samo ako trgovina ima web stranicu)">Cjenik (CSV)</button>
+        <span class="napomena" id="z-info"></span>
+      </div>
+      <div class="card upoz" id="z-uredi" hidden></div>
+      <div class="card" id="z-mob" hidden></div>
+      <div class="card" id="z-akc" hidden></div>
+      <div class="card" id="z-rok" hidden></div>
+      <div class="card" id="z-zpc" hidden></div>
+      <p class="napomena">Kliknite naziv artikla za postavke (usluga, podrijetlo, klasa, sidrena cijena, minimalna zaliha).</p>
+      <div class="scroll"><table class="t" id="z-tablica"></table></div>
+    </div>
+  </section>
+  <section class="view" id="v-narudzbe">
+    <div class="red">
+      <button class="btn prim" id="o-nova">Nova narudžba</button>
+      <button class="btn" id="o-kupci" hidden>Kupci i cjenici</button>
+      <button class="btn" id="o-ponude" hidden>Ponude</button>
+      <label><input type="radio" name="o-pogled" value="otvorene" checked> Otvorene</label>
+      <label><input type="radio" name="o-pogled" value="sve"> Sve u mjesecu <input type="month" id="o-mjesec"></label>
+      <span class="napomena">Narudžba nije račun. Kod isporuke račun izdajte u Robi i upišite njegov broj.</span>
+    </div>
+    <div class="dva">
+      <div class="card"><div class="scroll"><table class="t" id="o-tablica"></table></div></div>
+      <div class="card" id="o-desno"><p class="napomena">Kliknite narudžbu za detalje, ili započnite novu.</p></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-kontrola">
+    <div class="red"><button class="btn" id="k-osvjezi">Provjeri ponovno</button>
+      <span class="napomena">Crveno treba riješiti odmah, žuto pogledati. Klik na naslov otvara popis.</span></div>
+    <div id="k-popis"></div>
+  </section>
+
+  <section class="view" id="v-izvjestaji">
+    <div class="red">
+      <button class="btn" data-raz="mj">Ovaj mjesec</button>
+      <button class="btn" data-raz="pmj">Prošli mjesec</button>
+      <button class="btn" data-raz="god">Ova godina</button>
+      <label>Od <input type="date" id="i-od"></label>
+      <label>Do <input type="date" id="i-do"></label>
+      <button class="btn" id="i-ispis">Ispiši</button>
+      <button class="btn" id="i-knjig" title="Primke, povrati, otpisi i inventura za razdoblje, s ulaznim PDV-om (A4)">Za knjigovođu</button>
+      <button class="btn" id="i-knjig-dok" title="Popis dokumenata za razdoblje, CSV za Excel">Dokumenti CSV</button>
+      <button class="btn" id="i-knjig-st" title="Sve stavke dokumenata za razdoblje, CSV za Excel">Stavke CSV</button>
+    </div>
+    <h2 id="i-naslov"></h2>
+    <p class="napomena" id="i-info"></p>
+    <div class="kpi" id="i-kpi"></div>
+    <div class="i-grid">
+      <div class="card"><h2>Promet <button class="btn" data-csv="promet">CSV</button></h2><div class="scroll"><table class="t" id="i-promet"></table></div></div>
+      <div class="card"><h2>Po načinu plaćanja <button class="btn" data-csv="placanja">CSV</button></h2><table class="t" id="i-placanja"></table></div>
+      <div class="card"><h2>Izlazni PDV (prodaja) <button class="btn" data-csv="pdv_izlazni">CSV</button></h2><table class="t" id="i-pdvi"></table>
+        <p class="napomena">Iznosi kako ih je Roba izračunala i fiskalizirala. Roba računa PDV za svaku stavku pa ih zbraja, zato osnovica + PDV na pojedinom računu može od ukupnog odstupati za 1 cent (stupac "Razlika zaokr.").</p></div>
+      <div class="card"><h2>Ulazni PDV (nabava) <button class="btn" data-csv="pdv_ulazni">CSV</button></h2><table class="t" id="i-pdvu"></table>
+        <p class="napomena">PDV je ovdje samo informativan. Službeni obračun (PDV obrazac) radi knjigovođa iz fiskaliziranih računa i eRačuna dobavljača.</p></div>
+      <div class="card i-siroko"><h2>Prodaja i zarada po artiklima <button class="btn" data-csv="artikli">CSV</button></h2><div class="scroll"><table class="t" id="i-artikli"></table></div></div>
+      <div class="card"><h2>Nabava po dobavljačima <button class="btn" data-csv="nabava">CSV</button></h2><div class="scroll"><table class="t" id="i-nabava"></table></div></div>
+      <div class="card"><h2>Otpisi (kalo, kvar) <button class="btn" data-csv="otpisi">CSV</button></h2><div class="scroll"><table class="t" id="i-otpisi"></table></div></div>
+      <div class="card"><h2>Kad se prodaje: po satima <button class="btn" data-csv="po_satima">CSV</button></h2><table class="t" id="i-sati"></table></div>
+      <div class="card"><h2>Po danima u tjednu <button class="btn" data-csv="po_danima">CSV</button></h2><table class="t" id="i-dani"></table>
+        <h2 style="margin-top:18px">ABC analiza <button class="btn" data-csv="abc">CSV</button></h2><table class="t" id="i-abc"></table>
+        <p class="napomena">A = artikli koji donose 80 % prometa (nikad ih ne smije nestati), B = idućih 15 %, C = zadnjih 5 % (kandidati za izbacivanje ili manje narudžbe). Razred piše i u tablici po artiklima.</p></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+<datalist id="zemlje"><option>Hrvatska</option><option>Italija</option><option>Španjolska</option><option>Grčka</option>
+<option>Nizozemska</option><option>Njemačka</option><option>Francuska</option><option>Austrija</option><option>Slovenija</option>
+<option>Srbija</option><option>Bosna i Hercegovina</option><option>Makedonija</option><option>Turska</option><option>Egipat</option>
+<option>Maroko</option><option>Južnoafrička Republika</option><option>Čile</option><option>Peru</option><option>Kostarika</option>
+<option>Ekvador</option><option>Kolumbija</option><option>Novi Zeland</option><option>Izrael</option><option>Kina</option></datalist>
+<datalist id="klase"><option>Extra</option><option>I.</option><option>II.</option></datalist>
+
+<script>
+const $ = s => document.querySelector(s);
+const eur = c => (c / 100).toFixed(2).replace('.', ',');
+const kolTxt = k => (+k.toFixed(3)).toString().replace('.', ',');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd');
+const danas = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+
+let uredjuje = -1;
+let FISKAL = '', KASA = true, ARTIKLI = [], PO_ID = {}, PLACANJA = [], kosarica = [], placanje = null, odabran = null, rezultati = [], sel = 0;
+
+async function api(url, body) {
+  const r = await fetch(url, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.greska || 'Greška');
+  return j;
+}
+function toast(t, err) {
+  const el = $('#toast'); el.textContent = t; el.className = 'toast on' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => el.className = 'toast', err ? 4000 : 2200);
+}
+
+// ---------------------------------------------------------------- Kasa
+// Barkod s vage (EAN-13, prefiks 20-29): 2X PPPPP TTTTT K
+// PPPPP = šifra artikla (PLU) na vagi, TTTTT = težina u gramima, K = kontrolna znamenka.
+function ean13ok(k) {
+  let z = 0;
+  for (let i = 0; i < 12; i++) z += (+k[i]) * (i % 2 ? 3 : 1);
+  return (10 - z % 10) % 10 === +k[12];
+}
+function vaga(kod) {
+  if (!/^2\d{12}$/.test(kod) || !ean13ok(kod)) return null;
+  if (ARTIKLI.some(a => a.barkod === kod)) return null;  // obični barkod u trgovini
+  const plu = kod.slice(2, 7), tezina = parseInt(kod.slice(7, 12), 10) / 1000;
+  const a = ARTIKLI.find(a => a.barkod === plu || a.barkod === kod.slice(0, 7)) ||
+            ARTIKLI.find(a => /^\d+$/.test(a.sifra) && +a.sifra === +plu);
+  return a && tezina > 0 ? {a, tezina} : {greska: 'Barkod s vage: nema artikla sa šifrom ' + (+plu)};
+}
+function trazi(q) {
+  q = q.trim();
+  if (!q) return [];
+  const nq = norm(q);
+  const tocno = ARTIKLI.filter(a => a.sifra === q || (a.barkod && a.barkod === q));
+  const pocetak = ARTIKLI.filter(a => !tocno.includes(a) && norm(a.naziv).startsWith(nq));
+  const sadrzi = ARTIKLI.filter(a => !tocno.includes(a) && !pocetak.includes(a) && norm(a.naziv).includes(nq));
+  return tocno.concat(pocetak, sadrzi).slice(0, 12);
+}
+function prikaziRez() {
+  const ul = $('#rez');
+  ul.hidden = !rezultati.length;
+  $('#brzi').hidden = !!$('#trazi').value.trim();
+  ul.innerHTML = rezultati.map((a, i) =>
+    `<li data-i="${i}" class="${i === sel ? 'sel' : ''}"><span class="s">${esc(a.sifra)}</span>` +
+    `<span class="n">${esc(a.naziv)}</span><span class="c">${eur(a.cijena)} / ${esc(a.jm)}</span></li>`).join('');
+}
+function odaberi(a) {
+  // barkod skener: točan barkod komadnog artikla ide ravno u košaricu
+  if (a.barkod && a.barkod === $('#trazi').value.trim() && a.jm.toLowerCase() !== 'kg') {
+    dodaj(a, 1); return;
+  }
+  odabran = a; uredjuje = -1;
+  $('#kol-dodaj').textContent = 'Dodaj';
+  $('#kol-obrisi').hidden = true;
+  $('#kol-popust').value = '';
+  $('#kol-ime').textContent = a.naziv;
+  $('#kol-cijena').textContent = eur(a.cijena) + ' EUR / ' + a.jm;
+  $('#kol-jm').textContent = a.jm;
+  const unos = $('#kol-unos');
+  unos.value = a.jm.toLowerCase() === 'kg' ? '' : '1';
+  unos.placeholder = a.jm.toLowerCase() === 'kg' ? '0,000' : '1';
+  $('#kol').classList.add('on');
+  rezultati = []; prikaziRez();
+  unos.focus(); unos.select();
+}
+function urediStavku(i) {
+  const s = kosarica[i];
+  odaberi(s.a);
+  uredjuje = i;
+  $('#kol-dodaj').textContent = 'Spremi';
+  $('#kol-obrisi').hidden = false;
+  $('#kol-unos').value = kolTxt(s.kol);
+  $('#kol-popust').value = s.popust ? String(s.popust).replace('.', ',') : '';
+  $('#kol-unos').select();
+}
+function odustani() {
+  odabran = null; uredjuje = -1; $('#kol').classList.remove('on'); $('#kol-obrisi').hidden = true;
+  $('#trazi').value = ''; rezultati = []; prikaziRez(); $('#trazi').focus();
+}
+function dodaj(a, kol, popust) {
+  kol = Math.round(kol * 1000) / 1000;
+  popust = popust || 0;
+  if (!(kol > 0)) { toast('Upišite količinu', true); return; }
+  if (!(popust >= 0 && popust <= 100)) { toast('Popust mora biti između 0 i 100 %', true); return; }
+  if (uredjuje >= 0) { kosarica[uredjuje].kol = kol; kosarica[uredjuje].popust = popust; }
+  else {
+    const isti = kosarica.find(s => s.a.id === a.id && (s.popust || 0) === popust);
+    if (isti && a.jm.toLowerCase() !== 'kg') isti.kol += kol;
+    else kosarica.push({a, kol, popust});
+  }
+  crtajKosaricu(); odustani();
+}
+function iznos(s) { return Math.round(s.a.cijena * s.kol * (1 - (s.popust || 0) / 100)); }
+function ukupno() { return kosarica.reduce((z, s) => z + iznos(s), 0); }
+function crtajKosaricu() {
+  const el = $('#kosarica');
+  el.innerHTML = kosarica.length ? kosarica.map((s, i) =>
+    `<div class="stavka" data-i="${i}" title="Kliknite za izmjenu količine ili popusta"><span class="n">${esc(s.a.naziv)}</span>` +
+    `<span class="i">${eur(iznos(s))}</span><button class="x" data-i="${i}" title="Obriši ovu stavku iz košarice">✕ Obriši</button>` +
+    `<span class="d">${kolTxt(s.kol)} ${esc(s.a.jm)} × ${eur(s.a.cijena)}${s.popust ? ' − ' + String(s.popust).replace('.', ',') + ' %' : ''}</span></div>`).join('')
+    : '<p class="prazno">Košarica je prazna</p>';
+  el.scrollTop = el.scrollHeight;
+  $('#ukupno').textContent = eur(ukupno());
+  $('#naplati').disabled = !kosarica.length;
+  vratiti();
+}
+function crtajPlacanja() {
+  $('#plac').innerHTML = PLACANJA.map(p =>
+    `<button data-id="${p.id}" class="${p.id === placanje ? 'on' : ''}">${esc(p.naziv)}</button>`).join('');
+  const got = PLACANJA.find(p => p.id === placanje);
+  $('#gotovina').style.visibility = got && /gotov/i.test(got.naziv) ? 'visible' : 'hidden';
+}
+function vratiti() {
+  const p = parseFloat($('#primljeno').value.replace(',', '.'));
+  $('#vratiti').textContent = p > 0 ? eur(Math.round(p * 100) - ukupno()) : '-';
+}
+// oznake kase: vježba, test fiskalizacija (demo certifikat) ili prava fiskalizacija
+function oznaciKasu() {
+  if (!KASA) return;
+  const v = document.querySelector('#v-kasa .vjezba');
+  if (FISKAL === 'test') {
+    $('#znacka').textContent = 'Kasa: TEST FISKALIZACIJA';
+    v.hidden = false;
+    v.textContent = 'TEST FISKALIZACIJA (demo certifikat): računi idu na testni poslužitelj Porezne i NE vrijede. Pravu prodaju i dalje naplatite u Robi.';
+    $('#naplati').textContent = 'Naplati test (F9)';
+  } else if (FISKAL === 'produkcija') {
+    $('#znacka').textContent = 'Fiskalna kasa';
+    v.hidden = true;
+    $('#naplati').textContent = 'Naplati (F9)';
+  } else {
+    $('#znacka').textContent = 'Kasa: VJEŽBA';
+    v.hidden = false;
+    v.textContent = 'VJEŽBA: ovdje se ne naplaćuje. Svaku prodaju naplatite i izdajte račun u Robi.';
+    $('#naplati').textContent = 'Zapiši vježbu (F9)';
+  }
+}
+function fiskalPoruka(f) {
+  if (!f) return;
+  if (f.status === 'poslan') toast('Fiskalizirano' + (f.okolina === 'test' ? ' (TEST)' : '') + ', JIR ' + f.jir.slice(0, 8) + '…');
+  else toast('Račun izdan BEZ JIR-a (šalje se ponovno sam): ' + f.poruka, true);
+}
+async function naplati() {
+  if (!kosarica.length || $('#naplati').disabled) return;
+  $('#naplati').disabled = true;
+  try {
+    const r = await api('/api/naplati', {nacin_placanja_id: placanje,
+      stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
+    if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
+    kosarica = []; $('#primljeno').value = ''; crtajKosaricu();
+    if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
+  } catch (e) { toast(e.message, true); $('#naplati').disabled = false; }
+  $('#trazi').focus();
+}
+
+$('#trazi').addEventListener('input', e => { rezultati = trazi(e.target.value); sel = 0; prikaziRez(); });
+$('#trazi').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { sel = Math.min(sel + 1, rezultati.length - 1); prikaziRez(); e.preventDefault(); }
+  else if (e.key === 'ArrowUp') { sel = Math.max(sel - 1, 0); prikaziRez(); e.preventDefault(); }
+  else if (e.key === 'Enter') {
+    const v = vaga(e.target.value.trim());
+    if (v && v.greska) { toast(v.greska, true); e.target.select(); }
+    else if (v) { uredjuje = -1; dodaj(v.a, v.tezina, 0); toast(v.a.naziv + ' ' + kolTxt(v.tezina) + ' kg (vaga)'); }
+    else if (rezultati[sel]) odaberi(rezultati[sel]);
+  }
+  else if (e.key === 'Escape') odustani();
+});
+$('#rez').addEventListener('click', e => { const li = e.target.closest('li'); if (li) odaberi(rezultati[+li.dataset.i]); });
+$('#brzi').addEventListener('click', e => { const b = e.target.closest('button'); if (b) odaberi(PO_ID[b.dataset.id]); });
+const dodajOdabrani = () => odabran && dodaj(odabran, parseFloat($('#kol-unos').value.replace(',', '.')),
+  parseFloat($('#kol-popust').value.replace(',', '.')) || 0);
+['#kol-unos', '#kol-popust'].forEach(id => $(id).addEventListener('keydown', e => {
+  if (e.key === 'Enter') dodajOdabrani(); else if (e.key === 'Escape') odustani();
+}));
+$('#kol-dodaj').addEventListener('click', dodajOdabrani);
+$('#kol-odustani').addEventListener('click', odustani);
+$('#kol-obrisi').addEventListener('click', () => {
+  if (uredjuje >= 0) { kosarica.splice(uredjuje, 1); crtajKosaricu(); }
+  odustani();
+});
+$('#kosarica').addEventListener('click', e => {
+  const b = e.target.closest('.x'); if (b) { kosarica.splice(+b.dataset.i, 1); crtajKosaricu(); odustani(); return; }
+  const st = e.target.closest('.stavka'); if (st) urediStavku(+st.dataset.i);
+});
+$('#plac').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (b) { placanje = +b.dataset.id; crtajPlacanja(); }
+});
+$('#primljeno').addEventListener('input', vratiti);
+$('#naplati').addEventListener('click', naplati);
+$('#ocisti').addEventListener('click', () => { kosarica = []; crtajKosaricu(); odustani(); });
+document.addEventListener('keydown', e => { if (e.key === 'F9') { e.preventDefault(); naplati(); } });
+
+// ---------------------------------------------------------------- Računi
+async function ucitajRacune() {
+  const rows = await api('/api/racuni?datum=' + $('#r-datum').value);
+  $('#r-tablica').innerHTML = '<tr><th>Broj</th><th>Vrijeme</th><th>Plaćanje</th><th class="r">Stavki</th><th class="r">Iznos</th></tr>' +
+    (rows.length ? rows.map(r =>
+      `<tr class="klik ${r.storniran ? 'storn' : ''}" data-id="${r.id}"><td>${r.oznaka}${r.storno_od ? ' (storno)' : ''}` +
+      (r.fiskal ? ` <span class="napomena" title="Fiskalni broj${r.fiskal.okolina === 'test' ? ', TEST' : ''}">${esc(r.fiskal.oznaka)}${r.fiskal.okolina === 'test' ? ' T' : ''}</span>` +
+        (r.fiskal.status === 'poslan' ? '' : ' <b class="minus" title="Nema JIR-a">bez JIR-a</b>') : '') + '</td>' +
+      `<td>${r.vrijeme.slice(11, 16)}</td><td>${esc(r.placanje)}</td><td class="r">${r.stavki}</td>` +
+      `<td class="r ${r.ukupno < 0 ? 'minus' : ''}">${eur(r.ukupno)}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="napomena">Nema računa za taj dan.</td></tr>');
+}
+async function prikaziRacun(id) {
+  const r = await api('/api/racun/' + id);
+  const moze = !r.storniran && !r.storno_od;
+  $('#r-detalj').innerHTML = `<h2>${r.oznaka}${r.storno_od ? ' — storno računa K-' + r.o_godina + '-' + r.o_broj : ''}${r.storniran ? ' (storniran)' : ''}</h2>` +
+    `<p class="napomena">${r.vrijeme} · ${esc(r.placanje)}</p>` +
+    (r.fiskal ? `<p class="napomena">Fiskalni račun ${esc(r.fiskal.oznaka)}${r.fiskal.okolina === 'test' ? ' (TEST, ne vrijedi)' : ''}<br>ZKI: ${esc(r.fiskal.zki)}<br>` +
+      (r.fiskal.jir ? `JIR: ${esc(r.fiskal.jir)}` : `<b class="minus">Bez JIR-a</b>: ${esc(r.fiskal.poruka)} <button class="btn" id="r-fiskal">Pošalji ponovno</button>`) + '</p>' : '') +
+    '<table class="t"><tr><th>Artikl</th><th class="r">Količina</th><th class="r">Cijena</th><th class="r">Iznos</th></tr>' +
+    r.stavke.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td>` +
+      `<td class="r">${eur(s.cijena)}</td><td class="r">${eur(s.iznos)}</td></tr>`).join('') +
+    `<tr><th colspan="3">Ukupno</th><th class="r">${eur(r.ukupno)}</th></tr></table>` +
+    `<div class="red" style="margin-top:12px"><button class="btn" id="r-ispis">Ispiši</button>` +
+    (moze ? '<button class="btn opasno" id="r-storno">Storniraj</button>' : '') + '</div>';
+  $('#r-ispis').onclick = () => window.open('/ispis/' + id + '#ispis', 'ispis', 'width=420,height=640');
+  if ($('#r-fiskal')) $('#r-fiskal').onclick = async () => {
+    try { const x = await api('/api/fiskal/posalji', {id: +id}); toast(x.poslano ? 'Poslano, dobiven JIR' : 'Nije poslano: ' + x.poruka, !x.poslano); }
+    catch (e) { toast(e.message, true); }
+    ucitajRacune(); prikaziRacun(id);
+  };
+  const sb = $('#r-storno');
+  if (sb) sb.onclick = async () => {
+    if (!sb.dataset.potvrda) { sb.dataset.potvrda = 1; sb.textContent = 'Sigurno stornirati? Kliknite opet'; return; }
+    try {
+      const n = await api('/api/storno/' + id, {});
+      if (n.fiskal) fiskalPoruka(n.fiskal); else toast('Račun storniran');
+      await ucitajRacune(); prikaziRacun(n.id); osvjeziArtikle();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+$('#r-datum').addEventListener('change', ucitajRacune);
+$('#r-tablica').addEventListener('click', e => { const tr = e.target.closest('tr.klik'); if (tr) prikaziRacun(tr.dataset.id); });
+
+// ---------------------------------------------------------------- Pregled dana
+async function ucitajDan() {
+  const d = await api('/api/dan?datum=' + $('#d-datum').value);
+  $('#d-kpi').innerHTML = `<div><span>Promet</span><b>${eur(d.ukupno)} €</b></div>` +
+    `<div><span>Računa</span><b>${d.racuna}</b></div>` +
+    `<div><span>Procijenjena zarada (neto)</span><b>${eur(d.zarada)} €</b></div>`;
+  $('#d-plac').innerHTML = '<tr><th>Način</th><th class="r">Računa</th><th class="r">Iznos</th></tr>' +
+    d.po_placanju.map(p => `<tr><td>${esc(p.naziv)}</td><td class="r">${p.n}</td><td class="r">${eur(p.iznos)}</td></tr>`).join('');
+  $('#d-pdv').innerHTML = '<tr><th>Stopa</th><th class="r">Osnovica</th><th class="r">PDV</th><th class="r">Ukupno</th></tr>' +
+    d.pdv.map(p => `<tr><td>${p.stopa} %</td><td class="r">${eur(p.osnovica)}</td><td class="r">${eur(p.pdv)}</td><td class="r">${eur(p.iznos)}</td></tr>`).join('');
+}
+$('#d-datum').addEventListener('change', ucitajDan);
+
+// ---------------------------------------------------------------- Nabava i zaliha
+let SVI = [], ZAL = [], ZAL_ID = {}, PARTNERI = [], dok = null, inventura = false;
+const broj = v => parseFloat(String(v).replace(',', '.'));
+const vpc = a => a.cijena / (1 + a.pdv_stopa / 100);
+const ruc = (a, nab) => nab > 0 ? ((vpc(a) - nab) / nab * 100).toFixed(1).replace('.', ',') + ' %' : '';
+const NASLOV = {primka: 'Primka', otpis: 'Otpis', inventura: 'Inventura', povrat: 'Povrat'};
+const sDob = v => v === 'primka' || v === 'povrat';
+// kalkulacija: željena marža (na nabavnu bez PDV-a) pamti se u pregledniku
+let MARZA = '';
+try { MARZA = localStorage.getItem('marza') || ''; } catch (e) { /* bez spremanja */ }
+function predlozenaMpc(nab, stopa) {
+  const m = broj(MARZA);
+  if (!(m > 0) || !(nab > 0)) return 0;
+  const p = nab * (1 + m / 100) * (1 + stopa / 100);
+  return Math.ceil((p + 1) / 10) * 10 - 1;  // zaokruženo na ,x9
+}
+
+async function ucitajZalihu() {
+  const z = await api('/api/zaliha');
+  SVI = z.artikli; ZAL = SVI.filter(a => !a.usluga); ZAL_ID = {}; SVI.forEach(a => ZAL_ID[a.id] = a);
+  PARTNERI = z.partneri;
+}
+
+async function ucitajDokumente() {
+  const rows = await api('/api/dokumenti?mjesec=' + $('#n-mjesec').value + '&vrsta=' + $('#n-vrsta').value);
+  $('#n-tablica').innerHTML = '<tr><th>Broj</th><th>Datum</th><th>Dobavljač / napomena</th><th class="r">Stavki</th><th class="r">Vrijednost</th></tr>' +
+    (rows.length ? rows.map(d =>
+      `<tr class="klik ${d.storniran ? 'storn' : ''}" data-id="${d.id}"><td>${d.oznaka}${d.storno_od ? ' (storno)' : ''}</td>` +
+      `<td>${d.datum.split('-').reverse().join('.')}</td><td>${esc(d.partner || d.napomena)}</td>` +
+      `<td class="r">${d.stavki}</td><td class="r ${d.neto < 0 ? 'minus' : ''}">${eur(d.neto + d.pdv)}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="napomena">Nema dokumenata u tom mjesecu.</td></tr>');
+}
+
+async function prikaziDokument(id) {
+  const d = await api('/api/dokument/' + id);
+  const primka = sDob(d.vrsta);
+  const moze = !d.storniran && !d.storno_od;
+  $('#n-desno').innerHTML = `<h2>${NASLOV[d.vrsta]} ${d.oznaka}${d.storno_od ? ' — storno ' + d.o_oznaka : ''}${d.storniran ? ' (stornirana)' : ''}</h2>` +
+    `<p class="napomena">${d.datum.split('-').reverse().join('.')}${d.partner ? ' · ' + esc(d.partner) : ''}` +
+    `${d.broj_dobavljaca ? ' · račun ' + esc(d.broj_dobavljaca) : ''}${d.napomena ? ' · ' + esc(d.napomena) : ''}</p>` +
+    '<table class="t"><tr><th>Artikl</th><th class="r">Količina</th><th class="r">Nab. cijena</th><th class="r">Iznos</th></tr>' +
+    d.stavke.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td>` +
+      `<td class="r">${eur(s.cijena)}</td><td class="r">${eur(s.iznos)}</td></tr>`).join('') +
+    `<tfoot><tr><td colspan="3">${primka ? 'Bez PDV-a ' + eur(d.neto) + ' + PDV ' + eur(d.pdv) + ' =' : 'Ukupno po nabavnoj'}</td>` +
+    `<td class="r">${eur(d.neto + d.pdv)}</td></tr></tfoot></table>` +
+    `<div class="red" style="margin-top:12px"><button class="btn" id="n-ispis">Ispiši</button>` +
+    (moze ? '<button class="btn opasno" id="n-storno">Storniraj</button>' : '') + '</div>';
+  $('#n-ispis').onclick = () => window.open('/ispis_dok/' + id + (d.vrsta === 'primka' && broj(MARZA) > 0 ? '?marza=' + encodeURIComponent(MARZA) : '') + '#ispis', 'ispisdok', 'width=900,height=900');
+  const sb = $('#n-storno');
+  if (sb) sb.onclick = async () => {
+    if (!sb.dataset.potvrda) { sb.dataset.potvrda = 1; sb.textContent = 'Sigurno stornirati? Kliknite opet'; return; }
+    try {
+      const n = await api('/api/storno_dok/' + id, {});
+      toast('Dokument storniran'); await ucitajZalihu(); await ucitajDokumente(); prikaziDokument(n.id);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+
+function noviDokument(vrsta) {
+  dok = {vrsta, stavke: []};
+  const primka = vrsta === 'primka', povrat = vrsta === 'povrat';
+  $('#n-desno').innerHTML = `<h2>${primka ? 'Nova primka' : povrat ? 'Povrat robe dobavljaču' : 'Novi otpis'}</h2>` +
+    (primka ? '' : povrat ? '<p class="napomena">Povrat smanjuje zalihu. Cijena je nabavna bez PDV-a po kojoj dobavljač odobrava (predložena je zadnja nabavna).</p>'
+      : '<p class="napomena">Otpis smanjuje zalihu po prosječnoj nabavnoj cijeni (kalo, pokvarena roba, lom).</p>') +
+    '<div class="polja">' +
+    (sDob(vrsta) ? '<label>Dobavljač <select id="e-partner"><option value="">— odaberite —</option>' +
+       PARTNERI.map(p => `<option value="${p.id}">${esc(p.naziv)}</option>`).join('') + '</select></label>' +
+       `<label>${povrat ? 'Odnosi se na račun' : 'Broj računa dobavljača'} <input id="e-broj" autocomplete="off"></label>` : '') +
+    (primka ? '<label>Rabat % za sve stavke <input id="e-rabat" inputmode="decimal" autocomplete="off" placeholder="npr. 20"></label>' +
+       `<label title="Za prijedlog nove MPC: marža na nabavnu cijenu bez PDV-a">Željena marža % <input id="e-marza" inputmode="decimal" autocomplete="off" value="${esc(MARZA)}" placeholder="npr. 35" style="width:70px"></label>` : '') +
+    `<label>Datum <input type="date" id="e-datum" value="${danas()}" max="${danas()}"></label>` +
+    `<label>${primka ? 'Napomena' : 'Razlog'} <input id="e-napomena" autocomplete="off"${povrat ? ' placeholder="npr. pokvareno, krivo isporučeno"' : ''}></label>` +
+    (primka ? '<label>Iznos s računa (za provjeru) <input id="e-kontrola" inputmode="decimal" autocomplete="off"></label>' : '') +
+    '</div>' +
+    '<div class="trazi-dok"><input id="e-trazi" placeholder="Dodaj artikl: šifra ili naziv, pa Enter" autocomplete="off"><ul class="rez card" id="e-rez" hidden></ul></div>' +
+    '<table class="t" id="e-stavke"></table><div class="sazetak" id="e-sazetak"></div>' +
+    '<div class="red"><button class="btn prim" id="e-spremi">Spremi</button><button class="btn" id="e-odustani">Odustani</button></div>';
+  let rez = [], i = 0;
+  const crtajRez = () => {
+    const ul = $('#e-rez'); ul.hidden = !rez.length;
+    ul.innerHTML = rez.map((a, k) => `<li data-k="${k}" class="${k === i ? 'sel' : ''}"><span class="s">${esc(a.sifra)}</span>` +
+      `<span class="n">${esc(a.naziv)}</span><span class="c">${kolTxt(a.zaliha)} ${esc(a.jm)}</span></li>`).join('');
+  };
+  const dodajStavku = a => {
+    const rab = $('#e-rabat') && $('#e-rabat').value.trim() !== '' ? $('#e-rabat').value.trim()
+      : String(a.zadnji_rabat || 0).replace('.', ',');
+    dok.stavke.push({a, kol: '', rabat: rab,
+      cijena: primka ? (a.zadnja_fakturna / 100).toFixed(2).replace('.', ',')
+        : povrat ? (a.zadnja_nabavna / 100).toFixed(2).replace('.', ',') : ''});
+    $('#e-trazi').value = ''; rez = []; crtajRez(); crtajStavke();
+    const inputs = document.querySelectorAll('#e-stavke input.ekol'); inputs[inputs.length - 1].focus();
+  };
+  $('#e-trazi').oninput = e => {
+    const q = norm(e.target.value.trim()); i = 0;
+    rez = !q ? [] : ZAL.filter(a => a.sifra === e.target.value.trim()).concat(
+      ZAL.filter(a => a.sifra !== e.target.value.trim() && norm(a.naziv).includes(q))).slice(0, 10);
+    crtajRez();
+  };
+  $('#e-trazi').onkeydown = e => {
+    if (e.key === 'ArrowDown') { i = Math.min(i + 1, rez.length - 1); crtajRez(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { i = Math.max(i - 1, 0); crtajRez(); e.preventDefault(); }
+    else if (e.key === 'Enter' && rez[i]) dodajStavku(rez[i]);
+    else if (e.key === 'Escape') { e.target.value = ''; rez = []; crtajRez(); }
+  };
+  $('#e-rez').onclick = e => { const li = e.target.closest('li'); if (li) dodajStavku(rez[+li.dataset.k]); };
+  if (primka) $('#e-kontrola').oninput = sazetak;
+  if (primka) $('#e-marza').oninput = () => {
+    MARZA = $('#e-marza').value.trim();
+    try { localStorage.setItem('marza', MARZA); } catch (e) { /* bez spremanja */ }
+    sazetak();
+  };
+  if (primka) $('#e-rabat').oninput = () => { dok.stavke.forEach(s => s.rabat = $('#e-rabat').value.trim()); crtajStavke(); };
+  $('#e-odustani').onclick = () => { dok = null; $('#n-desno').innerHTML = '<p class="napomena">Odustali ste.</p>'; };
+  $('#e-spremi').onclick = spremiDokument;
+  crtajStavke();
+  (sDob(vrsta) ? $('#e-partner') : $('#e-trazi')).focus();
+}
+
+function crtajStavke() {
+  const primka = dok.vrsta === 'primka', povrat = dok.vrsta === 'povrat';
+  $('#e-stavke').innerHTML = '<tr><th>Artikl</th><th class="r">Količina</th>' +
+    (primka ? '<th class="r">Cijena s računa bez PDV</th><th class="r">Rabat %</th><th class="r">Nabavna</th><th class="r">MPC</th><th class="r">RUC</th><th class="r" title="MPC uz željenu maržu, zaokružena na ,x9">Predl. MPC</th>'
+      : povrat ? '<th class="r">Na zalihi</th><th class="r">Nab. cijena bez PDV</th>' : '<th class="r">Na zalihi</th>') +
+    '<th class="r">Iznos</th><th></th></tr>' +
+    (dok.stavke.length ? dok.stavke.map((s, k) =>
+      `<tr><td>${esc(s.a.naziv)}</td><td class="r"><input class="ekol" data-k="${k}" value="${s.kol}" inputmode="decimal"> ${esc(s.a.jm)}</td>` +
+      (primka ? `<td class="r"><input class="cij" data-k="${k}" value="${s.cijena}" inputmode="decimal"></td>` +
+        `<td class="r"><input class="rab" data-k="${k}" value="${s.rabat}" inputmode="decimal" style="width:56px"></td>` +
+        `<td class="r" id="net${k}"></td><td class="r">${eur(s.a.cijena)}</td><td class="r" id="ruc${k}"></td><td class="r" id="pmpc${k}"></td>`
+        : `<td class="r">${kolTxt(s.a.zaliha)}</td>` +
+          (povrat ? `<td class="r"><input class="cij" data-k="${k}" value="${s.cijena}" inputmode="decimal"></td>` : '')) +
+      `<td class="r" id="izn${k}"></td><td><button class="btn x" data-k="${k}" title="Ukloni">×</button></td></tr>`).join('')
+      : `<tr><td colspan="10" class="napomena">Dodajte artikle preko polja iznad.</td></tr>`);
+  document.querySelectorAll('#e-stavke input').forEach(inp => {
+    inp.oninput = () => {
+      const s = dok.stavke[+inp.dataset.k], c = inp.classList;
+      if (c.contains('ekol')) s.kol = inp.value; else if (c.contains('rab')) s.rabat = inp.value; else s.cijena = inp.value;
+      sazetak();
+    };
+    inp.onkeydown = e => {
+      if (e.key !== 'Enter') return;
+      const tr = inp.closest('tr'), c = inp.classList;
+      if (c.contains('ekol') && tr.querySelector('.cij')) tr.querySelector('.cij').select();
+      else if (c.contains('cij') && primka) tr.querySelector('.rab').select();
+      else $('#e-trazi').focus();
+    };
+  });
+  document.querySelectorAll('#e-stavke button.x').forEach(b => b.onclick = () => { dok.stavke.splice(+b.dataset.k, 1); crtajStavke(); });
+  sazetak();
+}
+
+function sazetak() {
+  const primka = dok.vrsta === 'primka', povrat = dok.vrsta === 'povrat';
+  let neto = 0, pdv = 0;
+  const poStopi = {};  // PDV na zbroj osnovica po stopi, isto kao na serveru i na računu dobavljača
+  dok.stavke.forEach((s, k) => {
+    const kol = broj(s.kol) || 0, rab = primka ? (broj(s.rabat) || 0) : 0;
+    const fakt = primka || povrat ? Math.round((broj(s.cijena) || 0) * 100) : s.a.nabavna;
+    const cij = Math.round(fakt * (1 - rab / 100) + 1e-7), izn = Math.round(kol * fakt * (1 - rab / 100) + 1e-7);
+    if (primka) $('#net' + k).textContent = eur(cij);
+    neto += izn; if (primka || povrat) poStopi[s.a.pdv_stopa] = (poStopi[s.a.pdv_stopa] || 0) + izn;
+    $('#izn' + k).textContent = eur(izn);
+    if (primka) {
+      $('#ruc' + k).textContent = ruc(s.a, cij);
+      const p = predlozenaMpc(cij, s.a.pdv_stopa);
+      $('#pmpc' + k).innerHTML = p && p !== s.a.cijena ? `<b class="${p > s.a.cijena ? 'minus' : ''}">${eur(p)}</b>` : (p ? eur(p) : '');
+    }
+    const z = s.a.zadnja_nabavna;
+    if (primka && z > 0 && cij > 0 && Math.abs(cij - z) / z > 0.1) {
+      const pr = Math.round((cij - z) / z * 100);
+      $('#net' + k).innerHTML = `${eur(cij)} <span class="minus" title="Zadnja nabavna bila je ${eur(z)}">${pr > 0 ? '▲' : '▼'}${Math.abs(pr)} %</span>`;
+    }
+  });
+  Object.entries(poStopi).forEach(([st, o]) => { pdv += Math.round(o * st / 100 + 1e-7); });
+  let h = primka || povrat ? `<span>Bez PDV-a <b>${eur(neto)}</b></span><span>PDV <b>${eur(pdv)}</b></span><span>Ukupno <b>${eur(neto + pdv)}</b></span>`
+                 : `<span>Vrijednost otpisa <b>${eur(neto)}</b></span>`;
+  if (primka && $('#e-kontrola').value.trim()) {
+    const r = Math.round(broj($('#e-kontrola').value) * 100) - (neto + pdv);
+    h += `<span class="${Math.abs(r) <= 2 ? 'razlika-ok' : 'razlika-ne'}">Razlika prema računu <b>${eur(r)}</b></span>`;
+  }
+  $('#e-sazetak').innerHTML = h;
+}
+
+async function spremiDokument() {
+  const primka = dok.vrsta === 'primka', povrat = dok.vrsta === 'povrat';
+  const podaci = {vrsta: dok.vrsta, datum: $('#e-datum').value, napomena: $('#e-napomena').value,
+    stavke: dok.stavke.map(s => ({artikl_id: s.a.id, kolicina: broj(s.kol), cijena: primka || povrat ? broj(s.cijena) : null, rabat: primka ? (broj(s.rabat) || 0) : 0}))};
+  if (sDob(dok.vrsta)) { podaci.partner_id = $('#e-partner').value; podaci.broj_dobavljaca = $('#e-broj').value; }
+  $('#e-spremi').disabled = true;
+  try {
+    const r = await api('/api/dokument', podaci);
+    toast('Spremljeno'); dok = null;
+    await ucitajZalihu(); await ucitajDokumente(); prikaziDokument(r.id);
+  } catch (e) { toast(e.message, true); $('#e-spremi').disabled = false; }
+}
+
+function crtajZalihu() {
+  const q = norm($('#z-trazi').value.trim()), minus = $('#z-minus').checked, kraj = $('#z-kraj').checked;
+  const rows = (inventura || minus || kraj ? ZAL : SVI).filter(a => (!q || norm(a.naziv).includes(q) || a.sifra === q) &&
+    (!minus || a.zaliha < 0) && (!kraj || (a.min_zaliha > 0 && a.zaliha < a.min_zaliha)));
+  const zb = k => rows.reduce((z, a) => z + a[k], 0);
+  $('#z-info').textContent = `U minusu: ${ZAL.filter(a => a.zaliha < 0).length} · pri kraju: ${ZAL.filter(a => a.min_zaliha > 0 && a.zaliha < a.min_zaliha).length} artikala`;
+  const razlika = a => {
+    const v = broj(a.inv ?? '');
+    return isNaN(v) ? '' : kolTxt(Math.round((v - a.zaliha) * 1000) / 1000);
+  };
+  $('#z-tablica').innerHTML = '<thead><tr><th>Šifra</th><th>Naziv</th><th class="r">Zaliha</th>' +
+    (inventura ? '<th class="r">Prebrojano</th><th class="r">Razlika</th>' : '') +
+    '<th class="r">Nab. cijena</th><th class="r">Netto nabavna</th><th class="r">PDV nabavna</th>' +
+    '<th class="r">MPC</th><th class="r">Netto prodajna</th><th class="r">PDV na prodajnu</th><th class="r">RUC</th></tr></thead><tbody>' +
+    rows.map(a => a.usluga ? `<tr><td>${esc(a.sifra)}</td><td><a href="#" class="z-ime" data-id="${a.id}">${esc(a.naziv)}</a></td>` +
+      `<td class="r napomena">usluga</td><td colspan="3"></td><td class="r">${eur(a.cijena)}</td><td colspan="3"></td></tr>` :
+      `<tr><td>${esc(a.sifra)}</td><td><a href="#" class="z-ime" data-id="${a.id}">${esc(a.naziv)}</a></td>` +
+      `<td class="r ${a.zaliha < 0 || (a.min_zaliha > 0 && a.zaliha < a.min_zaliha) ? 'minus' : ''}" title="${a.min_zaliha ? 'Minimalna zaliha ' + kolTxt(a.min_zaliha) : ''}">${kolTxt(a.zaliha)} ${esc(a.jm)}</td>` +
+      (inventura ? `<td class="r"><input class="inv" data-id="${a.id}" inputmode="decimal" value="${a.inv ?? ''}"></td>` +
+        `<td class="r" id="raz${a.id}">${razlika(a)}</td>` : '') +
+      `<td class="r">${eur(a.nabavna)}</td><td class="r">${eur(a.nab_netto)}</td><td class="r">${eur(a.nab_pdv)}</td>` +
+      `<td class="r">${eur(a.cijena)}</td><td class="r">${eur(a.pro_netto)}</td><td class="r">${eur(a.pro_pdv)}</td>` +
+      `<td class="r">${ruc(a, a.nabavna)}</td></tr>`).join('') +
+    `</tbody><tfoot><tr><td colspan="${inventura ? 6 : 4}">Ukupno (${rows.length} artikala)</td>` +
+    `<td class="r">${eur(zb('nab_netto'))}</td><td class="r">${eur(zb('nab_pdv'))}</td><td></td>` +
+    `<td class="r">${eur(zb('pro_netto'))}</td><td class="r">${eur(zb('pro_pdv'))}</td><td></td></tr></tfoot>`;
+  document.querySelectorAll('#z-tablica input.inv').forEach(inp => {
+    inp.oninput = () => { const a = ZAL_ID[inp.dataset.id]; a.inv = inp.value; $('#raz' + a.id).textContent = razlika(a); };
+    inp.onkeydown = e => { if (e.key === 'Enter') { const n = inp.closest('tr').nextElementSibling; if (n) n.querySelector('input').select(); } };
+  });
+}
+$('#z-trazi').addEventListener('input', crtajZalihu);
+$('#z-kraj').addEventListener('change', crtajZalihu);
+$('#z-etikete').addEventListener('click', () => {
+  const ids = [...document.querySelectorAll('#z-tablica .z-ime')].map(l => l.dataset.id).filter(id => !ZAL_ID[id].usluga);
+  if (!ids.length) { toast('Nema artikala na popisu', true); return; }
+  window.open('/ispis_etikete?ids=' + ids.join(','), 'etikete', 'width=900,height=900');
+});
+$('#z-tablica').addEventListener('click', e => {
+  const l = e.target.closest('.z-ime'); if (!l) return;
+  e.preventDefault();
+  const a = ZAL_ID[l.dataset.id], box = $('#z-uredi');
+  box.hidden = false;
+  box.innerHTML = `<div class="red"><b>${esc(a.naziv)}</b>` +
+    `<label><input type="checkbox" id="u-usluga" ${a.usluga ? 'checked' : ''}> usluga (nema zalihu)</label>` +
+    `<label ${MODULI.voce_povrce ? '' : 'hidden'}>Podrijetlo <input id="u-podrijetlo" list="zemlje" value="${esc(a.podrijetlo || '')}" style="width:130px"></label>` +
+    `<label ${MODULI.voce_povrce ? '' : 'hidden'}>Klasa <input id="u-klasa" list="klase" value="${esc(a.klasa || '')}" style="width:70px"></label>` +
+    `<label title="Cijena na 2.5.2025. ili na prvi dan u ponudi; ističe se na etiketi od 17.11.2026.">Sidrena cijena <input id="u-sidrena" inputmode="decimal" value="${a.sidrena_datum ? (a.sidrena / 100).toFixed(2).replace('.', ',') : ''}" style="width:70px"> EUR na dan <input type="date" id="u-sid-datum" value="${esc(a.sidrena_datum || '')}"></label>` +
+    `<label title="Ako je artikl na akciji (sniženju), uz cijenu se mora istaknuti najniža cijena u 30 dana prije akcije. Prazno = nije na akciji.">Akcija: najniža cijena u 30 dana prije <input id="u-akcija" inputmode="decimal" value="${a.akcija_prije ? (a.akcija_prije / 100).toFixed(2).replace('.', ',') : ''}" style="width:70px"> EUR <button class="btn" id="u-predlozi" type="button">Predloži</button></label>` +
+    (['kg', 'l'].includes(a.jm.toLowerCase()) ? '' :
+      `<label title="Za pakiranu hranu na komad uz cijenu mora pisati i cijena za kg ili l (Pravilnik NN 105/2026). Voće i povrće na komad ili vezicu i pakiranja ispod 50 g: ne treba.">Pakiranje ` +
+      `<input id="u-neto" inputmode="decimal" value="${a.neto_kolicina ? kolTxt(a.neto_kolicina) : ''}" style="width:60px" placeholder="0,2"> ` +
+      `<select id="u-neto-jm"><option value="">— nije upisano —</option><option value="kg" ${a.neto_jm === 'kg' ? 'selected' : ''}>kg</option>` +
+      `<option value="l" ${a.neto_jm === 'l' ? 'selected' : ''}>l</option><option value="-" ${a.neto_jm === '-' ? 'selected' : ''}>ne treba (na komad, vezica, ispod 50 g)</option></select></label>`) +
+    `<label>Minimalna zaliha <input id="u-min" inputmode="decimal" value="${a.min_zaliha ? kolTxt(a.min_zaliha) : ''}" style="width:90px"> ${esc(a.jm)}</label>` +
+    `<button class="btn prim" id="u-spremi">Spremi</button><button class="btn" id="u-zatvori">Zatvori</button></div>`;
+  $('#u-min').focus();
+  if (MODULI.kpd || MODULI.zpc || MODULI.roba_sidrena) api('/api/artikl_info/' + a.id).then(I => {
+    const dijelovi = [];
+    if (MODULI.kpd) dijelovi.push('KPD: ' + (I.kpd ? `<b>${esc(I.kpd)}</b> ${esc(I.kpd_naziv)}` : '<span class="minus">nema (upišite u Robi)</span>'));
+    if (I.roba_sidrena) dijelovi.push(`Sidrena u Robi: <b>${eur(I.roba_sidrena)} €</b> na ${datumHr(I.roba_sidrena_datum)}` + (I.sidrena_izvor === 'rucno' ? ' <span class="napomena">(kod nas ručno upisana)</span>' : ''));
+    if (I.povijest && I.povijest.length) dijelovi.push('Promjene cijene: ' + I.povijest.slice(0, 6).map(p => `${datumHr(p.datum)} ${eur(p.stara)} → <b>${eur(p.nova)}</b>`).join(', '));
+    if (dijelovi.length) box.insertAdjacentHTML('beforeend', '<p class="napomena" style="margin:8px 0 0">' + dijelovi.join('<br>') + '</p>');
+  }).catch(() => {});
+  $('#u-zatvori').onclick = () => box.hidden = true;
+  $('#u-predlozi').onclick = async () => {
+    const r = await api('/api/najniza/' + a.id);
+    if (r.cijena) {
+      $('#u-akcija').value = (r.cijena / 100).toFixed(2).replace('.', ',');
+      if (r.cijena <= a.cijena) toast('Najniža cijena u 30 dana nije veća od sadašnje MPC. Akcija ima smisla tek kad u Robi spustite MPC ispod ' + eur(r.cijena) + ' €.', true);
+    } else toast('Nema prodaje u Robi iz koje bi se izračunala cijena', true);
+  };
+  $('#u-spremi').onclick = async () => {
+    const minTxt = $('#u-min').value.trim();
+    if (minTxt && isNaN(broj(minTxt))) { toast('Minimalna zaliha mora biti broj.', true); return; }
+    try {
+      await api('/api/artikl/' + a.id, {usluga: $('#u-usluga').checked, min_zaliha: broj($('#u-min').value) || 0,
+        podrijetlo: $('#u-podrijetlo').value, klasa: $('#u-klasa').value, akcija_prije: $('#u-akcija').value,
+        ...($('#u-neto-jm') ? {neto_jm: $('#u-neto-jm').value, neto_kolicina: $('#u-neto').value} : {}),
+        ...($('#u-sidrena').value.trim() ? {sidrena: $('#u-sidrena').value, sidrena_datum: $('#u-sid-datum').value} : {})});
+      box.hidden = true; toast('Spremljeno'); await ucitajZalihu(); crtajZalihu();
+    } catch (err) { toast(err.message, true); }
+  };
+});
+$('#z-cjenik').addEventListener('click', () => { location.href = '/cjenik.csv'; });
+$('#z-ispis').addEventListener('click', () => window.open('/ispis_zaliha#ispis', 'ispiszal', 'width=1100,height=800'));
+$('#z-minus').addEventListener('change', crtajZalihu);
+$('#z-inventura').addEventListener('click', () => {
+  inventura = !inventura;
+  $('#z-inventura').textContent = inventura ? 'Odustani od inventure' : 'Inventura';
+  $('#z-spremi').hidden = !inventura;
+  if (!inventura) ZAL.forEach(a => delete a.inv);
+  crtajZalihu();
+});
+$('#z-spremi').addEventListener('click', async () => {
+  const stavke = ZAL.filter(a => a.inv !== undefined && String(a.inv).trim() !== '')
+    .map(a => ({artikl_id: a.id, kolicina: broj(a.inv)}));
+  if (!stavke.length) { toast('Upišite prebrojano stanje barem za jedan artikl', true); return; }
+  if (stavke.some(s => isNaN(s.kolicina) || s.kolicina < 0)) { toast('Neispravna količina', true); return; }
+  try {
+    await api('/api/dokument', {vrsta: 'inventura', stavke, napomena: 'Inventura'});
+    toast('Inventura spremljena, zaliha ispravljena');
+    inventura = false; $('#z-inventura').textContent = 'Inventura'; $('#z-spremi').hidden = true;
+    await ucitajZalihu(); crtajZalihu();
+  } catch (e) { toast(e.message, true); }
+});
+// ---- dobavljači
+async function prikaziDobavljace() {
+  const rows = await api('/api/partneri');
+  $('#n-desno').innerHTML = '<div class="red"><h2 style="margin:0">Dobavljači</h2><button class="btn prim" id="d-novi">Novi dobavljač</button></div>' +
+    '<div id="d-forma"></div><div class="scroll"><table class="t"><thead><tr><th>Naziv</th><th>OIB</th><th>Mjesto</th><th>Telefon</th></tr></thead><tbody>' +
+    rows.map(p => `<tr class="klik ${p.aktivan ? '' : 'storn'}" data-id="${p.id}"><td>${esc(p.naziv)}</td><td>${esc(p.oib)}</td>` +
+      `<td>${esc(p.mjesto)}</td><td>${esc(p.telefon)}</td></tr>`).join('') + '</tbody></table></div>';
+  const forma = p => {
+    p = p || {aktivan: 1};
+    const f = (k, n) => `<label>${n} <input id="d-${k}" value="${esc(p[k] || '')}" autocomplete="off"></label>`;
+    $('#d-forma').innerHTML = `<div class="card" style="margin-bottom:12px"><h2>${p.id ? 'Uredi dobavljača' : 'Novi dobavljač'}</h2><div class="polja">` +
+      f('naziv', 'Naziv') + f('oib', 'OIB') + f('adresa', 'Adresa') + f('mjesto', 'Mjesto') + f('telefon', 'Telefon') +
+      f('email', 'E-mail') + f('napomena', 'Napomena') +
+      `<label>Aktivan <select id="d-aktivan"><option value="1">da</option><option value="0" ${p.aktivan ? '' : 'selected'}>ne</option></select></label></div>` +
+      '<div class="red"><button class="btn prim" id="d-spremi">Spremi</button><button class="btn" id="d-odustani">Odustani</button></div>' +
+      (p.roba_sifra ? '<p class="napomena">Dobavljač je iz Robe; nakon spremanja uvoz ga više ne mijenja.</p>' : '') + '</div>';
+    $('#d-naziv').focus();
+    $('#d-odustani').onclick = () => $('#d-forma').innerHTML = '';
+    $('#d-spremi').onclick = async () => {
+      const podaci = {id: p.id};
+      ['naziv', 'oib', 'adresa', 'mjesto', 'telefon', 'email', 'napomena', 'aktivan'].forEach(k => podaci[k] = $('#d-' + k).value);
+      try { await api('/api/partner', podaci); toast('Spremljeno'); await ucitajZalihu(); prikaziDobavljace(); }
+      catch (e) { toast(e.message, true); }
+    };
+  };
+  $('#d-novi').onclick = () => forma();
+  $('#n-desno').querySelectorAll('tr.klik').forEach(tr => tr.onclick = () => forma(rows.find(p => p.id === +tr.dataset.id)));
+}
+
+// ---- prijedlog narudžbe
+let PRIJ = null;
+async function prikaziPrijedlog() {
+  const dana = $('#p-dana') ? $('#p-dana').value : 28, za = $('#p-za') ? $('#p-za').value.replace(',', '.') : 3;
+  try { PRIJ = await api(`/api/prijedlog?dana=${dana}&za=${za}`); } catch (e) { toast(e.message, true); return; }
+  const grupe = {};
+  PRIJ.stavke.forEach(s => (grupe[s.dobavljac || 'Bez dobavljača'] = grupe[s.dobavljac || 'Bez dobavljača'] || []).push(s));
+  $('#n-desno').innerHTML = '<h2>Prijedlog narudžbe</h2>' +
+    `<div class="red"><label>Prodaja zadnjih <input id="p-dana" value="${PRIJ.dana_prodaje}" style="width:60px"> dana</label>` +
+    `<label>naručiti za <input id="p-za" value="${String(PRIJ.za_dana).replace('.', ',')}" style="width:60px"> dana</label>` +
+    '<button class="btn" id="p-osvjezi">Izračunaj</button><button class="btn" id="p-ispis">Ispiši</button></div>' +
+    `<p class="napomena">Prosjek prodaje iz Robe od ${datumHr(PRIJ.od)} do ${datumHr(PRIJ.do)}. Prijedlog = prodaja za odabrani broj dana + minimalna zaliha − trenutna zaliha (zaliha u minusu se računa kao 0).</p>` +
+    (Object.keys(grupe).length ? Object.entries(grupe).map(([d, st]) =>
+      `<div class="card" style="margin-bottom:12px"><h2 style="display:flex;justify-content:space-between">${esc(d)}` +
+      (st[0].partner_id ? `<button class="btn" data-primka="${esc(d)}">Napravi primku</button>` : '') + '</h2>' +
+      '<table class="t"><tr><th>Artikl</th><th class="r">Zaliha</th><th class="r">Prodaja/dan</th><th class="r" title="Otvorene narudžbe kupaca s rokom u tom razdoblju">Za kupce</th><th class="r">Dosta za</th><th class="r">Naručiti</th></tr>' +
+      st.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r ${s.zaliha < 0 ? 'minus' : ''}">${kolTxt(s.zaliha)}</td><td class="r">${kolTxt(s.dnevno)}</td><td class="r">${s.narudzbe ? kolTxt(s.narudzbe) : ''}</td>` +
+        `<td class="r">${s.dana_zalihe === null ? '' : String(Math.max(0, s.dana_zalihe)).replace('.', ',') + ' d'}</td>` +
+        `<td class="r"><b>${kolTxt(s.kolicina)} ${esc(s.jm)}</b></td></tr>`).join('') + '</table></div>').join('')
+      : '<p class="napomena">Ništa za naručiti prema tim postavkama.</p>');
+  $('#p-osvjezi').onclick = prikaziPrijedlog;
+  $('#p-ispis').onclick = () => {
+    const w = window.open('', 'prijedlog', 'width=800,height=900');
+    w.document.write('<!doctype html><meta charset="utf-8"><title>Narudžba</title><style>body{font:13px Arial;margin:20px}' +
+      'table{width:100%;border-collapse:collapse;margin-bottom:18px}td,th{border-bottom:1px solid #bbb;padding:4px;text-align:left}.r{text-align:right}</style>' +
+      `<h2>Narudžba ${datumHr(danas())}</h2>` + Object.entries(grupe).map(([d, st]) => `<h3>${esc(d)}</h3><table><tr><th>Artikl</th><th class="r">Količina</th></tr>` +
+        st.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td></tr>`).join('') + '</table>').join('') +
+      '<script>print()<\/script>');
+    w.document.close();
+  };
+  $('#n-desno').querySelectorAll('[data-primka]').forEach(b => b.onclick = () => {
+    const st = grupe[b.dataset.primka];
+    noviDokument('primka');
+    $('#e-partner').value = st[0].partner_id;
+    st.forEach(s => {
+      const a = ZAL_ID[s.id];
+      dok.stavke.push({a, kol: kolTxt(s.kolicina), cijena: (a.zadnja_fakturna / 100).toFixed(2).replace('.', ','),
+        rabat: String(a.zadnji_rabat || 0).replace('.', ',')});
+    });
+    crtajStavke();
+    toast('Primka je pripremljena; provjerite količine i cijene prema računu');
+  });
+}
+$('#n-dobavljaci').addEventListener('click', () => ucitajZalihu().then(prikaziDobavljace).catch(e => toast(e.message, true)));
+
+// ---- usporedba nabavnih cijena po dobavljačima
+async function prikaziUsporedbu() {
+  const dana = $('#u-dana') ? $('#u-dana').value : 90, sve = $('#u-sve') && $('#u-sve').checked ? 1 : 0;
+  let U;
+  try { U = await api(`/api/usporedba?dana=${dana}&sve=${sve}`); } catch (e) { toast(e.message, true); return; }
+  const kom = U.artikli.filter(a => a.dobavljaci.length > 1);
+  $('#n-desno').innerHTML = '<h2>Usporedba nabavnih cijena</h2>' +
+    `<div class="red"><label>Zadnjih <select id="u-dana">${[30, 90, 180, 365].map(d => `<option ${d === U.dana ? 'selected' : ''}>${d}</option>`).join('')}</select> dana</label>` +
+    `<label><input type="checkbox" id="u-sve" ${sve ? 'checked' : ''}> i artikli s jednim dobavljačem</label></div>` +
+    (U.od ? `<p class="napomena">Primke od ${datumHr(U.od)} do ${datumHr(U.do)} (iz Robe i naše). Jedinična nabavna cijena bez PDV-a, nakon rabata. ` +
+      'Poredano po prosječnoj cijeni u razdoblju; zeleno = najjeftiniji. Cijena nije sve: kvaliteta, klasa i kalo se razlikuju, a cijene voća i povrća mijenjaju se sa sezonom, pa gledajte i datum.</p>' : '') +
+    (kom.length ? `<p><b>Artikala s više dobavljača: ${kom.length}.</b> "Moguća ušteda" je okvirna: koliko bi nabava bila manja da je sve kupljeno po prosjeku najjeftinijeg.` +
+      (U.dobavljaci.length ? ' Najčešće najjeftiniji: ' + U.dobavljaci.slice(0, 3).map(d => `${esc(d.dobavljac)} (${d.najjeftiniji})`).join(', ') + '.' : '') + '</p>' : '') +
+    '<div class="scroll"><table class="t"><thead><tr><th>Artikl / dobavljač</th><th class="r">Zadnja</th><th>Datum</th><th class="r">Prosjek</th><th class="r">Najniža</th><th class="r">Isporuka</th><th class="r">Količina</th><th class="r">Skuplje</th></tr></thead><tbody>' +
+    (U.artikli.map(a => `<tr><td colspan="8"><b>${esc(a.naziv)}</b> <span class="napomena">${esc(a.jm)}${a.usteda ? ' · moguća ušteda ' + eur(a.usteda) + ' €' : ''}</span></td></tr>` +
+      a.dobavljaci.map((d, i) => `<tr><td style="padding-left:22px${i === 0 && a.dobavljaci.length > 1 ? ';color:var(--accent);font-weight:600' : ''}">${esc(d.dobavljac)}</td>` +
+        `<td class="r">${eur(d.zadnja)}</td><td>${datumHr(d.datum)}</td><td class="r">${eur(d.prosjek)}</td><td class="r">${eur(d.najniza)}</td>` +
+        `<td class="r">${d.isporuka}</td><td class="r">${kolTxt(d.kolicina)}</td><td class="r" style="white-space:nowrap">${d.razlika ? '+' + String(d.razlika).replace('.', ',') + ' %' : ''}</td></tr>`).join('')).join('') ||
+      '<tr><td colspan="8" class="napomena">Nema artikala koje je dovezlo više dobavljača u tom razdoblju.</td></tr>') +
+    '</tbody></table></div>';
+  $('#u-dana').onchange = prikaziUsporedbu;
+  $('#u-sve').onchange = prikaziUsporedbu;
+}
+$('#n-usporedba').addEventListener('click', prikaziUsporedbu);
+$('#n-prijedlog').addEventListener('click', () => ucitajZalihu().then(prikaziPrijedlog));
+$('#n-nova-primka').addEventListener('click', () => noviDokument('primka'));
+$('#n-novi-otpis').addEventListener('click', () => noviDokument('otpis'));
+$('#n-novi-povrat').addEventListener('click', () => noviDokument('povrat'));
+$('#n-mjesec').addEventListener('change', ucitajDokumente);
+$('#n-vrsta').addEventListener('change', ucitajDokumente);
+$('#n-tablica').addEventListener('click', e => { const tr = e.target.closest('tr.klik'); if (tr) prikaziDokument(tr.dataset.id); });
+
+// ---------------------------------------------------------------- Izvještaji
+let IZV = null;
+const datumHr = d => d.split('-').reverse().join('.');
+const razdHr = r => r.length === 7 ? r.slice(5) + '/' + r.slice(0, 4) : datumHr(r);
+const pct = v => v === null || v === undefined ? '' : String(v).replace('.', ',') + ' %';
+// stupci: [naslov, ključ, vrsta] ; vrsta: e = euri, k = količina, p = postotak, t = tekst
+const STUPCI = {
+  promet: [['Razdoblje', 'razdoblje', 't'], ['Računa', 'racuna', 'n'], ['Neto', 'neto', 'e'], ['PDV', 'pdv', 'e'], ['Ukupno', 'iznos', 'e']],
+  placanja: [['Način plaćanja', 'nacin', 't'], ['Računa', 'racuna', 'n'], ['Iznos', 'iznos', 'e']],
+  pdv_izlazni: [['Stopa', 'stopa', 'p'], ['Osnovica', 'osnovica', 'e'], ['PDV', 'pdv', 'e'], ['Ukupno', 'ukupno', 'e'], ['Razlika zaokr.', 'razlika', 'e']],
+  pdv_ulazni: [['Izvor', 'izvor', 't'], ['Stopa', 'stopa', 'p'], ['Osnovica', 'osnovica', 'e'], ['PDV', 'pdv', 'e']],
+  abc: [['Razred', 'razred', 't'], ['Artikala', 'artikala', 'n'], ['Promet', 'iznos', 'e'], ['Udio', 'udio', 'p']],
+  po_satima: [['Sat', 'sat', 'n'], ['Računa', 'racuna', 'n'], ['Promet', 'iznos', 'e']],
+  po_danima: [['Dan', 'dan', 't'], ['Dana u razdoblju', 'dana', 'n'], ['Računa', 'racuna', 'n'], ['Promet', 'iznos', 'e'], ['Prosjek po danu', 'prosjek', 'e']],
+  artikli: [['ABC', 'abc', 't'], ['Artikl', 'naziv', 't'], ['Količina', 'kolicina', 'k'], ['JM', 'jm', 't'], ['Prodaja s PDV', 'iznos', 'e'], ['Neto', 'neto', 'e'], ['Zarada', 'zarada', 'e'], ['Marža', 'marza', 'p']],
+  nabava: [['Dobavljač', 'dobavljac', 't'], ['Primki', 'primki', 'n'], ['Bez PDV-a', 'neto', 'e'], ['PDV', 'pdv', 'e'], ['Ukupno', 'ukupno', 'e']],
+  otpisi: [['Artikl', 'naziv', 't'], ['Količina', 'kolicina', 'k'], ['JM', 'jm', 't'], ['Nabavna vrijednost', 'vrijednost', 'e'], ['Kalo % prodanog', 'kalo', 'p']],
+};
+const ZBROJ = {abc: ['artikala', 'iznos'], po_satima: ['racuna', 'iznos'], po_danima: ['racuna', 'iznos'], promet: ['racuna', 'neto', 'pdv', 'iznos'], placanja: ['racuna', 'iznos'], pdv_izlazni: ['osnovica', 'pdv', 'ukupno', 'razlika'],
+  pdv_ulazni: ['osnovica', 'pdv'], artikli: ['iznos', 'neto', 'zarada'], nabava: ['primki', 'neto', 'pdv', 'ukupno'], otpisi: ['vrijednost']};
+function celija(v, vrsta, kljuc) {
+  if (v === null || v === undefined) return '';
+  if (vrsta === 'e') return eur(v);
+  if (vrsta === 'k') return kolTxt(v);
+  if (vrsta === 'p') return pct(v);
+  if (kljuc === 'razdoblje') return razdHr(v);
+  if (kljuc === 'sat' || vrsta === 'n') return esc(v);
+  return esc(v);
+}
+function tablica(id, ime, redovi, bar) {
+  const st = STUPCI[ime], zb = ZBROJ[ime];
+  const max = bar ? Math.max(1, ...redovi.map(r => r[bar])) : 0;
+  const th = st.map(([n, , v]) => `<th class="${v === 't' ? '' : 'r'}">${n}</th>`).join('') + (bar ? '<th style="width:30%"></th>' : '');
+  const tr = redovi.map(r => '<tr>' + st.map(([, k, v]) => `<td class="${v === 't' ? '' : 'r'} ${typeof r[k] === 'number' && r[k] < 0 ? 'minus' : ''}">${celija(r[k], v, k)}</td>`).join('') +
+    (bar ? `<td><div class="bar" style="width:${Math.max(0, r[bar]) / max * 100}%"></div></td>` : '') + '</tr>').join('');
+  const tf = redovi.length > 1 ? '<tfoot><tr>' + st.map(([, k, v], i) => `<td class="${v === 't' ? '' : 'r'}">${i === 0 ? 'Ukupno' :
+    zb.includes(k) ? (v === 'e' ? eur(redovi.reduce((z, r) => z + (r[k] || 0), 0)) : redovi.reduce((z, r) => z + (r[k] || 0), 0)) : ''}</td>`).join('') +
+    (bar ? '<td></td>' : '') + '</tr></tfoot>' : '';
+  $(id).innerHTML = `<thead><tr>${th}</tr></thead><tbody>${tr || `<tr><td colspan="${st.length}" class="napomena">Nema podataka.</td></tr>`}</tbody>${tf}`;
+}
+async function ucitajIzvjestaj() {
+  try {
+    IZV = await api('/api/izvjestaj?od=' + $('#i-od').value + '&do=' + $('#i-do').value);
+  } catch (e) { toast(e.message, true); return; }
+  const d = IZV, u = d.ukupno;
+  $('#i-od').value = d.od; $('#i-do').value = d.do;
+  $('#i-naslov').textContent = `Izvještaj ${datumHr(d.od)} – ${datumHr(d.do)}`;
+  $('#i-info').textContent = `Prodaja je iz Robe (zadnji račun u uvezenim podacima: ${d.zadnji_racun_u_robi ? datumHr(d.zadnji_racun_u_robi) : '-'}, ` +
+    `uvoz ${d.zadnji_uvoz || '-'}). Zarada = neto prodaja minus nabavna vrijednost, samo za stavke s poznatom nabavnom cijenom.`;
+  $('#i-kpi').innerHTML = `<div><span>Promet s PDV-om</span><b>${eur(u.iznos)} €</b></div>` +
+    `<div><span>Računa</span><b>${u.racuna}</b></div>` +
+    `<div><span>Prosječni račun</span><b>${u.racuna ? eur(Math.round(u.iznos / u.racuna)) : '-'} €</b></div>` +
+    `<div><span>Zarada (procjena)</span><b>${eur(d.zarada)} €</b></div>` +
+    `<div><span>Marža na neto prodaju</span><b>${pct(d.marza) || '-'}</b></div>`;
+  tablica('#i-promet', 'promet', d.promet, 'iznos');
+  tablica('#i-placanja', 'placanja', d.placanja);
+  tablica('#i-pdvi', 'pdv_izlazni', d.pdv_izlazni);
+  tablica('#i-pdvu', 'pdv_ulazni', d.pdv_ulazni);
+  tablica('#i-artikli', 'artikli', d.artikli);
+  tablica('#i-nabava', 'nabava', d.nabava);
+  tablica('#i-otpisi', 'otpisi', d.otpisi);
+  tablica('#i-abc', 'abc', d.abc);
+  tablica('#i-sati', 'po_satima', d.po_satima.map(r => ({...r, sat: r.sat + ':00'})), 'iznos');
+  tablica('#i-dani', 'po_danima', d.po_danima, 'prosjek');
+}
+function csv(ime) {
+  if (!IZV) return;
+  const st = STUPCI[ime];
+  const polje = v => { v = String(v ?? ''); return /[;"\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  const red = r => st.map(([, k, v]) => polje(r[k] === null || r[k] === undefined ? '' :
+    v === 'e' ? (r[k] / 100).toFixed(2).replace('.', ',') : v === 'k' && typeof r[k] === 'number' ? kolTxt(r[k]) : typeof r[k] === 'number' ? String(r[k]).replace('.', ',') : r[k])).join(';');
+  // Excel u Hrvatskoj očekuje ; kao razdjelnik i zarez za decimale; BOM da prepozna UTF-8
+  const txt = '﻿' + st.map(([n]) => n).join(';') + '\r\n' + IZV[ime].map(red).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type: 'text/csv;charset=utf-8'}));
+  a.download = `${ime}_${IZV.od}_${IZV.do}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+document.querySelectorAll('[data-raz]').forEach(b => b.addEventListener('click', () => {
+  const d = new Date(danas()), y = d.getFullYear(), m = d.getMonth();
+  const iso = x => { x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
+  if (b.dataset.raz === 'mj') { $('#i-od').value = iso(new Date(y, m, 1)); $('#i-do').value = danas(); }
+  if (b.dataset.raz === 'pmj') { $('#i-od').value = iso(new Date(y, m - 1, 1)); $('#i-do').value = iso(new Date(y, m, 0)); }
+  if (b.dataset.raz === 'god') { $('#i-od').value = iso(new Date(y, 0, 1)); $('#i-do').value = danas(); }
+  ucitajIzvjestaj();
+}));
+$('#i-od').addEventListener('change', ucitajIzvjestaj);
+$('#i-do').addEventListener('change', ucitajIzvjestaj);
+$('#i-ispis').addEventListener('click', () => print());
+const razdobljeQ = () => '?od=' + $('#i-od').value + '&do=' + $('#i-do').value;
+$('#i-knjig').addEventListener('click', () => window.open('/ispis_knjigovodja' + razdobljeQ(), 'knjig', 'width=900,height=900'));
+$('#i-knjig-dok').addEventListener('click', () => { location.href = '/knjigovodja_dokumenti.csv' + razdobljeQ(); });
+$('#i-knjig-st').addEventListener('click', () => { location.href = '/knjigovodja_stavke.csv' + razdobljeQ(); });
+document.querySelectorAll('[data-csv]').forEach(b => b.addEventListener('click', () => csv(b.dataset.csv)));
+
+// ---------------------------------------------------------------- Blagajna (smjene)
+async function ucitajBlagajnu() {
+  let b;
+  try { b = await api('/api/blagajna'); } catch (e) { toast(e.message, true); return; }
+  const s = b.smjena, box = $('#b-smjena');
+  if (!s) {
+    box.innerHTML = '<h2>Blagajna je zatvorena</h2><p class="napomena">Na početku dana upišite koliko je gotovine u ladici (sitniš).</p>' +
+      '<div class="red"><label>Početna gotovina <input id="b-pocetno" inputmode="decimal" style="width:110px"> €</label>' +
+      '<button class="btn prim" id="b-otvori">Otvori smjenu</button></div>';
+    $('#b-otvori').onclick = async () => {
+      try { await api('/api/smjena/otvori', {pocetno: $('#b-pocetno').value || 0}); toast('Smjena otvorena'); ucitajBlagajnu(); }
+      catch (e) { toast(e.message, true); }
+    };
+  } else {
+    box.innerHTML = `<h2>Smjena otvorena ${s.otvorena.slice(11, 16)} (${datumHr(s.otvorena.slice(0, 10))})</h2>` +
+      '<table class="t">' +
+      `<tr><td>Početna gotovina</td><td class="r">${eur(s.pocetno)}</td></tr>` +
+      `<tr><td>Gotovinska prodaja (Roba)</td><td class="r">${eur(s.gotovina_sada)}</td></tr>` +
+      `<tr><td>Pologi</td><td class="r">${eur(s.polozi)}</td></tr>` +
+      `<tr><td>Isplate</td><td class="r">${s.isplate ? '−' : ''}${eur(s.isplate)}</td></tr>` +
+      `<tfoot><tr><td>Trebalo bi biti u ladici</td><td class="r">${eur(s.ocekivano_sada)}</td></tr></tfoot></table>` +
+      `<p class="napomena">Kartice i ostalo: ${eur(s.kartice_sada)} € · računa u smjeni: ${s.racuna_sada} · zadnji račun u uvezenim podacima iz Robe: ${s.zadnji_racun_robe ? s.zadnji_racun_robe.slice(0, 16) : '-'}` +
+      (b.roba ? '. Kod zaključka se podaci iz Robe sami osvježe.' : '. Osvježite podatke iz Robe prije zaključka.') + '</p>' +
+      (s.promet.length ? '<table class="t">' + s.promet.map(p => `<tr><td>${p.vrijeme.slice(11, 16)}</td><td>${esc(p.opis || (p.iznos > 0 ? 'polog' : 'isplata'))}</td>` +
+        `<td class="r ${p.iznos < 0 ? 'minus' : ''}">${eur(p.iznos)}</td></tr>`).join('') + '</table>' : '') +
+      '<div class="red" style="margin-top:10px"><label>Iznos <input id="b-iznos" inputmode="decimal" style="width:90px"></label>' +
+      '<label>Opis <input id="b-opis" placeholder="npr. plaćen dobavljač" style="width:180px"></label>' +
+      '<button class="btn" data-vrsta="polog">Polog</button><button class="btn" data-vrsta="isplata">Isplata</button></div>' +
+      '<div class="red"><label>Prebrojana gotovina <input id="b-prebrojano" inputmode="decimal" style="width:110px"> €</label>' +
+      '<label>Napomena <input id="b-napomena" style="width:160px"></label>' +
+      '<button class="btn prim" id="b-zatvori">Zaključi smjenu</button></div>';
+    box.querySelectorAll('[data-vrsta]').forEach(btn => btn.onclick = async () => {
+      try { await api('/api/smjena/promet', {vrsta: btn.dataset.vrsta, iznos: $('#b-iznos').value, opis: $('#b-opis').value}); ucitajBlagajnu(); }
+      catch (e) { toast(e.message, true); }
+    });
+    $('#b-zatvori').onclick = async () => {
+      if (!$('#b-prebrojano').value.trim()) { toast('Upišite prebrojanu gotovinu', true); return; }
+      try {
+        const r = await api('/api/smjena/zatvori', {prebrojano: $('#b-prebrojano').value, napomena: $('#b-napomena').value});
+        toast('Smjena zaključena'); await ucitajBlagajnu(); ispisSmjene(r.id);
+      } catch (e) { toast(e.message, true); }
+    };
+  }
+  $('#b-povijest').innerHTML = '<thead><tr><th>Smjena</th><th class="r">Očekivano</th><th class="r">Prebrojano</th><th class="r">Razlika</th><th></th></tr></thead>' +
+    (b.povijest.length ? b.povijest.map(p => `<tr><td>${datumHr(p.otvorena.slice(0, 10))} ${p.otvorena.slice(11, 16)}–${p.zatvorena.slice(11, 16)}</td>` +
+      `<td class="r">${eur(p.ocekivano)}</td><td class="r">${eur(p.prebrojano)}</td>` +
+      `<td class="r ${p.razlika ? 'minus' : ''}">${p.razlika > 0 ? '+' : ''}${eur(p.razlika)}</td>` +
+      `<td><button class="btn" data-smjena="${p.id}" style="padding:3px 8px;font-size:12px">Ispiši</button></td></tr>`).join('')
+      : '<tr><td colspan="5" class="napomena">Još nema zaključenih smjena.</td></tr>');
+  $('#b-povijest').querySelectorAll('[data-smjena]').forEach(btn => btn.onclick = () => ispisSmjene(btn.dataset.smjena));
+}
+async function ispisSmjene(id) {
+  const s = await api('/api/smjena/' + id);
+  const w = window.open('', 'smjena', 'width=420,height=640');
+  const red = (a, b) => `<tr><td>${a}</td><td style="text-align:right">${b}</td></tr>`;
+  w.document.write('<!doctype html><meta charset="utf-8"><title>Zaključak smjene</title><style>body{font:12px "Courier New",monospace;width:72mm;margin:10px auto}' +
+    'table{width:100%;border-collapse:collapse}td{padding:2px 0}.b td{font-weight:bold;border-top:1px dashed #000}</style>' +
+    `<p style="text-align:center"><b>ZAKLJUČAK SMJENE</b><br>${s.otvorena} – ${s.zatvorena || ''}</p><table>` +
+    red('Početna gotovina', eur(s.pocetno)) + red('Gotovinska prodaja', eur(s.gotovina ?? s.gotovina_sada)) +
+    red('Pologi', eur(s.polozi)) + red('Isplate', (s.isplate ? '−' : '') + eur(s.isplate)) +
+    '<tr class="b"><td>Očekivano</td><td style="text-align:right">' + eur(s.ocekivano ?? s.ocekivano_sada) + '</td></tr>' +
+    (s.zatvorena ? red('Prebrojano', eur(s.prebrojano)) + '<tr class="b"><td>Razlika</td><td style="text-align:right">' + eur(s.razlika) + '</td></tr>' : '') +
+    red('Kartice i ostalo', eur(s.kartice ?? s.kartice_sada)) + red('Računa', s.racuna ?? s.racuna_sada) + '</table>' +
+    (s.promet.length ? '<p>Pologi i isplate:</p><table>' + s.promet.map(p => red(p.vrijeme.slice(11, 16) + ' ' + esc(p.opis), eur(p.iznos))).join('') + '</table>' : '') +
+    (s.napomena ? '<p>Napomena: ' + esc(s.napomena) + '</p>' : '') + '<script>print()<\/script>');
+  w.document.close();
+}
+
+// ---------------------------------------------------------------- Općenito
+async function osvjeziArtikle() {
+  const p = await api('/api/pocetak');
+  ARTIKLI = p.artikli; PO_ID = {}; ARTIKLI.forEach(a => PO_ID[a.id] = a);
+  PLACANJA = p.placanja;
+  KASA = p.kasa;
+  FISKAL = p.fiskal || '';
+  MODULI = p.moduli || {};
+  oznaciKasu();
+  primijeniModule();
+  if (placanje === null && PLACANJA.length) placanje = PLACANJA[0].id;
+  $('#brzi').innerHTML = p.brzi.filter(id => PO_ID[id]).map(id =>
+    `<button data-id="${id}"><b>${esc(PO_ID[id].naziv)}</b><span>${eur(PO_ID[id].cijena)} / ${esc(PO_ID[id].jm)}</span></button>`).join('');
+  crtajPlacanja();
+}
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + b.dataset.v));
+  if (b.dataset.v === 'danas') ucitajDanas();
+  if (b.dataset.v === 'racuni') ucitajRacune();
+  if (b.dataset.v === 'dan') { ucitajBlagajnu(); ucitajDan(); }
+  if (b.dataset.v === 'nabava') ucitajZalihu().then(ucitajDokumente).catch(e => toast(e.message, true));
+  if (b.dataset.v === 'zaliha') ucitajZalihu().then(crtajZalihu).catch(e => toast(e.message, true));
+  if (b.dataset.v === 'izvjestaji') ucitajIzvjestaj();
+  if (b.dataset.v === 'kontrola') ucitajKontrolu();
+  if (b.dataset.v === 'narudzbe') ucitajNarudzbe();
+  if (b.dataset.v === 'bonovi') ucitajBonove();
+  if (b.dataset.v === 'haccp') (PARTNERI.length ? Promise.resolve() : ucitajZalihu()).catch(() => {}).then(ucitajHaccp);
+  if (b.dataset.v === 'kasa') $('#trazi').focus();
+}));
+$('#osvjezi').addEventListener('click', async () => {
+  $('#osvjezi').disabled = true;
+  try {
+    const r = await api('/api/uvoz', {});
+    toast('Podaci iz Robe osvježeni (' + r.opis + ')');
+    await osvjeziArtikle();
+    const v = document.querySelector('.tabs button.on'); if (v && v.dataset.v !== 'kasa') v.click();
+  } catch (e) { toast(e.message, true); }
+  $('#osvjezi').disabled = false;
+});
+$('#kopija').addEventListener('click', async () => {
+  try {
+    const r = await api('/api/kopija', {});
+    const ok = r.filter(k => !k.greska), lose = r.filter(k => k.greska);
+    toast(lose.length ? 'Greška kod kopije: ' + lose.map(k => k.mapa + ': ' + k.greska).join('; ') : 'Kopija spremljena: ' + ok.map(k => k.datoteka).join(', '), !!lose.length);
+  } catch (e) { toast(e.message, true); }
+});
+// ---------------------------------------------------------------- Inventura s mobitela
+let mobTimer = null;
+async function ucitajMob() {
+  const box = $('#z-mob');
+  if (box.hidden) { clearInterval(mobTimer); mobTimer = null; return; }
+  let r;
+  try { r = await api('/api/inv'); } catch (e) { toast(e.message, true); return; }
+  const p = r.brojanje;
+  $('#z-mob-gumb').textContent = p ? 'Inventura s mobitela (traje)' : 'Inventura s mobitela';
+  if (!p) {
+    clearInterval(mobTimer); mobTimer = null;
+    box.innerHTML = '<h2>Inventura s mobitela</h2>' +
+      '<p>Brojite robu hodajući po trgovini, s jednim ili više mobitela spojenih na WiFi trgovine. ' +
+      'Program uživo zbraja i pokazuje razliku prema stanju u programu. Na kraju se sprema kao obična inventura, ' +
+      'samo za prebrojane artikle.</p><p class="napomena">Kod prvog pokretanja Windows može pitati smije li program ' +
+      'u mrežu: odaberite samo privatnu (kućnu/poslovnu) mrežu.</p>' +
+      '<div class="red"><button class="btn prim" id="m-otvori">Započni brojanje</button><button class="btn" id="m-zatvori-panel">Zatvori</button></div>';
+    $('#m-otvori').onclick = async () => {
+      try { const x = await api('/api/inv/otvori', {}); if (x.greska_mreze) toast(x.greska_mreze, true); ucitajMob(); }
+      catch (e) { toast(e.message, true); }
+    };
+    $('#m-zatvori-panel').onclick = () => { box.hidden = true; };
+    return;
+  }
+  if (!r.radi) { try { await api('/api/inv/pokreni', {}); } catch (e) { /* javit će se kod sljedećeg osvježavanja */ } }
+  box.innerHTML = '<h2>Inventura s mobitela: brojanje traje</h2>' +
+    `<div class="mob-adr"><div><span>Na mobitelu otvorite</span><b>${esc(r.adresa)}</b></div><div><span>PIN</span><b>${esc(p.pin)}</b></div></div>` +
+    `<p class="napomena">Prebrojano ${p.stavke.length} artikala · manjak ${eur(p.manjak)} · višak ${eur(p.visak)} (po nabavnoj cijeni). Osvježava se samo svakih 5 sekundi.</p>` +
+    '<div class="dva"><div class="scroll" style="max-height:380px"><table class="t"><tr><th>Artikl</th><th class="r">Popisano</th><th class="r">U programu</th><th class="r">Razlika</th><th class="r">Vrijednost</th></tr>' +
+    (p.stavke.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.prebrojano)} ${esc(s.jm)}</td><td class="r ${s.knjizno < 0 ? 'minus' : ''}">${kolTxt(s.knjizno)}</td>` +
+      `<td class="r ${s.razlika < 0 ? 'minus' : ''}">${kolTxt(s.razlika)}</td><td class="r">${eur(s.vrijednost_razlike)}</td></tr>`).join('') ||
+      '<tr><td colspan="5" class="napomena">Još ništa nije prebrojano.</td></tr>') + '</table></div>' +
+    '<div class="scroll" style="max-height:380px"><table class="t"><tr><th>Zadnji unosi</th><th class="r">Količina</th><th>Tko</th><th></th></tr>' +
+    p.unosi.map(u => `<tr class="${u.ponisteno ? 'storn' : ''}"><td>${esc(u.naziv)}</td><td class="r">${kolTxt(u.kolicina)} ${esc(u.jm)}</td><td>${esc(u.uredjaj)}</td>` +
+      `<td>${u.ponisteno ? '' : `<button class="btn x" data-id="${u.id}" title="Poništi unos">✕</button>`}</td></tr>`).join('') + '</table></div></div>' +
+    '<div class="red" style="margin-top:12px"><label>Napomena <input id="m-napomena" autocomplete="off" placeholder="npr. godišnja inventura"></label>' +
+    '<button class="btn prim" id="m-zakljuci">Zaključi i spremi inventuru</button>' +
+    `<button class="btn" id="m-popisna">Popisna lista</button><button class="btn opasno" id="m-odustani">Odustani od brojanja</button></div>`;
+  box.querySelectorAll('button.x').forEach(b => b.onclick = async () => {
+    try { await api('/api/inv/ponisti', {id: +b.dataset.id}); ucitajMob(); } catch (e) { toast(e.message, true); }
+  });
+  $('#m-popisna').onclick = () => window.open('/ispis_popisna/' + p.id, 'popisna', 'width=900,height=900');
+  const zk = $('#m-zakljuci');
+  zk.onclick = async () => {
+    if (!zk.dataset.potvrda) { zk.dataset.potvrda = 1; zk.textContent = 'Sigurno? Stanje prebrojanih artikala se mijenja. Kliknite opet'; return; }
+    try {
+      const x = await api('/api/inv/zatvori', {napomena: $('#m-napomena').value});
+      toast(x.dokument_id ? 'Inventura spremljena' : 'Nema razlika, stanje je bilo točno');
+      window.open('/ispis_popisna/' + x.sesija, 'popisna', 'width=900,height=900');
+      await ucitajZalihu(); crtajZalihu(); ucitajMob();
+    } catch (e) { toast(e.message, true); }
+  };
+  const od = $('#m-odustani');
+  od.onclick = async () => {
+    if (!od.dataset.potvrda) { od.dataset.potvrda = 1; od.textContent = 'Sve prebrojano se baca. Kliknite opet'; return; }
+    try { await api('/api/inv/odustani', {}); ucitajMob(); } catch (e) { toast(e.message, true); }
+  };
+  if (!mobTimer) mobTimer = setInterval(() => {
+    if ((document.activeElement && document.activeElement.id === 'm-napomena') || $('#z-mob [data-potvrda]')) return;  // ne briši dok se piše ili potvrđuje
+    ucitajMob();
+  }, 5000);
+}
+$('#z-mob-gumb').addEventListener('click', () => { const b = $('#z-mob'); b.hidden = !b.hidden; ucitajMob(); });
+
+// ---- akcije
+const centi = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : Math.round(n * 100); };
+async function ucitajAkcije() {
+  const box = $('#z-akc');
+  const dana = $('#k-dana') ? $('#k-dana').value : 7, popust = $('#k-popust') ? $('#k-popust').value : 20;
+  let A;
+  try { A = await api(`/api/akcije?dana=${encodeURIComponent(dana)}&popust=${encodeURIComponent(popust)}`); }
+  catch (e) { toast(e.message, true); return; }
+  const P = A.prijedlog;
+  box.innerHTML = '<h2>Akcije</h2>' +
+    '<p class="napomena">Po Zakonu o zaštiti potrošača akcijska cijena mora biti niža od <b>najniže cijene u zadnjih 30 dana</b> i ta se cijena piše uz nju (etiketa to radi sama). ' +
+    'Postotak sniženja računa se od te najniže cijene. Račune izdaje Roba, pa akcijsku MPC upišite u Robu, kliknite "Osvježi iz Robe" i onda ispišite etikete. ' +
+    'Etiketa piše AKCIJA tek kad je cijena u Robi stvarno snižena. Ispod nabavne cijene program ne nudi akciju; takvu robu otpišite ili donirajte.</p>' +
+    (A.aktivne.length ? '<h3>Akcije koje traju</h3><table class="t"><tr><th>Artikl</th><th class="r">Zaliha</th><th class="r">MPC u Robi</th><th class="r">Najniža 30 d</th><th class="r">Planirano</th><th>Od</th><th>Stanje</th><th></th></tr>' +
+      A.aktivne.map(a => `<tr><td>${esc(a.naziv)}</td><td class="r">${kolTxt(a.zaliha)} ${esc(a.jm)}</td><td class="r">${eur(a.cijena)}</td><td class="r">${eur(a.najniza_30)}</td>` +
+        `<td class="r">${a.akcijska ? eur(a.akcijska) : ''}</td><td>${a.od ? datumHr(a.od) : ''}</td>` +
+        `<td class="${a.stanje === 'ok' ? '' : 'minus'}">${a.stanje === 'ok' ? 'na polici' : esc(a.stanje)}</td>` +
+        `<td><button class="btn" data-zavrsi="${a.id}">Završi</button></td></tr>`).join('') + '</table>' +
+      '<div class="red"><button class="btn" id="k-etikete">Etikete za akcije</button><span class="napomena">Kad završite akciju, vratite MPC u Robi i ispišite nove etikete.</span></div>' : '') +
+    '<h3>Prijedlog: roba koja stoji</h3>' +
+    `<div class="red"><label>Bez prodaje <input id="k-dana" value="${P.dana}" style="width:50px"> dana</label>` +
+    `<label>Sniženje <input id="k-popust" value="${String(P.popust).replace('.', ',')}" style="width:50px"> % od najniže u 30 dana</label>` +
+    '<button class="btn" id="k-izracun">Izračunaj</button></div>' +
+    (P.stavke.length ? '<div class="scroll"><table class="t"><tr><th></th><th>Artikl</th><th class="r">Zaliha</th><th>Zadnja prodaja</th><th class="r">MPC</th><th class="r">Najniža 30 d</th><th class="r">Nabavna s PDV</th><th class="r">Akcijska MPC</th><th class="r">Sniženje</th><th></th></tr>' +
+      P.stavke.map(s => `<tr data-id="${s.id}"><td><input type="checkbox" class="k-oz" ${s.akcijska ? '' : 'disabled'}></td><td>${esc(s.naziv)}</td>` +
+        `<td class="r">${kolTxt(s.zaliha)} ${esc(s.jm)}</td><td>${s.zadnja_prodaja ? datumHr(s.zadnja_prodaja) : 'nikad'}</td>` +
+        `<td class="r">${eur(s.cijena)}</td><td class="r">${eur(s.najniza_30)}</td><td class="r">${s.nabavna_pdv ? eur(s.nabavna_pdv) : '?'}</td>` +
+        `<td class="r">${s.akcijska ? `<input class="k-cij" value="${eur(s.akcijska)}" style="width:70px;text-align:right">` : ''}</td>` +
+        `<td class="r k-pct">${s.akcijska ? '−' + s.snizenje + ' %' : ''}</td><td class="napomena">${esc(s.napomena)}</td></tr>`).join('') + '</table></div>' +
+      '<div class="red"><button class="btn prim" id="k-pokreni">Pokreni akciju za označene</button></div><div id="k-upis"></div>'
+      : `<p class="napomena">Nema robe koja stoji${P.do ? ' (gledano do ' + datumHr(P.do) + ')' : ''}.</p>`);
+  const S = {}; P.stavke.forEach(s => S[s.id] = s);
+  box.querySelectorAll('.k-cij').forEach(inp => inp.oninput = () => {
+    const tr = inp.closest('tr'), s = S[tr.dataset.id], c = centi(inp.value);
+    const ok = c > 0 && c < s.najniza_30 && (!s.nabavna_pdv || c >= s.nabavna_pdv);
+    inp.style.borderColor = ok ? '' : 'var(--danger, #b3261e)';
+    tr.querySelector('.k-pct').textContent = ok ? '−' + Math.round((s.najniza_30 - c) * 100 / s.najniza_30) + ' %' : 'ne može';
+  });
+  $('#k-izracun') && ($('#k-izracun').onclick = ucitajAkcije);
+  box.querySelectorAll('[data-zavrsi]').forEach(b => b.onclick = async () => {
+    if (b.dataset.potvrda !== '1') { b.dataset.potvrda = '1'; b.textContent = 'Sigurno?'; return; }
+    try { await api('/api/akcije/zavrsi', {id: +b.dataset.zavrsi}); toast('Akcija završena. Vratite MPC u Robi i ispišite etiketu.'); ucitajAkcije(); }
+    catch (e) { toast(e.message, true); }
+  });
+  $('#k-etikete') && ($('#k-etikete').onclick = () => window.open('/ispis_etikete?ids=' + A.aktivne.map(a => a.id).join(','), 'etikete', 'width=900,height=900'));
+  $('#k-pokreni') && ($('#k-pokreni').onclick = async () => {
+    const stavke = [...box.querySelectorAll('.k-oz:checked')].map(c => {
+      const tr = c.closest('tr'); return {id: +tr.dataset.id, cijena: centi(tr.querySelector('.k-cij').value)};
+    });
+    if (!stavke.length) { toast('Označite artikle', true); return; }
+    try {
+      const r = await api('/api/akcije/pokreni', {stavke});
+      await ucitajAkcije();
+      $('#z-akc').insertAdjacentHTML('beforeend', '<div class="card upoz" id="k-rez"><h3>Upišite u Robu nove cijene</h3><table class="t"><tr><th>Šifra</th><th>Artikl</th><th class="r">Sada</th><th class="r">Nova MPC</th></tr>' +
+        r.upis.map(u => `<tr><td>${esc(u.sifra)}</td><td>${esc(u.naziv)}</td><td class="r">${eur(u.stara)}</td><td class="r"><b>${eur(u.nova)}</b></td></tr>`).join('') +
+        '</table><p class="napomena">Zatim "Osvježi iz Robe" i "Etikete za akcije". Do tada na polici i na računu vrijedi stara cijena.</p><button class="btn" id="k-ispis-upis">Ispiši popis</button></div>');
+      $('#k-ispis-upis').onclick = () => {
+        const w = window.open('', 'akcija', 'width=700,height=800');
+        w.document.write('<!doctype html><meta charset="utf-8"><title>Akcija</title><style>body{font:13px Arial;margin:20px}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #bbb;padding:4px;text-align:left}.r{text-align:right}</style>' +
+          `<h2>Akcija od ${datumHr(danas())}: nove MPC za Robu</h2><table><tr><th>Šifra</th><th>Artikl</th><th class="r">Sada</th><th class="r">Nova MPC</th><th class="r">Najniža 30 d</th></tr>` +
+          r.upis.map(u => `<tr><td>${esc(u.sifra)}</td><td>${esc(u.naziv)}</td><td class="r">${eur(u.stara)}</td><td class="r"><b>${eur(u.nova)}</b></td><td class="r">${eur(u.najniza_30)}</td></tr>`).join('') +
+          '</table><script>print()<\/script>');
+        w.document.close();
+      };
+      toast('Akcija je upisana');
+    } catch (e) { toast(e.message, true); }
+  });
+}
+$('#z-akc-gumb').addEventListener('click', () => { const b = $('#z-akc'); b.hidden = !b.hidden; if (!b.hidden) ucitajAkcije(); });
+
+// ---------------------------------------------------------------- Narudžbe kupaca
+const STATUS_N = {nova: 'Nova', spremna: 'Spremna', isporucena: 'Isporučena', otkazana: 'Otkazana'};
+let KUPCI = [], nar = null;
+const datHr = d => d.split('-').reverse().join('.');
+const sutra = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+
+async function ucitajNarudzbe() {
+  try {
+    const sve = document.querySelector('input[name=o-pogled]:checked').value === 'sve';
+    const r = await api('/api/narudzbe?sve=' + (sve ? 1 : 0) + '&mjesec=' + $('#o-mjesec').value);
+    KUPCI = r.kupci;
+    const d = danas();
+    $('#o-tablica').innerHTML = '<tr><th>Broj</th><th>Rok</th><th>Kupac</th><th>Status</th><th class="r">Iznos</th></tr>' +
+      (r.narudzbe.length ? r.narudzbe.map(n =>
+        `<tr class="klik ${n.status === 'otkazana' ? 'storn' : ''}" data-id="${n.id}"><td>${n.oznaka}</td>` +
+        `<td class="${n.rok < d && (n.status === 'nova' || n.status === 'spremna') ? 'minus' : ''}">${datHr(n.rok)}</td>` +
+        `<td>${esc(n.kupac)}</td><td>${STATUS_N[n.status]}${n.status === 'isporucena' && !n.racun_roba ? ' <span class="minus">bez računa</span>' : ''}</td>` +
+        `<td class="r">${eur(n.ukupno)}</td></tr>`).join('')
+        : `<tr><td colspan="5" class="napomena">${sve ? 'Nema narudžbi s rokom u tom mjesecu.' : 'Nema otvorenih narudžbi.'}</td></tr>`);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function prikaziNarudzbu(id) {
+  const n = await api('/api/narudzba/' + id);
+  const otv = n.status === 'nova' || n.status === 'spremna';
+  $('#o-desno').innerHTML = `<h2>Narudžba ${n.oznaka} · ${STATUS_N[n.status]}</h2>` +
+    `<p class="napomena">${esc(n.kupac)}${n.kupac_telefon ? ' · ' + esc(n.kupac_telefon) : ''} · isporuka ${datHr(n.rok)}` +
+    `${n.narudzbenica ? ' · narudžbenica kupca <b>' + esc(n.narudzbenica) + '</b>' : ''}${n.napomena ? ' · ' + esc(n.napomena) : ''}${n.racun_roba ? ' · račun iz Robe ' + esc(n.racun_roba) : ''}</p>` +
+    '<table class="t"><tr><th>Artikl / usluga</th><th class="r">Količina</th><th class="r">Cijena</th><th class="r">Iznos</th></tr>' +
+    n.stavke.map(s => `<tr><td>${esc(s.naziv)}${s.usluga ? ' <span class="napomena">(usluga)</span>' : ''}</td>` +
+      `<td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td><td class="r">${eur(s.cijena)}${s.popust ? ' −' + String(s.popust).replace('.', ',') + ' %' : ''}</td>` +
+      `<td class="r">${eur(s.iznos)}</td></tr>`).join('') +
+    `<tfoot><tr><td colspan="3">Ukupno s PDV-om (informativno)</td><td class="r">${eur(n.ukupno)}</td></tr></tfoot></table>` +
+    '<div class="red" style="margin-top:12px">' +
+    '<button class="btn" id="o-isp-n">Ispiši narudžbu</button><button class="btn" id="o-isp-o">Ispiši otpremnicu</button>' +
+    (otv ? '<button class="btn" id="o-uredi">Uredi</button>' : '') +
+    (n.status === 'nova' ? '<button class="btn" id="o-spremna">Spremna</button>' : '') +
+    (otv ? '<button class="btn opasno" id="o-otkazi">Otkaži</button>' : '') + '</div>' +
+    (otv || (n.status === 'isporucena' && !n.racun_roba) ?
+      `<div class="polja" style="margin-top:12px"><label>Broj računa iz Robe <input id="o-racun" value="${esc(n.racun_roba)}" autocomplete="off" placeholder="npr. 125-1-1"></label>` +
+      `<button class="btn prim" id="o-isporuci">${otv ? 'Isporučeno' : 'Spremi broj računa'}</button></div>` +
+      '<p class="napomena">Prije isporuke izdajte fiskalizirani račun u Robi (tvrtki R1 / eRačun) i upišite njegov broj.' +
+      (MODULI.kupci_tvrtke ? ' Tvrtki koja plaća virmanom možete na kraju mjeseca izdati zbirni račun (Kupci i cjenici, Zbirni pregled).' : '') + '</p>' : '');
+  $('#o-isp-n').onclick = () => window.open('/ispis_narudzba/' + id + '#ispis', 'ispisnar', 'width=900,height=900');
+  $('#o-isp-o').onclick = () => window.open('/ispis_narudzba/' + id + '?vrsta=otpremnica#ispis', 'ispisnar', 'width=900,height=900');
+  const promijeni = async (status, extra) => {
+    try { await api('/api/narudzba/' + id + '/status', {status, ...extra}); toast('Spremljeno'); await ucitajNarudzbe(); prikaziNarudzbu(id); }
+    catch (e) { toast(e.message, true); }
+  };
+  if ($('#o-spremna')) $('#o-spremna').onclick = () => promijeni('spremna', {});
+  if ($('#o-uredi')) $('#o-uredi').onclick = () => novaNarudzba(n);
+  if ($('#o-isporuci')) $('#o-isporuci').onclick = () => {
+    const racun = $('#o-racun').value.trim();
+    if (!racun && !$('#o-isporuci').dataset.potvrda) {
+      $('#o-isporuci').dataset.potvrda = 1; $('#o-isporuci').textContent = 'Bez broja računa? Kliknite opet';
+      toast('Upišite broj računa iz Robe (možete i kasnije)', true); return;
+    }
+    promijeni('isporucena', {racun_roba: racun});
+  };
+  const ob = $('#o-otkazi');
+  if (ob) ob.onclick = () => {
+    if (!ob.dataset.potvrda) { ob.dataset.potvrda = 1; ob.textContent = 'Sigurno otkazati? Kliknite opet'; return; }
+    promijeni('otkazana', {});
+  };
+}
+
+function novaNarudzba(stara, jePonuda) {
+  const artikli = ARTIKLI;
+  const narBr = MODULI.ponude && !jePonuda;
+  nar = {id: stara ? stara.id : 0, stavke: stara ? stara.stavke.map(s => ({a: PO_ID[s.artikl_id] || {id: s.artikl_id, naziv: s.naziv, jm: s.jm, cijena: s.cijena, usluga: s.usluga}, kol: kolTxt(s.kolicina), popust: s.popust ? String(s.popust).replace('.', ',') : ''})) : []};
+  $('#o-desno').innerHTML = `<h2>${jePonuda ? (stara ? 'Izmjena ponude ' + stara.oznaka : 'Nova ponuda') : stara ? 'Izmjena narudžbe ' + stara.oznaka : 'Nova narudžba'}</h2>` +
+    '<div class="polja"><label>Kupac <select id="o-kupac"><option value="">— odaberite —</option>' +
+    KUPCI.filter(k => k.aktivan || (stara && k.id === stara.kupac_id)).map(k => `<option value="${k.id}">${esc(k.naziv)}</option>`).join('') + '</select></label>' +
+    '<button class="btn" id="o-novi-kupac" type="button">Novi kupac</button>' +
+    (jePonuda ? `<label>Vrijedi do <input type="date" id="o-rok" value="${stara ? stara.vrijedi_do : (() => { const d = new Date(); d.setDate(d.getDate() + 15); return d.toISOString().slice(0, 10); })()}"></label>`
+      : `<label>Datum isporuke <input type="date" id="o-rok" value="${stara ? stara.rok : sutra()}"></label>`) +
+    (narBr ? `<label>Broj narudžbenice kupca <input id="o-narudzbenica" autocomplete="off" value="${stara ? esc(stara.narudzbenica || '') : ''}" style="width:130px"></label>` : '') +
+    `<label>Napomena <input id="o-napomena" autocomplete="off" value="${stara ? esc(stara.napomena) : ''}" placeholder="${jePonuda ? 'npr. cijene s PDV-om, dostava uključena' : 'npr. dostava do 7h'}"></label></div>` +
+    '<div id="o-kupac-forma"></div>' +
+    '<div class="trazi-dok"><input id="o-trazi" placeholder="Dodaj artikl ili uslugu (dostava…): šifra ili naziv, pa Enter" autocomplete="off"><ul class="rez card" id="o-rez" hidden></ul></div>' +
+    '<table class="t" id="o-stavke"></table><div class="sazetak" id="o-sazetak"></div>' +
+    `<div class="red"><button class="btn prim" id="o-spremi">${jePonuda ? 'Spremi ponudu' : 'Spremi narudžbu'}</button><button class="btn" id="o-odustani">Odustani</button></div>`;
+  if (stara) $('#o-kupac').value = stara.kupac_id;
+  let rez = [], i = 0, UV = {rabat: 0, cijene: {}};
+  const cij = s => UV.cijene[s.a.id] !== undefined ? UV.cijene[s.a.id] : s.a.cijena;
+  const ucitajUvjete = async (prvi) => {
+    UV = {rabat: 0, cijene: {}};
+    const kid = +$('#o-kupac').value;
+    if (kid && MODULI.narudzbe && MODULI.kupci_tvrtke) {
+      try { const K = await api('/api/kupci_cjenik/' + kid); UV.rabat = K.rabat || 0; K.cijene.forEach(c => UV.cijene[c.artikl_id] = c.cijena); }
+      catch (e) { toast(e.message, true); }
+    }
+    if (!prvi) nar.stavke.forEach(s => { if (!s.popust || s.rabat) { s.popust = UV.cijene[s.a.id] === undefined && UV.rabat ? String(UV.rabat).replace('.', ',') : ''; s.rabat = !!s.popust; } });
+    crtaj();
+  };
+  const crtajRez = () => {
+    const ul = $('#o-rez'); ul.hidden = !rez.length;
+    ul.innerHTML = rez.map((a, k) => `<li data-k="${k}" class="${k === i ? 'sel' : ''}"><span class="s">${esc(a.sifra)}</span>` +
+      `<span class="n">${esc(a.naziv)}${a.usluga ? ' (usluga)' : ''}</span><span class="c">${eur(a.cijena)}</span></li>`).join('');
+  };
+  const iznosi = () => {
+    let uk = 0;
+    nar.stavke.forEach((s, k) => {
+      const izn = Math.round(cij(s) * (broj(s.kol) || 0) * (1 - (broj(s.popust) || 0) / 100)); uk += izn;
+      $('#oizn' + k).textContent = eur(izn);
+    });
+    $('#o-sazetak').innerHTML = `<span>Ukupno s PDV-om <b>${eur(uk)}</b></span>`;
+  };
+  const crtaj = () => {
+    $('#o-stavke').innerHTML = '<tr><th>Artikl / usluga</th><th class="r">Količina</th><th class="r">Cijena</th><th class="r">Popust %</th><th class="r">Iznos</th><th></th></tr>' +
+      (nar.stavke.length ? nar.stavke.map((s, k) =>
+        `<tr><td>${esc(s.a.naziv)}</td><td class="r"><input class="okol" data-k="${k}" value="${s.kol}" inputmode="decimal"> ${esc(s.a.jm)}</td>` +
+        `<td class="r">${eur(cij(s))}${UV.cijene[s.a.id] !== undefined ? '<br><span class="napomena">ugovorena</span>' : ''}</td><td class="r"><input class="opop" data-k="${k}" value="${s.popust}" inputmode="decimal" style="width:56px"></td>` +
+        `<td class="r" id="oizn${k}"></td><td><button class="btn x" data-k="${k}" title="Obriši stavku">✕</button></td></tr>`).join('')
+        : '<tr><td colspan="6" class="napomena">Dodajte artikle preko polja iznad.</td></tr>');
+    document.querySelectorAll('#o-stavke input').forEach(inp => {
+      inp.oninput = () => { const s = nar.stavke[+inp.dataset.k]; if (inp.classList.contains('okol')) s.kol = inp.value; else { s.popust = inp.value; s.rabat = false; } iznosi(); };
+      inp.onkeydown = e => { if (e.key === 'Enter') $('#o-trazi').focus(); };
+    });
+    iznosi();
+    document.querySelectorAll('#o-stavke button.x').forEach(b => b.onclick = () => { nar.stavke.splice(+b.dataset.k, 1); crtaj(); });
+  };
+  const dodaj = a => {
+    const r = UV.cijene[a.id] === undefined && UV.rabat ? String(UV.rabat).replace('.', ',') : '';
+    nar.stavke.push({a, kol: a.usluga ? '1' : '', popust: r, rabat: !!r});
+    $('#o-trazi').value = ''; rez = []; crtajRez(); crtaj();
+    const inp = document.querySelectorAll('#o-stavke input.okol'); inp[inp.length - 1].focus(); inp[inp.length - 1].select();
+  };
+  $('#o-trazi').oninput = e => {
+    const v = e.target.value.trim(), q = norm(v); i = 0;
+    rez = !q ? [] : artikli.filter(a => a.sifra === v).concat(artikli.filter(a => a.sifra !== v && norm(a.naziv).includes(q))).slice(0, 10);
+    crtajRez();
+  };
+  $('#o-trazi').onkeydown = e => {
+    if (e.key === 'ArrowDown') { i = Math.min(i + 1, rez.length - 1); crtajRez(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { i = Math.max(i - 1, 0); crtajRez(); e.preventDefault(); }
+    else if (e.key === 'Enter' && rez[i]) dodaj(rez[i]);
+    else if (e.key === 'Escape') { e.target.value = ''; rez = []; crtajRez(); }
+  };
+  $('#o-rez').onclick = e => { const li = e.target.closest('li'); if (li) dodaj(rez[+li.dataset.k]); };
+  $('#o-novi-kupac').onclick = () => {
+    $('#o-kupac-forma').innerHTML = '<div class="card upoz"><div class="polja">' +
+      '<label>Naziv / ime <input id="k-naziv" autocomplete="off"></label><label>OIB (za tvrtke) <input id="k-oib" autocomplete="off" inputmode="numeric"></label>' +
+      '<label>Telefon <input id="k-tel" autocomplete="off"></label><label>Adresa <input id="k-adresa" autocomplete="off"></label><label>Mjesto <input id="k-mjesto" autocomplete="off"></label></div>' +
+      '<p class="napomena">Za građane upišite samo ono što treba za dostavu (ime i telefon).</p>' +
+      '<div class="red"><button class="btn prim" id="k-spremi">Spremi kupca</button><button class="btn" id="k-odustani">Odustani</button></div></div>';
+    $('#k-naziv').focus();
+    $('#k-odustani').onclick = () => $('#o-kupac-forma').innerHTML = '';
+    $('#k-spremi').onclick = async () => {
+      try {
+        const r = await api('/api/kupac', {naziv: $('#k-naziv').value, oib: $('#k-oib').value, telefon: $('#k-tel').value,
+          adresa: $('#k-adresa').value, mjesto: $('#k-mjesto').value});
+        const naziv = $('#k-naziv').value.trim();
+        KUPCI.push({id: r.id, naziv, aktivan: 1});
+        $('#o-kupac').insertAdjacentHTML('beforeend', `<option value="${r.id}">${esc(naziv)}</option>`);
+        $('#o-kupac').value = r.id; $('#o-kupac-forma').innerHTML = ''; toast('Kupac spremljen');
+      } catch (e) { toast(e.message, true); }
+    };
+  };
+  $('#o-odustani').onclick = () => { nar = null; $('#o-desno').innerHTML = '<p class="napomena">Odustali ste.</p>'; };
+  $('#o-spremi').onclick = async () => {
+    try {
+      const stavke = nar.stavke.map(s => ({artikl_id: s.a.id, kolicina: broj(s.kol), popust: broj(s.popust) || 0}));
+      if (jePonuda) {
+        const r = await api('/api/ponuda', {id: nar.id, kupac_id: $('#o-kupac').value, vrijedi_do: $('#o-rok').value, napomena: $('#o-napomena').value, stavke});
+        toast('Ponuda spremljena'); nar = null; prikaziPonudu(r.id); return;
+      }
+      const r = await api('/api/narudzba', {id: nar.id, kupac_id: $('#o-kupac').value, rok: $('#o-rok').value, napomena: $('#o-napomena').value,
+        narudzbenica: $('#o-narudzbenica') ? $('#o-narudzbenica').value : (stara ? stara.narudzbenica || '' : ''), stavke});
+      toast('Narudžba spremljena'); nar = null; await ucitajNarudzbe(); prikaziNarudzbu(r.id);
+    } catch (e) { toast(e.message, true); }
+  };
+  $('#o-kupac').addEventListener('change', () => ucitajUvjete(false));
+  crtaj();
+  if (stara) ucitajUvjete(true);
+  (stara ? $('#o-trazi') : $('#o-kupac')).focus();
+}
+$('#o-nova').addEventListener('click', () => ucitajNarudzbe().then(() => novaNarudzba(null)));
+$('#o-tablica').addEventListener('click', e => { const tr = e.target.closest('tr.klik'); if (tr) prikaziNarudzbu(+tr.dataset.id); });
+document.querySelectorAll('input[name=o-pogled]').forEach(r => r.addEventListener('change', ucitajNarudzbe));
+$('#o-mjesec').addEventListener('change', () => { document.querySelector('input[name=o-pogled][value=sve]').checked = true; ucitajNarudzbe(); });
+$('#o-mjesec').value = danas().slice(0, 7);
+
+// ---- kupci na tvrtku: rabat, ugovorene cijene, zbirni pregled
+async function prikaziKupce() {
+  try { await ucitajNarudzbe(); } catch (e) { /* javljeno */ }
+  const akt = KUPCI.filter(k => k.aktivan);
+  $('#o-desno').innerHTML = '<h2>Kupci i cjenici</h2>' +
+    '<p class="napomena">Rabat vrijedi za sve artikle kupca bez ugovorene cijene. Ugovorena cijena (s PDV-om) vrijedi umjesto MPC-a. ' +
+    'Novog kupca dodajete kod nove narudžbe.</p>' +
+    '<table class="t"><tr><th>Kupac</th><th>OIB</th><th class="r">Rabat</th><th class="r">Rok plaćanja</th></tr>' +
+    (akt.length ? akt.map(k => `<tr class="klik" data-kupac="${k.id}"><td>${esc(k.naziv)}</td><td>${esc(k.oib || '')}</td>` +
+      `<td class="r">${k.rabat ? String(k.rabat).replace('.', ',') + ' %' : ''}</td><td class="r">${k.rok_placanja ? k.rok_placanja + ' dana' : ''}</td></tr>`).join('')
+      : '<tr><td colspan="4" class="napomena">Nema kupaca.</td></tr>') + '</table>';
+  $('#o-desno').querySelectorAll('[data-kupac]').forEach(tr => tr.onclick = () => prikaziKupca(+tr.dataset.kupac));
+}
+async function prikaziKupca(id, mj) {
+  let K;
+  try { K = await api('/api/kupci_cjenik/' + id); } catch (e) { toast(e.message, true); return; }
+  mj = mj || ($('#kt-mj') && $('#kt-mj').value) || danas().slice(0, 7);
+  $('#o-desno').innerHTML = `<h2>${esc(K.naziv)}${K.oib ? ' <span class="napomena">OIB ' + esc(K.oib) + '</span>' : ''}</h2>` +
+    '<div class="polja">' +
+    `<label>Rabat % <input id="kt-rabat" inputmode="decimal" value="${K.rabat ? String(K.rabat).replace('.', ',') : ''}" style="width:70px"></label>` +
+    `<label>Rok plaćanja (dana) <input id="kt-rok" inputmode="numeric" value="${K.rok_placanja || ''}" style="width:70px"></label>` +
+    '<button class="btn prim" id="kt-spremi">Spremi</button><button class="btn" id="kt-natrag">Svi kupci</button></div>' +
+    '<h2 style="margin-top:14px">Ugovorene cijene</h2>' +
+    '<table class="t"><tr><th>Artikl</th><th class="r">MPC u Robi</th><th class="r">Ugovorena s PDV</th><th></th></tr>' +
+    (K.cijene.length ? K.cijene.map(c => `<tr><td>${esc(c.naziv)} <span class="napomena">${esc(c.jm)}</span>${c.ispod_nabavne ? ' <span class="minus">ispod nabavne!</span>' : ''}</td>` +
+      `<td class="r">${eur(c.mpc)}</td><td class="r"><input data-kc="${c.artikl_id}" value="${(c.cijena / 100).toFixed(2).replace('.', ',')}" inputmode="decimal" style="width:80px"></td>` +
+      `<td><button class="btn" data-kc-spremi="${c.artikl_id}">Spremi</button> <button class="btn x" data-kc-brisi="${c.artikl_id}" title="Makni ugovorenu cijenu">✕</button></td></tr>`).join('')
+      : '<tr><td colspan="4" class="napomena">Nema ugovorenih cijena: vrijedi MPC iz Robe i rabat.</td></tr>') + '</table>' +
+    '<div class="trazi-dok"><input id="kt-trazi" placeholder="Dodaj ugovorenu cijenu: šifra ili naziv artikla, pa Enter" autocomplete="off"><ul class="rez card" id="kt-rez" hidden></ul></div>' +
+    '<h2 style="margin-top:14px">Zbirni pregled za račun</h2>' +
+    `<div class="red"><label>Mjesec <input type="month" id="kt-mj" value="${mj}"></label><button class="btn" id="kt-ispis">Ispiši podlogu</button></div>` +
+    '<div id="kt-zbirni"></div>';
+  $('#kt-natrag').onclick = prikaziKupce;
+  $('#kt-spremi').onclick = async () => {
+    try { await api('/api/kupci_uvjeti/' + id, {rabat: $('#kt-rabat').value, rok_placanja: $('#kt-rok').value}); toast('Spremljeno'); await ucitajNarudzbe(); }
+    catch (e) { toast(e.message, true); }
+  };
+  const cijena = async (aid, v) => {
+    try { await api('/api/kupci_cijena/' + id, {artikl_id: aid, cijena: v}); toast(v ? 'Cijena spremljena' : 'Ugovorena cijena maknuta'); prikaziKupca(id); }
+    catch (e) { toast(e.message, true); }
+  };
+  $('#o-desno').querySelectorAll('[data-kc-spremi]').forEach(b => b.onclick = () => cijena(+b.dataset.kcSpremi, $(`[data-kc="${b.dataset.kcSpremi}"]`).value));
+  $('#o-desno').querySelectorAll('[data-kc-brisi]').forEach(b => b.onclick = () => cijena(+b.dataset.kcBrisi, ''));
+  let rez = [];
+  $('#kt-trazi').oninput = e => {
+    const v = e.target.value.trim(), q = norm(v);
+    rez = !q ? [] : ARTIKLI.filter(a => a.sifra === v).concat(ARTIKLI.filter(a => a.sifra !== v && norm(a.naziv).includes(q))).slice(0, 10);
+    $('#kt-rez').hidden = !rez.length;
+    $('#kt-rez').innerHTML = rez.map((a, k) => `<li data-k="${k}" class="${k ? '' : 'sel'}"><span class="s">${esc(a.sifra)}</span><span class="n">${esc(a.naziv)}</span><span class="c">${eur(a.cijena)}</span></li>`).join('');
+  };
+  const dodajC = a => {
+    const v = prompt(`${a.naziv}: ugovorena cijena s PDV-om (EUR za ${a.jm})?\nMPC u Robi je ${eur(a.cijena)} EUR.`);
+    if (v && v.trim()) cijena(a.id, v.trim());
+  };
+  $('#kt-trazi').onkeydown = e => { if (e.key === 'Enter' && rez[0]) dodajC(rez[0]); };
+  $('#kt-rez').onclick = e => { const li = e.target.closest('li'); if (li) dodajC(rez[+li.dataset.k]); };
+  $('#kt-mj').onchange = () => zbirniKupca(id);
+  $('#kt-ispis').onclick = () => window.open(`/ispis_zbirni/${id}?mjesec=${$('#kt-mj').value}#ispis`, 'ispiszb', 'width=900,height=900');
+  zbirniKupca(id);
+}
+async function zbirniKupca(id) {
+  let Z;
+  try { Z = await api(`/api/kupci_zbirni/${id}?mjesec=${$('#kt-mj').value}`); } catch (e) { toast(e.message, true); return; }
+  $('#kt-zbirni').innerHTML = (Z.bez_racuna.length ?
+    `<p>Isporučeno bez računa: ${Z.bez_racuna.map(n => esc(n.oznaka) + ' (' + datHr(n.rok) + ')').join(', ')}</p>` +
+    '<table class="t"><tr><th>Artikl</th><th class="r">Količina</th><th class="r">Cijena</th><th class="r">Iznos</th></tr>' +
+    Z.stavke.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td><td class="r">${eur(s.cijena)}${s.popust ? ' −' + String(s.popust).replace('.', ',') + ' %' : ''}</td><td class="r">${eur(s.iznos)}</td></tr>`).join('') +
+    Z.pdv.map(p => `<tr><td colspan="3" class="napomena">od toga PDV ${String(p.stopa).replace('.', ',')} % na ${eur(p.osnovica)}</td><td class="r napomena">${eur(p.pdv)}</td></tr>`).join('') +
+    `<tfoot><tr><td colspan="3">Ukupno s PDV-om</td><td class="r">${eur(Z.ukupno)}</td></tr></tfoot></table>` +
+    '<p class="napomena">Izdajte JEDAN račun u Robi s ovim stavkama (tvrtki R1 / eRačun). Ako je cijena u Robi drukčija, ispravite je na računu prema ugovorenoj. ' +
+    'Zbirni račun smije obuhvatiti samo isporuke iz istog mjeseca. Rok i način (gotovina ili virman) dogovorite s knjigovođom.</p>' +
+    '<div class="polja"><label>Broj računa iz Robe <input id="kt-racun" autocomplete="off" placeholder="npr. 125-1-1"></label><button class="btn prim" id="kt-upisi">Upiši za sve gore</button></div>'
+    : '<p class="napomena">Nema isporučenih narudžbi bez računa u tom mjesecu.</p>') +
+    (Z.fakturirane.length ? '<p class="napomena">S računom: ' + Z.fakturirane.map(n => esc(n.oznaka) + ' → ' + esc(n.racun_roba)).join(', ') + '</p>' : '');
+  if ($('#kt-upisi')) $('#kt-upisi').onclick = async () => {
+    try {
+      await api('/api/kupci_racun/' + id, {racun_roba: $('#kt-racun').value, narudzbe: Z.bez_racuna.map(n => n.id)});
+      toast('Broj računa upisan'); await ucitajNarudzbe(); zbirniKupca(id);
+    } catch (e) { toast(e.message, true); }
+  };
+}
+$('#o-kupci').addEventListener('click', prikaziKupce);
+
+// ---------------------------------------------------------------- Kontrola
+async function ucitajKontrolu() {
+  try {
+    const p = await api('/api/kontrola');
+    const n = p.filter(x => x.razina !== 'ok').length;
+    $('#k-broj').hidden = !n; $('#k-broj').textContent = n;
+    $('#k-popis').innerHTML = p.map(x =>
+      `<details class="prov ${x.razina}"${x.razina === 'crveno' ? ' open' : ''}><summary>${x.razina === 'ok' ? '✓ ' : ''}${esc(x.naslov)}` +
+      `${x.ukupno ? ' <span>(' + x.ukupno + ')</span>' : ''}</summary><p>${esc(x.opis)}</p>` +
+      (x.stavke.length ? '<div class="scroll"><table class="t"><tr>' + x.stupci.map((s, k) => `<th${k ? ' class="r"' : ''}>${esc(s)}</th>`).join('') + '</tr>' +
+        x.stavke.map(r => '<tr>' + r.map((c, k) => `<td${k ? ' class="r"' : ''}>${esc(c)}</td>`).join('') + '</tr>').join('') +
+        (x.ukupno > x.stavke.length ? `<tr><td colspan="${x.stupci.length}" class="napomena">… i još ${x.ukupno - x.stavke.length}</td></tr>` : '') +
+        '</table></div>' : '') + '</details>').join('');
+  } catch (e) { toast(e.message, true); }
+}
+$('#k-osvjezi').addEventListener('click', ucitajKontrolu);
+
+// ---- postavke modula
+let MODULI = {};
+function primijeniModule() {
+  const m = MODULI;
+  const tab = v => document.querySelector(`.tabs button[data-v=${v}]`);
+  tab('narudzbe').hidden = !m.narudzbe;
+  $('#o-kupci').hidden = !(m.narudzbe && m.kupci_tvrtke);
+  tab('haccp').hidden = !m.haccp;
+  $('#z-mob-gumb').hidden = !m.inventura_mobitel;
+  $('#z-akc-gumb').hidden = !m.akcije;
+  $('#n-usporedba').hidden = !m.usporedba;
+  $('#n-dug').hidden = !m.dugovanja;
+  $('#o-ponude').hidden = !(m.narudzbe && m.ponude);
+  $('#z-zpc-gumb').hidden = !m.zpc;
+  if (!m.zpc) $('#z-zpc').hidden = true;
+  $('#z-rok-gumb').hidden = !m.rokovi;
+  if (!m.rokovi) $('#z-rok').hidden = true;
+  tab('bonovi').hidden = !(m.bonovi || m.vjernost);
+  tab('bonovi').textContent = m.bonovi && m.vjernost ? 'Bonovi i vjernost' : m.bonovi ? 'Bonovi' : 'Vjernost';
+  if (!m.inventura_mobitel) $('#z-mob').hidden = true;
+  if (!m.akcije) $('#z-akc').hidden = true;
+  const on = document.querySelector('.tabs button.on');
+  if (on && on.hidden) tab('danas').click();
+}
+async function prikaziPostavke() {
+  const box = $('#postavke');
+  if (!box.hidden) { box.hidden = true; return; }
+  let P;
+  try { P = await api('/api/postavke'); } catch (e) { toast(e.message, true); return; }
+  box.innerHTML = '<div id="p-nadogradnja" class="napomena" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">Verzija programa: …</div>' +
+    '<h2>Postavke: dodatni moduli</h2>' +
+    '<p class="napomena">Uključite samo ono što vaša trgovina koristi. Isključen modul ne briše podatke. ' +
+    'Zakonske obveze (sidrena cijena, najniža cijena u 30 dana kod akcije, cijena za kg/l) vrijede uvijek i ne isključuju se.</p>' +
+    P.map(m => `<label style="display:flex;gap:10px;align-items:flex-start;margin:10px 0"><input type="checkbox" data-modul="${m.kljuc}" ${m.ukljucen ? 'checked' : ''} style="margin-top:3px">` +
+      `<span><b>${esc(m.naziv)}</b><br><span class="napomena">${esc(m.opis)}</span></span></label>`).join('') +
+    '<div class="red" style="position:sticky;bottom:-14px;background:var(--panel);padding:10px 0 4px;margin-bottom:0;border-top:1px solid var(--line)"><button class="btn prim" id="p-spremi">Spremi</button><button class="btn" id="p-zatvori">Zatvori</button></div>';
+  box.hidden = false; box.scrollTop = 0;
+  crtajNadogradnju(false);
+  $('#p-zatvori').onclick = () => box.hidden = true;
+  $('#p-spremi').onclick = async () => {
+    const p = {};
+    box.querySelectorAll('[data-modul]').forEach(c => p[c.dataset.modul] = c.checked);
+    try {
+      await api('/api/postavke', p);
+      box.hidden = true; toast('Postavke spremljene');
+      await osvjeziArtikle();
+      const v = document.querySelector('.tabs button.on'); if (v) v.click();
+      ucitajKontrolu();
+    } catch (e) { toast(e.message, true); }
+  };
+}
+$('#postavke-gumb').addEventListener('click', prikaziPostavke);
+
+// ---- nadogradnja programa s GitHuba (samo instalirana verzija)
+async function crtajNadogradnju(odmah) {
+  const el = $('#p-nadogradnja'); if (!el) return;
+  let N;
+  try { N = await api('/api/postavke/nadogradnja' + (odmah ? '?odmah=1' : '')); }
+  catch (e) { el.textContent = ''; return; }
+  oznaciNadogradnju(N);
+  el.innerHTML = `<span>Verzija programa: <b>${esc(N.verzija)}</b></span>` +
+    (N.novija ? `<span style="color:var(--ok,#1a7f4b)"><b>Nova verzija ${esc(N.github)} je dostupna.</b></span>` +
+                `<button class="btn prim" id="p-nadogradi">Nadogradi</button>`
+              : `<span>${N.github ? 'Imate najnoviju verziju.' : esc(N.greska || '')}</span>` +
+                `<button class="btn" id="p-provjeri-nad">Provjeri nadogradnju</button>`);
+  const pr = $('#p-provjeri-nad');
+  if (pr) pr.onclick = () => { el.querySelector('span:nth-child(2)').textContent = 'Provjeravam…'; crtajNadogradnju(true); };
+  const nd = $('#p-nadogradi');
+  if (nd) nd.onclick = async () => {
+    nd.disabled = true; nd.textContent = 'Nadograđujem…';
+    try {
+      const r = await api('/api/postavke/nadogradnja', {});
+      el.innerHTML = `<b>Nadograđeno na ${esc(r.verzija)}. Kasa se ponovno pokreće, pričekajte…</b>`;
+      cekajNovuVerziju(r.verzija);
+    } catch (e) { toast(e.message, true); nd.disabled = false; nd.textContent = 'Nadogradi'; }
+  };
+}
+function oznaciNadogradnju(N) {
+  const b = $('#postavke-gumb');
+  if (b) b.textContent = N && N.novija ? 'Postavke (nova verzija)' : 'Postavke';
+}
+async function cekajNovuVerziju(v) {
+  for (let i = 0; i < 90; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    try {
+      const t = await (await fetch('/verzija.txt', {cache: 'no-store'})).text();
+      if (t.trim() === 'trgovina ' + v) { location.reload(); return; }
+    } catch (e) { /* kasa se još pokreće */ }
+  }
+  toast('Kasa se nije ponovno pokrenula. Pokrenite je ikonom Kasa na radnoj površini.', true);
+}
+setTimeout(() => api('/api/postavke/nadogradnja').then(oznaciNadogradnju).catch(() => {}), 4000);
+
+// ---- HACCP dnevnik
+let H = null;
+const hTko = () => {
+  const t = $('#h-tko').value.trim();
+  if (!t) { $('#h-tko').focus(); throw new Error('Upišite tko upisuje (gore).'); }
+  try { localStorage.setItem('haccp_tko', t); } catch (e) { /* bez spremanja */ }
+  return t;
+};
+try { $('#h-tko').value = localStorage.getItem('haccp_tko') || ''; } catch (e) { /* bez spremanja */ }
+$('#h-mj').value = danas().slice(0, 7);
+const tempTxt = t => (t === null || t === undefined) ? '' : String(t).replace('.', ',') + ' °C';
+const ponistiGumb = (vrsta, r) => r.ponisteno ? `<span class="napomena" title="${esc(r.ponisteno)}">poništeno</span>` :
+  `<button class="btn" data-ponisti="${vrsta}" data-id="${r.id}" style="padding:2px 8px">Poništi</button>`;
+async function hacPosalji(put, tijelo, poruka) {
+  try {
+    await api('/api/haccp/' + put, tijelo);
+    toast(poruka || 'Upisano'); await ucitajHaccp(); ucitajKontrolu();
+    return true;
+  } catch (e) { toast(e.message, true); return false; }
+}
+async function ucitajHaccp() {
+  try { H = await api('/api/haccp'); } catch (e) { toast(e.message, true); return; }
+  const aktivni = H.uredjaji.filter(u => u.aktivan);
+  // temperature
+  $('#h-temp').innerHTML = aktivni.length ? '<table class="t">' + aktivni.map(u => {
+    const mj = u.danas.map(t => `<div class="${t.ponisteno ? 'napomena' : ''}" style="${t.ponisteno ? 'text-decoration:line-through' : ''}">` +
+      `${t.vrijeme.slice(11, 16)} <b class="${!t.ponisteno && (t.temperatura < u.min_t || t.temperatura > u.max_t) ? 'minus' : ''}">${tempTxt(t.temperatura)}</b> ${esc(t.tko)}` +
+      `${t.mjera ? ' · mjera: ' + esc(t.mjera) : ''} ${ponistiGumb('temperatura', t)}</div>`).join('');
+    return `<tr><td><b>${esc(u.naziv)}</b><br><span class="napomena">${tempTxt(u.min_t)} do ${tempTxt(u.max_t)}</span></td>` +
+      `<td>${mj}${u.danas.some(t => !t.ponisteno) ? '' : '<span class="minus">nije upisano</span>'}</td>` +
+      `<td class="r" style="white-space:nowrap"><input data-temp="${u.id}" inputmode="decimal" style="width:64px" placeholder="°C"> <button class="btn" data-upisi="${u.id}">Upiši</button></td></tr>`;
+  }).join('') + '</table><p class="napomena">Mjerite barem jednom dnevno, najbolje ujutro. Ako je temperatura izvan granica, program traži korektivnu mjeru.</p>'
+    : '<p>Nema uređaja. Kliknite "Uređaji i plan čišćenja" i dodajte hladnjake, vitrine i zamrzivače.</p>';
+  // čišćenje
+  const uc = {dnevno: 'dnevno', tjedno: 'tjedno', mjesecno: 'mjesečno'};
+  $('#h-cis').innerHTML = (H.plan.length ? '<table class="t">' + H.plan.map(p =>
+      `<tr><td><b>${esc(p.podrucje)}</b><br><span class="napomena">${uc[p.ucestalost]} · ${esc(p.nacin)}${p.sredstvo ? ' · ' + esc(p.sredstvo) : ''}</span></td>` +
+      `<td class="${p.napravljeno ? '' : 'minus'}">${p.napravljeno ? 'napravljeno' : 'treba'}${p.zadnje ? '<br><span class="napomena">zadnje ' + datumHr(p.zadnje.slice(0, 10)) + '</span>' : ''}</td>` +
+      `<td class="r"><button class="btn" data-ocisceno="${p.id}">Očišćeno</button></td></tr>`).join('') + '</table>'
+      : '<p>Nema plana čišćenja. Dodajte ga pod "Uređaji i plan čišćenja".</p>') +
+    '<details style="margin-top:8px"><summary>Upiši drugo čišćenje (izvan plana)</summary><div class="red" style="margin-top:6px">' +
+    '<input id="h-c-podrucje" placeholder="Što je očišćeno" style="width:180px">' +
+    `<select id="h-c-nacin">${H.nacini.map(n => `<option>${esc(n)}</option>`).join('')}</select>` +
+    '<input id="h-c-sredstvo" placeholder="Sredstvo" style="width:120px"><button class="btn" id="h-c-upisi">Upiši</button></div></details>' +
+    (H.ciscenje.length ? '<p style="margin:10px 0 4px"><b>Danas upisano</b></p><table class="t">' + H.ciscenje.map(c =>
+      `<tr style="${c.ponisteno ? 'text-decoration:line-through;color:var(--muted)' : ''}"><td>${c.vrijeme.slice(11, 16)}</td><td>${esc(c.podrucje)} · ${esc(c.nacin)}</td><td>${esc(c.tko)}</td><td class="r">${ponistiGumb('ciscenje', c)}</td></tr>`).join('') + '</table>' : '');
+  // prijem
+  $('#h-prijem').innerHTML = '<div class="red">' +
+    `<input id="h-p-dob" list="h-dobavljaci" placeholder="Dobavljač" style="width:180px"><datalist id="h-dobavljaci">${PARTNERI.map(p => `<option value="${esc(p.naziv)}">`).join('')}</datalist>` +
+    '<input id="h-p-dok" placeholder="Otpremnica / račun br." style="width:150px">' +
+    '<input id="h-p-roba" placeholder="Roba (npr. jogurt, sir, salata)" style="width:220px">' +
+    '<input id="h-p-temp" inputmode="decimal" placeholder="°C (hladno)" style="width:90px" title="Samo za robu koja mora biti u hladnom">' +
+    '<select id="h-p-ok"><option value="1">prihvaćeno</option><option value="0">odbijeno / vraćeno</option></select>' +
+    '<input id="h-p-nap" placeholder="Napomena (obavezno ako je odbijeno)" style="width:220px">' +
+    '<button class="btn prim" id="h-p-upisi">Upiši prijem</button></div>' +
+    '<p class="napomena">Pogledajte ambalažu, rok trajanja, izgled robe i temperaturu hladne robe. Otpremnicu ili račun dobavljača čuvajte (sljedivost).</p>' +
+    (H.prijem.length ? '<table class="t"><tr><th>Vrijeme</th><th>Dobavljač</th><th>Dokument</th><th>Roba</th><th class="r">°C</th><th>Stanje</th><th>Tko</th><th></th></tr>' + H.prijem.map(p =>
+      `<tr style="${p.ponisteno ? 'text-decoration:line-through;color:var(--muted)' : ''}"><td>${datumHr(p.vrijeme.slice(0, 10))} ${p.vrijeme.slice(11, 16)}</td><td>${esc(p.dobavljac)}</td><td>${esc(p.dokument)}</td>` +
+      `<td>${esc(p.roba)}</td><td class="r">${tempTxt(p.temperatura)}</td><td class="${p.prihvaceno ? '' : 'minus'}">${p.prihvaceno ? 'prihvaćeno' : 'odbijeno'}${p.napomena ? ': ' + esc(p.napomena) : ''}</td>` +
+      `<td>${esc(p.tko)}</td><td class="r">${ponistiGumb('prijem', p)}</td></tr>`).join('') + '</table><p class="napomena">Zadnjih 7 dana.</p>' : '');
+  if (!$('#h-postavke').hidden) crtajHaccpPostavke();
+}
+$('#v-haccp').addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return;
+  try {
+    if (b.dataset.upisi) {
+      const u = H.uredjaji.find(x => x.id === +b.dataset.upisi), inp = $(`[data-temp="${u.id}"]`);
+      const t = broj(inp.value);
+      if (inp.value.trim() === '' || isNaN(t)) { inp.focus(); throw new Error('Upišite temperaturu.'); }
+      let mjera = '';
+      if (t < u.min_t || t > u.max_t) {
+        mjera = (prompt(`${u.naziv}: ${tempTxt(t)} je izvan granica (${tempTxt(u.min_t)} do ${tempTxt(u.max_t)}).\nŠto ste napravili? (npr. roba premještena u drugi hladnjak, pozvan serviser, roba povučena iz prodaje)`) || '').trim();
+        if (!mjera) return;
+      }
+      await hacPosalji('temperatura', {uredjaj_id: u.id, temperatura: inp.value, tko: hTko(), mjera});
+    } else if (b.dataset.ocisceno) {
+      await hacPosalji('ciscenje', {plan_id: +b.dataset.ocisceno, tko: hTko()});
+    } else if (b.id === 'h-c-upisi') {
+      await hacPosalji('ciscenje', {podrucje: $('#h-c-podrucje').value, nacin: $('#h-c-nacin').value, sredstvo: $('#h-c-sredstvo').value, tko: hTko()});
+    } else if (b.id === 'h-p-upisi') {
+      await hacPosalji('prijem', {dobavljac: $('#h-p-dob').value, dokument: $('#h-p-dok').value, roba: $('#h-p-roba').value,
+        temperatura: $('#h-p-temp').value, prihvaceno: $('#h-p-ok').value === '1', napomena: $('#h-p-nap').value, tko: hTko()}, 'Prijem upisan');
+    } else if (b.dataset.ponisti) {
+      const razlog = (prompt('Zašto poništavate zapis? (npr. krivo upisano, krivi uređaj)\nZapis se ne briše, ostaje prekrižen.') || '').trim();
+      if (!razlog) return;
+      await hacPosalji('ponisti', {vrsta: b.dataset.ponisti, id: +b.dataset.id, razlog}, 'Poništeno');
+    }
+  } catch (err) { toast(err.message, true); }
+});
+function crtajHaccpPostavke() {
+  const box = $('#h-postavke'), vr = Object.keys(H.vrste);
+  const nazivVrste = {hladnjak: 'hladnjak', vitrina: 'rashladna vitrina', zamrzivac: 'zamrzivač', prostorija: 'prostorija / skladište'};
+  const uc = {dnevno: 'dnevno', tjedno: 'tjedno', mjesecno: 'mjesečno'};
+  const uRed = u => `<tr data-ured="${u ? u.id : 0}"><td><input class="hu-naziv" value="${esc(u ? u.naziv : '')}" placeholder="npr. Hladnjak mliječni" style="width:170px"></td>` +
+    `<td><select class="hu-vrsta">${vr.map(v => `<option value="${v}" ${u && u.vrsta === v ? 'selected' : ''}>${nazivVrste[v] || v}</option>`).join('')}</select></td>` +
+    `<td><input class="hu-min" inputmode="decimal" value="${u ? String(u.min_t).replace('.', ',') : ''}" placeholder="zadano" style="width:60px"> do ` +
+    `<input class="hu-max" inputmode="decimal" value="${u ? String(u.max_t).replace('.', ',') : ''}" placeholder="zadano" style="width:60px"> °C</td>` +
+    `<td><label><input type="checkbox" class="hu-akt" ${!u || u.aktivan ? 'checked' : ''}> u upotrebi</label></td><td><button class="btn" data-spremi-ured>${u ? 'Spremi' : 'Dodaj'}</button></td></tr>`;
+  const pRed = p => `<tr data-plan="${p ? p.id : 0}"><td><input class="hp-podrucje" value="${esc(p ? p.podrucje : '')}" placeholder="npr. pod prodavaonice" style="width:170px"></td>` +
+    `<td><select class="hp-uc">${Object.keys(uc).map(k => `<option value="${k}" ${p && p.ucestalost === k ? 'selected' : ''}>${uc[k]}</option>`).join('')}</select></td>` +
+    `<td><select class="hp-nacin">${H.nacini.map(n => `<option ${p && p.nacin === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></td>` +
+    `<td><input class="hp-sredstvo" value="${esc(p ? p.sredstvo : '')}" placeholder="sredstvo" style="width:120px"></td>` +
+    `<td>${p ? '<label><input type="checkbox" class="hp-akt" checked> u planu</label>' : ''}</td><td><button class="btn" data-spremi-plan>${p ? 'Spremi' : 'Dodaj'}</button></td></tr>`;
+  box.innerHTML = '<h2>Uređaji (hladnjaci, vitrine, zamrzivači)</h2>' +
+    '<p class="napomena">Prazne granice = zadano za vrstu: hladnjak 0 do 4 °C, vitrina 2 do 8 °C, zamrzivač -18 °C ili hladnije. ' +
+    'Ako proizvođač na deklaraciji traži drukčije (npr. do 8 °C), upišite to. Granice se pamte uz svako mjerenje.</p>' +
+    '<table class="t">' + H.uredjaji.map(uRed).join('') + uRed(null) + '</table>' +
+    '<h2 style="margin-top:16px">Plan čišćenja</h2>' +
+    '<p class="napomena">Npr. dnevno: pod, police i vage, radne površine; tjedno: hladnjaci iznutra; mjesečno: skladište. Stavka maknuta iz plana ostaje u starim zapisima.</p>' +
+    '<table class="t">' + H.plan.map(pRed).join('') + pRed(null) + '</table>';
+  box.querySelectorAll('[data-spremi-ured]').forEach(b => b.onclick = async () => {
+    const r = b.closest('tr');
+    if (await hacPosalji('uredjaj', {id: +r.dataset.ured, naziv: r.querySelector('.hu-naziv').value, vrsta: r.querySelector('.hu-vrsta').value,
+      min_t: r.querySelector('.hu-min').value, max_t: r.querySelector('.hu-max').value, aktivan: r.querySelector('.hu-akt').checked}, 'Uređaj spremljen')) crtajHaccpPostavke();
+  });
+  box.querySelectorAll('[data-spremi-plan]').forEach(b => b.onclick = async () => {
+    const r = b.closest('tr'), akt = r.querySelector('.hp-akt');
+    if (await hacPosalji('plan', {id: +r.dataset.plan, podrucje: r.querySelector('.hp-podrucje').value, ucestalost: r.querySelector('.hp-uc').value,
+      nacin: r.querySelector('.hp-nacin').value, sredstvo: r.querySelector('.hp-sredstvo').value, aktivan: akt ? akt.checked : true}, 'Plan spremljen')) crtajHaccpPostavke();
+  });
+}
+async function ucitajHaccpMob(akcija) {
+  const box = $('#h-mob');
+  let s;
+  try {
+    s = akcija ? await api('/api/haccp/mobitel', {akcija}) : await api('/api/haccp/mobitel');
+    if (s.greska_mreze) toast(s.greska_mreze, true);
+  } catch (e) { toast(e.message, true); return; }
+  $('#h-mob-gumb').textContent = s.ukljucen ? 'Upis s mobitela (uključen)' : 'Upis s mobitela';
+  box.innerHTML = '<h2>HACCP upis s mobitela</h2>' + (s.ukljucen ?
+    `<div class="mob-adr"><div><span>Na mobitelu otvorite</span><b>${esc(s.adresa)}</b></div><div><span>PIN</span><b>${esc(s.pin)}</b></div></div>` +
+    (s.zakljucano ? '<p class="minus">Previše krivih PIN-ova: mobitel je zaključan. Kliknite "Novi PIN".</p>' : '') +
+    (s.spojeni.length ? '<p>Spojeni: ' + s.spojeni.map(esc).join(', ') + '</p>' : '') +
+    '<p class="napomena">Mobitel vidi samo HACCP upis (ne vidi cijene ni promet). Ostaje uključeno i kad ponovno pokrenete program. ' +
+    'Ako PIN zna netko tko ne bi trebao, kliknite "Novi PIN": svi mobiteli se moraju ponovno prijaviti.</p>' +
+    '<div class="red"><button class="btn" id="hm-pin">Novi PIN</button><button class="btn" id="hm-iskljuci">Isključi</button><button class="btn" id="hm-zatvori">Zatvori</button></div>'
+    : '<p>Temperature, čišćenje i prijem robe upisujte s mobitela spojenog na WiFi trgovine, uz hladnjak ili kod dostave. ' +
+      'Upisuje se pod imenom koje se upiše kod prijave, a vrijeme je uvijek "sada".</p>' +
+      '<p class="napomena">Kod prvog pokretanja Windows može pitati smije li program u mrežu: odaberite samo privatnu (kućnu/poslovnu) mrežu.</p>' +
+      '<div class="red"><button class="btn prim" id="hm-ukljuci">Uključi</button><button class="btn" id="hm-zatvori">Zatvori</button></div>');
+  box.hidden = false;
+  const g = (id, a) => { const b = $(id); if (b) b.onclick = () => ucitajHaccpMob(a); };
+  g('#hm-ukljuci', 'ukljuci'); g('#hm-pin', 'novi_pin'); g('#hm-iskljuci', 'iskljuci');
+  $('#hm-zatvori').onclick = () => box.hidden = true;
+}
+$('#h-mob-gumb').addEventListener('click', () => { if ($('#h-mob').hidden) ucitajHaccpMob(); else $('#h-mob').hidden = true; });
+$('#h-postavke-gumb').addEventListener('click', () => {
+  const b = $('#h-postavke'); b.hidden = !b.hidden; if (!b.hidden && H) crtajHaccpPostavke();
+});
+$('#h-ispis').addEventListener('click', () => window.open('/ispis_haccp?mjesec=' + ($('#h-mj').value || danas().slice(0, 7)), 'ispishaccp', 'width=1000,height=800'));
+
+// ---- pomoćno: traženje artikla u malom polju
+function traziArtikl(inp, ul, odaberi) {
+  let rez = [];
+  inp.oninput = () => {
+    const v = inp.value.trim(), q = norm(v);
+    rez = !q ? [] : ARTIKLI.filter(a => a.sifra === v || a.barkod === v).concat(ARTIKLI.filter(a => a.sifra !== v && norm(a.naziv).includes(q))).slice(0, 8);
+    ul.hidden = !rez.length;
+    ul.innerHTML = rez.map((a, k) => `<li data-k="${k}" class="${k ? '' : 'sel'}"><span class="s">${esc(a.sifra)}</span><span class="n">${esc(a.naziv)}</span><span class="c">${esc(a.jm)}</span></li>`).join('');
+  };
+  const izaberi = a => { inp.value = a.naziv; ul.hidden = true; rez = []; odaberi(a); };
+  inp.onkeydown = e => { if (e.key === 'Enter' && rez[0]) { e.preventDefault(); izaberi(rez[0]); } };
+  ul.onclick = e => { const li = e.target.closest('li'); if (li) izaberi(rez[+li.dataset.k]); };
+}
+
+// ---- rokovi trajanja i kalo
+async function ucitajRokove() {
+  const box = $('#z-rok');
+  let R;
+  try { R = await api('/api/rokovi'); } catch (e) { toast(e.message, true); return; }
+  const boja = {istekao_zabrana: 'minus', istekao_izdvojiti: 'minus', uskoro: 'minus', izdvojeno: '', ok: ''};
+  const opis = {istekao_zabrana: 'ISTEKAO: ne smije se prodavati', istekao_izdvojiti: 'istekao: samo izdvojeno uz obavijest',
+    uskoro: 'ističe uskoro', izdvojeno: 'izdvojeno, s obaviješću', ok: ''};
+  const gumbi = x => {
+    const g = (k, t) => `<button class="btn" data-rok="${x.id}" data-kako="${k}" style="padding:2px 8px">${t}</button>`;
+    if (x.stanje === 'istekao_zabrana') return g('otpisano', 'Otpisano');
+    return g('prodano', 'Prodano') + ' ' + g('otpisano', 'Otpisano') + (x.vrsta === 'najbolje' ? ' ' + g('doniranje', 'Donirano') + (x.stanje === 'istekao_izdvojiti' ? ' ' + g('izdvojeno', 'Izdvojeno') : '') : '');
+  };
+  box.innerHTML = '<h2>Rokovi trajanja</h2>' +
+    '<div class="red"><div class="trazi-dok" style="flex:1;min-width:220px"><input id="rk-art" placeholder="Artikl: šifra ili naziv" autocomplete="off"><ul class="rez card" id="rk-rez" hidden></ul></div>' +
+    '<input id="rk-kol" inputmode="decimal" placeholder="Količina" style="width:90px">' +
+    `<select id="rk-vrsta">${Object.entries(R.vrste).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('')}</select>` +
+    '<input type="date" id="rk-datum"><button class="btn prim" id="rk-upisi">Upiši rok</button></div>' +
+    '<p class="napomena">"Upotrijebiti do" (mlijeko, meso, svježi sir): poslije roka se ne smije prodavati ni donirati. ' +
+    '"Najbolje upotrijebiti do": poslije roka smije se prodavati samo izdvojeno i uz jasnu obavijest kupcima, ili donirati. ' +
+    'Za otpis napravite i dokument otpisa (Nabava, Novi otpis).</p>' +
+    (R.popis.length ? '<table class="t"><tr><th>Artikl</th><th class="r">Količina</th><th>Rok</th><th>Stanje</th><th></th></tr>' + R.popis.map(x =>
+      `<tr><td>${esc(x.naziv)}${x.napomena ? ' <span class="napomena">' + esc(x.napomena) + '</span>' : ''}</td><td class="r">${kolTxt(x.kolicina)} ${esc(x.jm)}</td>` +
+      `<td>${datumHr(x.rok)}<br><span class="napomena">${esc(R.vrste[x.vrsta])}</span></td><td class="${boja[x.stanje]}">${opis[x.stanje]}${x.stanje === 'ok' || x.stanje === 'uskoro' ? (x.dana === 0 ? 'danas' : ' još ' + x.dana + ' d') : ''}</td>` +
+      `<td class="r">${gumbi(x)}</td></tr>`).join('') + '</table>' : '<p class="napomena">Nema upisanih rokova.</p>') +
+    '<h2 style="margin-top:16px">Kalo (gubitak robe)</h2>' +
+    `<div class="red"><label>Od <input type="date" id="kalo-od"></label><label>Do <input type="date" id="kalo-do"></label>` +
+    '<label title="Dopušteni kalo dogovorite s knjigovođom (HGK preporuke za voće i povrće okvirno 2 - 6 %)">Dopušteni kalo % <input id="kalo-norma" inputmode="decimal" style="width:60px"></label>' +
+    '<button class="btn" id="kalo-prikazi">Prikaži</button></div><div id="kalo"></div>';
+  let art = null;
+  traziArtikl($('#rk-art'), $('#rk-rez'), a => { art = a; $('#rk-kol').focus(); });
+  $('#rk-upisi').onclick = async () => {
+    if (!art) { toast('Odaberite artikl', true); return; }
+    try { await api('/api/rokovi/upisi', {artikl_id: art.id, kolicina: $('#rk-kol').value, vrsta: $('#rk-vrsta').value, rok: $('#rk-datum').value}); toast('Rok upisan'); ucitajRokove(); ucitajKontrolu(); }
+    catch (e) { toast(e.message, true); }
+  };
+  box.querySelectorAll('[data-rok]').forEach(b => b.onclick = async () => {
+    try { await api('/api/rokovi/zatvori', {id: +b.dataset.rok, kako: b.dataset.kako}); toast('Spremljeno'); ucitajRokove(); ucitajKontrolu(); }
+    catch (e) { toast(e.message, true); }
+  });
+  const d = new Date(); $('#kalo-do').value = danas(); $('#kalo-od').value = danas().slice(0, 8) + '01';
+  $('#kalo-prikazi').onclick = ucitajKalo;
+  ucitajKalo();
+}
+async function ucitajKalo(spremiNormu) {
+  try {
+    if (spremiNormu !== false && $('#kalo-norma').dataset.ucitano) await api('/api/kalo/norma', {norma: $('#kalo-norma').value});
+    const K = await api(`/api/kalo?od=${$('#kalo-od').value}&do=${$('#kalo-do').value}`);
+    $('#kalo-norma').value = K.norma ? String(K.norma).replace('.', ',') : ''; $('#kalo-norma').dataset.ucitano = 1;
+    $('#kalo').innerHTML = K.stavke.length ? '<table class="t"><tr><th>Artikl</th><th class="r">Nabavljeno</th><th class="r">Otpis</th><th class="r">Inv. manjak</th><th class="r">Gubitak</th><th class="r">Vrijednost</th></tr>' +
+      K.stavke.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.nabavljeno)} ${esc(s.jm)}</td><td class="r">${kolTxt(s.otpisano)}</td><td class="r">${s.inventura < 0 ? kolTxt(-s.inventura) : ''}</td>` +
+        `<td class="r ${s.iznad ? 'minus' : ''}"><b>${s.posto === null ? '—' : String(s.posto).replace('.', ',') + ' %'}</b></td><td class="r">${eur(s.vrijednost)}</td></tr>`).join('') +
+      `<tfoot><tr><td colspan="5">Ukupno gubitak po nabavnoj (nabava u razdoblju ${eur(K.nabava)})</td><td class="r">${eur(K.gubitak)}</td></tr></tfoot></table>` +
+      '<p class="napomena">Gubitak = otpis + inventurni manjak, u % od nabavljene količine. Crveno je iznad dopuštenog kala: taj dio knjigovođa obično tretira kao prodaju (PDV).</p>'
+      : '<p class="napomena">Nema otpisa ni inventurnog manjka u tom razdoblju.</p>';
+  } catch (e) { toast(e.message, true); }
+}
+$('#z-rok-gumb').addEventListener('click', () => { const b = $('#z-rok'); b.hidden = !b.hidden; if (!b.hidden) ucitajRokove(); });
+
+// ---- poklon bonovi i kartica vjernosti
+async function ucitajBonove() {
+  if (MODULI.bonovi) {
+    let B;
+    try { B = await api('/api/bonovi'); } catch (e) { toast(e.message, true); return; }
+    const st = {vrijedi: '', 'iskorišten': 'napomena', istekao: 'minus', 'poništen': 'napomena'};
+    $('#b-bonovi').innerHTML = '<h2>Poklon bonovi</h2>' +
+      '<div class="red"><label>Iznos EUR <input id="bn-iznos" inputmode="decimal" style="width:80px"></label>' +
+      '<label>Vrijedi do <input type="date" id="bn-do"></label><label>Račun iz Robe <input id="bn-racun" style="width:110px" placeholder="prodaja bona"></label>' +
+      '<button class="btn prim" id="bn-izdaj">Izdaj bon</button></div>' +
+      '<div class="red"><label>Bon <input id="bn-kod" style="width:120px" placeholder="B26-..." autocomplete="off"></label><button class="btn" id="bn-provjeri">Provjeri</button>' +
+      '<label>Iznos EUR <input id="bn-isk" inputmode="decimal" style="width:80px"></label><label>Račun iz Robe <input id="bn-isk-racun" style="width:110px"></label>' +
+      '<button class="btn" id="bn-iskoristi">Iskoristi</button></div><div id="bn-info"></div>' +
+      '<p class="napomena">Bon za bilo koju robu je višenamjenski: prodaja bona u Robi bez PDV-a, a PDV ide na račun kad se bonom plati. ' +
+      `Način upisa u Robu potvrdite s knjigovođom. U opticaju (neiskorišteno): <b>${eur(B.upozorenja.u_opticaju)} €</b>.</p>` +
+      (B.bonovi.length ? '<table class="t"><tr><th>Bon</th><th class="r">Iznos</th><th class="r">Ostalo</th><th>Vrijedi do</th><th>Račun</th><th>Stanje</th><th></th></tr>' + B.bonovi.map(b =>
+        `<tr><td><b>${esc(b.kod)}</b></td><td class="r">${eur(b.iznos)}</td><td class="r">${eur(b.ostalo)}</td><td>${datumHr(b.vrijedi_do)}</td>` +
+        `<td>${b.racun_roba ? esc(b.racun_roba) : '<span class="minus">nije upisan</span>'}</td><td class="${st[b.stanje] || ''}">${b.stanje}</td>` +
+        `<td class="r"><button class="btn" data-bon-ispis="${b.id}" style="padding:2px 8px">Ispiši</button> <button class="btn" data-bon-uredi="${b.id}" style="padding:2px 8px">Uredi</button></td></tr>`).join('') + '</table>' : '');
+    const dd = new Date(); dd.setFullYear(dd.getFullYear() + 1); $('#bn-do').value = dd.toISOString().slice(0, 10);
+    $('#bn-izdaj').onclick = async () => {
+      try {
+        const b = await api('/api/bonovi/izdaj', {iznos: $('#bn-iznos').value, vrijedi_do: $('#bn-do').value, racun_roba: $('#bn-racun').value});
+        toast('Bon ' + b.kod + ' izdan'); window.open('/ispis_bon/' + b.id + '#ispis', 'ispisbon', 'width=800,height=700'); ucitajBonove(); ucitajKontrolu();
+      } catch (e) { toast(e.message, true); }
+    };
+    const info = b => { $('#bn-info').innerHTML = `<p><b>${esc(b.kod)}</b>: ${b.stanje}, ostalo <b>${eur(b.ostalo)} €</b> od ${eur(b.iznos)} €, vrijedi do ${datumHr(b.vrijedi_do)}` +
+      (b.iskoristenja.length ? '<br><span class="napomena">Iskorišteno: ' + b.iskoristenja.map(i => datumHr(i.vrijeme.slice(0, 10)) + ' ' + eur(i.iznos) + ' € (račun ' + esc(i.racun_roba) + ')').join(', ') + '</span>' : '') + '</p>'; };
+    $('#bn-provjeri').onclick = async () => { try { const b = await api('/api/bon?kod=' + encodeURIComponent($('#bn-kod').value)); info(b); if (!$('#bn-isk').value) $('#bn-isk').value = (b.ostalo / 100).toFixed(2).replace('.', ','); } catch (e) { toast(e.message, true); } };
+    $('#bn-iskoristi').onclick = async () => {
+      try { const b = await api('/api/bonovi/iskoristi', {kod: $('#bn-kod').value, iznos: $('#bn-isk').value, racun_roba: $('#bn-isk-racun').value}); info(b); toast('Upisano'); ucitajBonove(); }
+      catch (e) { toast(e.message, true); }
+    };
+    $('#b-bonovi').querySelectorAll('[data-bon-ispis]').forEach(x => x.onclick = () => window.open('/ispis_bon/' + x.dataset.bonIspis + '#ispis', 'ispisbon', 'width=800,height=700'));
+    $('#b-bonovi').querySelectorAll('[data-bon-uredi]').forEach(x => x.onclick = async () => {
+      const b = B.bonovi.find(y => y.id === +x.dataset.bonUredi);
+      const racun = prompt(`Bon ${b.kod}: broj računa iz Robe kojim je bon prodan`, b.racun_roba || '');
+      if (racun === null) return;
+      const p = {id: b.id, racun_roba: racun};
+      const nr = prompt('Novi rok važenja (GGGG-MM-DD), prazno = bez promjene. Rok se može samo produljiti.', '');
+      if (nr) p.vrijedi_do = nr.trim();
+      if (!b.iskoristeno && confirm('Poništiti bon (npr. krivo izdan)?')) { p.ponisti = true; p.razlog = prompt('Razlog poništenja:') || ''; }
+      try { await api('/api/bonovi/uredi', p); toast('Spremljeno'); ucitajBonove(); ucitajKontrolu(); } catch (e) { toast(e.message, true); }
+    });
+  }
+  $('#b-bonovi').hidden = !MODULI.bonovi;
+  $('#b-vjernost').hidden = !MODULI.vjernost;
+  if (MODULI.vjernost) ucitajVjernost();
+}
+async function ucitajVjernost() {
+  let V;
+  try { V = await api('/api/vjernost'); } catch (e) { toast(e.message, true); return; }
+  const P = V.pravila;
+  $('#b-vjernost').innerHTML = '<h2>Kartica vjernosti</h2>' +
+    `<p>Pravilo: <b>${String(P.bodova_po_euru).replace('.', ',')}</b> bod po euru računa; za <b>${P.prag}</b> bodova popust <b>${eur(P.nagrada)} €</b> na sljedećem računu. ` +
+    '<button class="btn" id="vj-pravila" style="padding:2px 8px">Promijeni</button></p>' +
+    '<div class="red"><label>Kartica <input id="vj-kartica" style="width:110px" autocomplete="off"></label><button class="btn" id="vj-nadji">Pronađi</button>' +
+    '<label>Iznos računa EUR <input id="vj-iznos" inputmode="decimal" style="width:80px"></label><label>Račun iz Robe <input id="vj-racun" style="width:110px"></label>' +
+    '<button class="btn prim" id="vj-kupnja">Upiši bodove</button><button class="btn" id="vj-nagrada">Daj nagradu</button></div><div id="vj-info"></div>' +
+    '<details style="margin:8px 0"><summary>Novi član</summary><div class="red" style="margin-top:6px">' +
+    '<input id="vj-n-kartica" placeholder="Broj kartice (prazno = sam dodijeli)" style="width:220px"><input id="vj-n-ime" placeholder="Ime (nije obavezno)" style="width:160px">' +
+    '<input id="vj-n-kontakt" placeholder="Telefon ili e-mail (nije obavezno)" style="width:200px">' +
+    '<label><input type="checkbox" id="vj-n-privola"> član je potpisao pristupnicu s privolom</label><button class="btn" id="vj-n-spremi">Upiši člana</button></div>' +
+    '<p class="napomena">Upisuje se samo ono što treba. Ispišite pristupnicu, član je potpiše, čuvajte je dok je član.</p></details>' +
+    '<p class="napomena">Popust iz nagrade dajte na računu u Robi i ovdje upišite broj tog računa. Popust je osobna pogodnost člana, nije akcija.</p>' +
+    (V.clanovi.length ? '<table class="t"><tr><th>Kartica</th><th>Ime</th><th class="r">Bodovi</th><th>Član od</th><th></th></tr>' + V.clanovi.slice(0, 50).map(c =>
+      `<tr><td><b>${esc(c.kartica)}</b></td><td>${c.obrisan ? '<span class="napomena">podaci obrisani ' + datumHr(c.obrisan) + '</span>' : esc(c.ime)}</td><td class="r">${c.bodovi}</td><td>${datumHr(c.privola)}</td>` +
+      `<td class="r"><button class="btn" data-vj-prist="${c.id}" style="padding:2px 8px">Pristupnica</button>${c.obrisan ? '' : ` <button class="btn opasno" data-vj-obrisi="${c.id}" style="padding:2px 8px">Obriši podatke</button>`}</td></tr>`).join('') + '</table>' : '');
+  const info = c => { $('#vj-info').innerHTML = `<p><b>${esc(c.kartica)}</b> ${esc(c.ime)}: <b>${c.bodovi}</b> bodova` +
+    (c.bodovi >= c.pravila.prag ? ` <span class="ok">ima pravo na nagradu ${eur(c.pravila.nagrada)} €</span>` : ` (do nagrade još ${c.pravila.prag - c.bodovi})`) + '</p>'; };
+  $('#vj-nadji').onclick = async () => { try { info(await api('/api/vjernost/clan?kartica=' + encodeURIComponent($('#vj-kartica').value))); } catch (e) { toast(e.message, true); } };
+  $('#vj-kartica').onkeydown = e => { if (e.key === 'Enter') $('#vj-nadji').click(); };
+  $('#vj-kupnja').onclick = async () => {
+    try { info(await api('/api/vjernost/kupnja', {kartica: $('#vj-kartica').value, iznos: $('#vj-iznos').value, racun_roba: $('#vj-racun').value})); toast('Bodovi upisani'); ucitajVjernost(); }
+    catch (e) { toast(e.message, true); }
+  };
+  $('#vj-nagrada').onclick = async () => {
+    try { const c = await api('/api/vjernost/nagrada', {kartica: $('#vj-kartica').value, racun_roba: $('#vj-racun').value}); toast('Nagrada upisana: popust ' + eur(P.nagrada) + ' € dajte u Robi'); info(c); ucitajVjernost(); }
+    catch (e) { toast(e.message, true); }
+  };
+  $('#vj-n-spremi').onclick = async () => {
+    try {
+      const c = await api('/api/vjernost/novi', {kartica: $('#vj-n-kartica').value, ime: $('#vj-n-ime').value, kontakt: $('#vj-n-kontakt').value, privola: $('#vj-n-privola').checked});
+      toast('Član upisan: kartica ' + c.kartica); $('#vj-kartica').value = c.kartica; window.open('/ispis_pristupnica/' + c.id + '#ispis', 'prist', 'width=900,height=900'); ucitajVjernost();
+    } catch (e) { toast(e.message, true); }
+  };
+  $('#vj-pravila').onclick = async () => {
+    const bpe = prompt('Bodova po euru računa:', String(P.bodova_po_euru).replace('.', ',')); if (bpe === null) return;
+    const prag = prompt('Koliko bodova za nagradu:', P.prag); if (prag === null) return;
+    const nag = prompt('Nagrada: popust u EUR:', (P.nagrada / 100).toFixed(2).replace('.', ',')); if (nag === null) return;
+    try { await api('/api/vjernost/pravila', {bodova_po_euru: bpe, prag, nagrada: nag}); toast('Pravila spremljena'); ucitajVjernost(); } catch (e) { toast(e.message, true); }
+  };
+  $('#b-vjernost').querySelectorAll('[data-vj-prist]').forEach(b => b.onclick = () => window.open('/ispis_pristupnica/' + b.dataset.vjPrist + '#ispis', 'prist', 'width=900,height=900'));
+  $('#b-vjernost').querySelectorAll('[data-vj-obrisi]').forEach(b => b.onclick = async () => {
+    if (!confirm('Obrisati ime i kontakt člana (na njegov zahtjev)? Bodovi ostaju bez imena. Ovo se ne može vratiti.')) return;
+    try { await api('/api/vjernost/obrisi', {id: +b.dataset.vjObrisi}); toast('Osobni podaci obrisani'); ucitajVjernost(); } catch (e) { toast(e.message, true); }
+  });
+}
+
+// ---- računi dobavljača i dugovanja
+async function prikaziDugovanja(svi) {
+  let D;
+  try { D = await api('/api/dugovanja?svi=' + (svi ? 1 : 0)); } catch (e) { toast(e.message, true); return; }
+  const d = danas();
+  $('#n-desno').innerHTML = '<h2>Dugovanja prema dobavljačima</h2>' +
+    `<p>Ukupno za platiti <b>${eur(D.ukupno)} €</b>${D.kasni ? `, od toga <b class="minus">${eur(D.kasni)} €</b> kasni` : ''}.</p>` +
+    '<table class="t"><tr><th>Dobavljač</th><th class="r">Računa</th><th class="r">Duguje</th><th class="r">Kasni</th><th class="r">Rok plaćanja</th></tr>' +
+    (D.dobavljaci.length ? D.dobavljaci.map(x => `<tr><td>${esc(x.partner)}${x.povrati ? '<br><span class="napomena">povrati ' + eur(x.povrati) + ' € (umanjite uz dogovor)</span>' : ''}</td><td class="r">${x.racuna}</td>` +
+      `<td class="r">${eur(x.duguje)}</td><td class="r ${x.kasni ? 'minus' : ''}">${x.kasni ? eur(x.kasni) : ''}</td>` +
+      `<td class="r">${x.partner_id ? `<input data-dob-rok="${x.partner_id}" value="${x.rok_dana}" inputmode="numeric" style="width:50px"> dana` : ''}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="napomena">Nema neplaćenih računa.</td></tr>') + '</table>' +
+    '<h2 style="margin-top:14px">Računi (primke)</h2>' +
+    `<div class="red"><label><input type="checkbox" id="dg-svi" ${svi ? 'checked' : ''}> i plaćeni</label>` +
+    `<label title="Starije primke se ne prate (plaćene su prije programa)">Prati od <input type="date" id="dg-od" value="${D.od}"></label></div>` +
+    '<table class="t"><tr><th>Primka</th><th>Dobavljač / račun</th><th>Dospijeće</th><th class="r">Ukupno</th><th class="r">Ostalo</th></tr>' +
+    (D.racuni.length ? D.racuni.map(r => `<tr class="klik" data-dug="${r.id}"><td>${esc(r.oznaka)}<br><span class="napomena">${datumHr(r.datum)}</span></td>` +
+      `<td>${esc(r.partner || '')}<br><span class="napomena">${esc(r.broj_dobavljaca || '')}</span></td><td class="${r.kasni ? 'minus' : ''}">${datumHr(r.dospijece)}</td>` +
+      `<td class="r">${eur(r.ukupno)}</td><td class="r"><b>${r.ostalo > 0 ? eur(r.ostalo) : 'plaćeno'}</b></td></tr>`).join('')
+      : '<tr><td colspan="5" class="napomena">Nema računa.</td></tr>') + '</table>' +
+    '<p class="napomena">Između poduzetnika rok plaćanja smije biti do 60 dana; ako nije ugovoren, 30 dana. Gotovinom se ne smije platiti 10.000 € ili više. ' +
+    'Gotovinu isplaćenu iz kase upišite i u Blagajnu (isplata).</p><div id="dg-racun"></div>';
+  $('#dg-svi').onchange = () => prikaziDugovanja($('#dg-svi').checked);
+  $('#dg-od').onchange = async () => { try { await api('/api/dugovanja/pocetak', {od: $('#dg-od').value}); prikaziDugovanja(svi); } catch (e) { toast(e.message, true); } };
+  $('#n-desno').querySelectorAll('[data-dob-rok]').forEach(inp => inp.onchange = async () => {
+    try { await api('/api/dugovanja/rok', {partner_id: +inp.dataset.dobRok, rok_dana: inp.value}); toast('Rok spremljen'); prikaziDugovanja(svi); } catch (e) { toast(e.message, true); }
+  });
+  $('#n-desno').querySelectorAll('[data-dug]').forEach(tr => tr.onclick = () => prikaziDugRacun(+tr.dataset.dug, svi));
+}
+async function prikaziDugRacun(id, svi) {
+  let R;
+  try { R = await api('/api/dugovanja/racun/' + id); } catch (e) { toast(e.message, true); return; }
+  const box = $('#dg-racun');
+  box.innerHTML = `<div class="card upoz"><h2>${esc(R.oznaka)} · ${esc(R.partner || '')} · račun ${esc(R.broj_dobavljaca || '—')}</h2>` +
+    `<p>Ukupno ${eur(R.ukupno)} €, plaćeno ${eur(R.placeno)} €, ostalo <b>${eur(R.ostalo)} €</b>. ` +
+    `Dospijeće <input type="date" id="dr-dosp" value="${R.dospijece}"> <button class="btn" id="dr-dosp-sp" style="padding:2px 8px">Spremi</button></p>` +
+    (R.placanja.length ? '<table class="t">' + R.placanja.map(p => `<tr style="${p.ponisteno ? 'text-decoration:line-through;color:var(--muted)' : ''}"><td>${datumHr(p.datum)}</td><td>${esc(p.nacin)}</td><td class="r">${eur(p.iznos)}</td><td>${esc(p.napomena)}</td>` +
+      `<td class="r">${p.ponisteno ? '' : `<button class="btn" data-pl-pon="${p.id}" style="padding:2px 8px">Poništi</button>`}</td></tr>`).join('') + '</table>' : '') +
+    (R.ostalo > 0 ? '<div class="red"><label>Datum <input type="date" id="dr-datum"></label>' +
+      `<label>Iznos <input id="dr-iznos" inputmode="decimal" value="${(R.ostalo / 100).toFixed(2).replace('.', ',')}" style="width:90px"></label>` +
+      '<select id="dr-nacin"><option value="virman">virman</option><option value="gotovina">gotovina</option><option value="kartica">kartica</option><option value="kompenzacija">kompenzacija</option></select>' +
+      '<input id="dr-nap" placeholder="napomena" style="width:140px"><button class="btn prim" id="dr-plati">Upiši plaćanje</button></div>' : '') + '</div>';
+  if ($('#dr-datum')) $('#dr-datum').value = danas();
+  box.scrollIntoView({block: 'nearest'});
+  $('#dr-dosp-sp').onclick = async () => { try { await api('/api/dugovanja/dospijece', {dokument_id: id, dospijece: $('#dr-dosp').value}); toast('Spremljeno'); await prikaziDugovanja(svi); prikaziDugRacun(id, svi); } catch (e) { toast(e.message, true); } };
+  if ($('#dr-plati')) $('#dr-plati').onclick = async () => {
+    try { await api('/api/dugovanja/plati', {dokument_id: id, datum: $('#dr-datum').value, iznos: $('#dr-iznos').value, nacin: $('#dr-nacin').value, napomena: $('#dr-nap').value}); toast('Plaćanje upisano'); await prikaziDugovanja(svi); prikaziDugRacun(id, svi); ucitajKontrolu(); }
+    catch (e) { toast(e.message, true); }
+  };
+  box.querySelectorAll('[data-pl-pon]').forEach(b => b.onclick = async () => {
+    const razlog = (prompt('Razlog poništenja plaćanja:') || '').trim(); if (!razlog) return;
+    try { await api('/api/dugovanja/ponisti', {id: +b.dataset.plPon, razlog}); toast('Poništeno'); await prikaziDugovanja(svi); prikaziDugRacun(id, svi); } catch (e) { toast(e.message, true); }
+  });
+}
+$('#n-dug').addEventListener('click', () => prikaziDugovanja(false));
+
+// ---- ponude
+const STATUS_P = {otvorena: 'Otvorena', prihvacena: 'Prihvaćena', odbijena: 'Odbijena'};
+async function prikaziPonude(sve) {
+  let P;
+  try { P = await api('/api/ponude?sve=' + (sve ? 1 : 0)); } catch (e) { toast(e.message, true); return; }
+  if (!KUPCI.length) KUPCI = P.kupci;
+  $('#o-desno').innerHTML = '<h2>Ponude</h2><div class="red"><button class="btn prim" id="pn-nova">Nova ponuda</button>' +
+    `<label><input type="checkbox" id="pn-sve" ${sve ? 'checked' : ''}> i zatvorene</label></div>` +
+    '<table class="t"><tr><th>Broj</th><th>Kupac</th><th>Vrijedi do</th><th>Status</th><th class="r">Iznos</th></tr>' +
+    (P.ponude.length ? P.ponude.map(p => `<tr class="klik" data-pon="${p.id}"><td>${esc(p.oznaka)}</td><td>${esc(p.kupac)}</td>` +
+      `<td class="${p.istekla ? 'minus' : ''}">${datumHr(p.vrijedi_do)}</td><td>${STATUS_P[p.status]}${p.istekla ? ' <span class="minus">istekla</span>' : ''}</td><td class="r">${eur(p.ukupno)}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="napomena">Nema ponuda.</td></tr>') + '</table>' +
+    '<p class="napomena">Ponuda nije račun. Kad je kupac prihvati, postaje narudžba s istim cijenama.</p>';
+  $('#pn-sve').onchange = () => prikaziPonude($('#pn-sve').checked);
+  $('#pn-nova').onclick = () => ucitajNarudzbe().then(() => novaNarudzba(null, true));
+  $('#o-desno').querySelectorAll('[data-pon]').forEach(tr => tr.onclick = () => prikaziPonudu(+tr.dataset.pon));
+}
+async function prikaziPonudu(id) {
+  let n;
+  try { n = await api('/api/ponuda/' + id); } catch (e) { toast(e.message, true); return; }
+  const otv = n.status === 'otvorena';
+  $('#o-desno').innerHTML = `<h2>Ponuda ${esc(n.oznaka)} · ${STATUS_P[n.status]}</h2>` +
+    `<p class="napomena">${esc(n.kupac)} · izdana ${datumHr(n.datum)} · vrijedi do ${datumHr(n.vrijedi_do)}${n.napomena ? ' · ' + esc(n.napomena) : ''}${n.narudzba ? ' · narudžba ' + esc(n.narudzba) : ''}</p>` +
+    '<table class="t"><tr><th>Artikl / usluga</th><th class="r">Količina</th><th class="r">Cijena</th><th class="r">Iznos</th></tr>' +
+    n.stavke.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r">${kolTxt(s.kolicina)} ${esc(s.jm)}</td><td class="r">${eur(s.cijena)}${s.popust ? ' −' + String(s.popust).replace('.', ',') + ' %' : ''}</td><td class="r">${eur(s.iznos)}</td></tr>`).join('') +
+    `<tfoot><tr><td colspan="3">Ukupno s PDV-om</td><td class="r">${eur(n.ukupno)}</td></tr></tfoot></table>` +
+    '<div class="red" style="margin-top:12px"><button class="btn" id="pn-ispis">Ispiši ponudu</button>' +
+    (otv ? '<button class="btn" id="pn-uredi">Uredi</button><button class="btn opasno" id="pn-odbij">Kupac odbio</button>' : '') +
+    '<button class="btn" id="pn-natrag">Sve ponude</button></div>' +
+    (otv ? '<div class="polja" style="margin-top:12px"><label>Datum isporuke <input type="date" id="pn-rok"></label>' +
+      '<label>Broj narudžbenice kupca <input id="pn-nar" autocomplete="off" placeholder="ako je kupac poslao"></label>' +
+      '<button class="btn prim" id="pn-prihvati">Kupac prihvatio: napravi narudžbu</button></div>' : '');
+  $('#pn-ispis').onclick = () => window.open('/ispis_ponuda/' + id + '#ispis', 'ispispon', 'width=900,height=900');
+  $('#pn-natrag').onclick = () => prikaziPonude(false);
+  if (!otv) return;
+  $('#pn-rok').value = sutra();
+  $('#pn-uredi').onclick = () => ucitajNarudzbe().then(() => novaNarudzba(n, true));
+  const ob = $('#pn-odbij');
+  ob.onclick = async () => {
+    if (!ob.dataset.potvrda) { ob.dataset.potvrda = 1; ob.textContent = 'Sigurno? Kliknite opet'; return; }
+    try { await api('/api/ponuda/' + id + '/odbij', {}); toast('Spremljeno'); prikaziPonudu(id); } catch (e) { toast(e.message, true); }
+  };
+  $('#pn-prihvati').onclick = async () => {
+    const p = {rok: $('#pn-rok').value, narudzbenica: $('#pn-nar').value};
+    if (n.vrijedi_do < danas()) {
+      if (!confirm('Ponuda je istekla. Kupac prihvaća cijene iz ponude?')) return;
+      p.i_istekla = true;
+    }
+    try { const r = await api('/api/ponuda/' + id + '/narudzba', p); toast('Narudžba napravljena'); await ucitajNarudzbe(); prikaziNarudzbu(r.id); }
+    catch (e) { toast(e.message, true); }
+  };
+}
+$('#o-ponude').addEventListener('click', () => prikaziPonude(false));
+
+// ---- promjene cijena (zapisnici iz Robe)
+async function ucitajZpc() {
+  let Z;
+  try { Z = await api('/api/zpc'); } catch (e) { toast(e.message, true); return; }
+  $('#z-zpc').innerHTML = '<h2>Promjene cijena (zapisnici iz Robe)</h2>' +
+    (Z.length ? '<div class="scroll" style="max-height:320px"><table class="t"><tr><th>Broj</th><th>Datum</th><th class="r">Stavki</th><th class="r">Stara vrijednost</th><th class="r">Nova vrijednost</th><th></th></tr>' +
+      Z.map(z => `<tr><td>${z.broj}</td><td>${datumHr(z.datum)}</td><td class="r">${z.stavki}</td><td class="r">${eur(z.stari)}</td><td class="r">${eur(z.novi)}</td>` +
+        `<td class="r"><button class="btn" data-zpc="${z.godina}/${z.sifra}" style="padding:2px 8px">Ispiši</button></td></tr>`).join('') + '</table></div>'
+      : '<p class="napomena">U Robi nema zapisnika o promjeni cijena (ili ova verzija Robe ih ne vodi).</p>') +
+    '<p class="napomena">Povijest cijena pojedinog artikla vidi se u kartici artikla (klik na naziv). Najniža cijena u 30 dana kod akcije uzima u obzir i ove promjene.</p>';
+  $('#z-zpc').querySelectorAll('[data-zpc]').forEach(b => b.onclick = () => window.open('/ispis_zpc/' + b.dataset.zpc + '#ispis', 'ispiszpc', 'width=1000,height=900'));
+}
+$('#z-zpc-gumb').addEventListener('click', () => { const b = $('#z-zpc'); b.hidden = !b.hidden; if (!b.hidden) ucitajZpc(); });
+
+// ---- jutarnji pregled
+const idiNa = v => document.querySelector(`.tabs button[data-v=${v}]`).click();
+async function ucitajDanas() {
+  let J;
+  try { J = await api('/api/danas'); } catch (e) { toast(e.message, true); return; }
+  $('#j-naslov').textContent = `Danas: ${J.dan}, ${datumHr(J.danas)}`;
+  const kartica = (naslov, tijelo, gumb) => `<div class="card j-k"><h2 style="display:flex;justify-content:space-between;gap:8px">${naslov}${gumb || ''}</h2>${tijelo}</div>`;
+  const gumb = (v, t, extra) => `<button class="btn" data-idi="${v}" ${extra || ''}>${t}</button>`;
+  const red = (l, d, cls) => `<tr><td>${l}</td><td class="r ${cls || ''}">${d}</td></tr>`;
+  let h = '';
+  if (J.rokovi.length) h += J.rokovi.map(r => `<div class="card upoz j-rok"><b>Za ${r.dana} ${r.dana === 1 ? 'dan' : 'dana'} (${datumHr(r.datum)}):</b> ${esc(r.tekst)}</div>`).join('');
+  if (J.upozorenja.length) h += '<div class="i-grid" style="grid-template-columns:1fr;margin-bottom:16px">' + kartica('Treba odmah', '<ul>' + J.upozorenja.map(u => `<li><b>${esc(u.naslov)}</b>${u.ukupno ? ' (' + u.ukupno + ')' : ''}<br><span class="napomena">${esc(u.opis)}</span></li>`).join('') + '</ul>', gumb('kontrola', 'Kontrola')) + '</div>';
+  const P = J.promet, T = J.promet_tjedan_prije;
+  let promet = '<p class="napomena">Podaci iz Robe nisu učitani.</p>';
+  if (P) {
+    const raz = T && T.iznos ? Math.round((P.iznos - T.iznos) * 100 / T.iznos) : null;
+    promet = `<table class="t">${red('Dan', P.dan + ', ' + datumHr(P.datum))}${red('Promet', eur(P.iznos) + ' €')}${red('Računa', P.racuna)}` +
+      (raz !== null ? red('Tjedan prije (' + datumHr(T.datum) + ')', eur(T.iznos) + ' € · ' + (raz >= 0 ? '+' : '') + raz + ' %', raz < 0 ? 'minus' : '') : '') + '</table>' +
+      (J.stari_podaci ? '<p class="minus">Zadnji račun iz Robe je star više od 3 dana. Kliknite "Osvježi iz Robe".</p>' : '');
+  }
+  h += '<div class="i-grid">';
+  h += kartica('Zadnji dan prodaje (Roba)', promet, gumb('izvjestaji', 'Izvještaji'));
+  const kada = {kasni: 'KASNI', danas: 'danas', sutra: 'sutra'};
+  if (J.moduli.haccp && J.haccp) {
+    const X = J.haccp, st = [];
+    if (X.nema_uredjaja) st.push('<li>Dodajte hladnjake i vitrine (HACCP, Uređaji i plan čišćenja).</li>');
+    if (X.bez_temperature.length) st.push('<li class="minus">Temperatura nije upisana: ' + X.bez_temperature.map(esc).join(', ') + '</li>');
+    if (X.nema_plana) st.push('<li>Napravite plan čišćenja.</li>');
+    if (X.ciscenje_kasni.length) st.push('<li>Čišćenje: ' + X.ciscenje_kasni.map(esc).join(', ') + '</li>');
+    h += kartica('HACCP', st.length ? '<ul>' + st.join('') + '</ul>' : '<p>Sve za danas je upisano.</p>', gumb('haccp', 'HACCP'));
+  }
+  if (J.rokovi_trajanja) {
+    const R = J.rokovi_trajanja, st = [];
+    const n = x => esc(x.naziv) + ' ' + kolTxt(x.kolicina) + ' ' + esc(x.jm);
+    if (R.zabrana.length) st.push('<li class="minus"><b>Maknuti s police i otpisati</b> (istekao "upotrijebiti do"): ' + R.zabrana.map(n).join(', ') + '</li>');
+    if (R.izdvojiti.length) st.push('<li>Istekao "najbolje upotrijebiti do", izdvojiti uz obavijest ili donirati: ' + R.izdvojiti.map(n).join(', ') + '</li>');
+    if (R.uskoro.length) st.push('<li>Ističe uskoro (akcija?): ' + R.uskoro.map(x => n(x) + ' do ' + datumHr(x.rok)).join(', ') + '</li>');
+    h += kartica('Rokovi trajanja', st.length ? '<ul>' + st.join('') + '</ul>' : '<p>Nema robe kojoj ističe rok.</p>', gumb('zaliha', 'Rokovi', 'data-rokovi="1"'));
+  }
+  if (J.dugovanja) {
+    const D = J.dugovanja, red2 = x => `<tr><td>${esc(x.oznaka)}</td><td>${esc(x.partner || '')}</td><td>${datumHr(x.dospijece)}</td><td class="r">${eur(x.ostalo)}</td></tr>`;
+    h += kartica('Plaćanja dobavljačima', (D.kasni.length ? '<p class="minus"><b>Kasni:</b></p><table class="t">' + D.kasni.map(red2).join('') + '</table>' : '') +
+      (D.uskoro.length ? '<p><b>Dospijeva u 3 dana:</b></p><table class="t">' + D.uskoro.map(red2).join('') + '</table>' : '') +
+      (!D.kasni.length && !D.uskoro.length ? '<p>Ništa ne dospijeva u sljedeća 3 dana.</p>' : ''), gumb('nabava', 'Dugovanja', 'data-dug="1"'));
+  }
+  if (J.moduli.narudzbe) h += kartica('Narudžbe kupaca', J.narudzbe.length ? '<table class="t">' + J.narudzbe.map(n => `<tr><td>${esc(n.oznaka)}</td><td>${esc(n.kupac)}</td>` +
+      `<td class="${n.kada === 'kasni' ? 'minus' : ''}">${kada[n.kada]}${n.status === 'spremna' ? ' · spremna' : ''}</td><td class="r">${eur(n.ukupno)}</td></tr>`).join('') + '</table>' +
+      '<p class="napomena">Kod isporuke izdajte račun u Robi.</p>' : '<p class="napomena">Nema narudžbi za danas i sutra.</p>', gumb('narudzbe', 'Narudžbe'));
+  const grupe = {};
+  J.naruciti.forEach(s => (grupe[s.dobavljac || 'Bez dobavljača'] = grupe[s.dobavljac || 'Bez dobavljača'] || []).push(s));
+  h += kartica(`Za naručiti (${J.naruciti.length})`, J.naruciti.length ? '<div class="scroll" style="max-height:260px">' + Object.entries(grupe).map(([d, st]) =>
+      `<p style="margin:6px 0 2px"><b>${esc(d)}</b></p><table class="t">` + st.map(s => `<tr><td>${esc(s.naziv)}</td><td class="r ${s.zaliha <= 0 ? 'minus' : ''}">ima ${kolTxt(Math.max(0, s.zaliha))}</td><td class="r"><b>${kolTxt(s.kolicina)} ${esc(s.jm)}</b></td></tr>`).join('') + '</table>').join('') +
+      '</div><p class="napomena">Prodaja zadnjih 28 dana, zaliha za 2 dana i minimalna zaliha.</p>' : '<p class="napomena">Zalihe je dovoljno.</p>', gumb('nabava', 'Prijedlog narudžbe', 'data-prijedlog="1"'));
+  if (J.moduli.akcije || J.akcije_ceka.length) h += kartica('Akcije i roba koja stoji', (J.akcije_ceka.length ? '<table class="t">' + J.akcije_ceka.map(a => `<tr><td>${esc(a.naziv)}</td><td class="minus">${esc(a.stanje)}</td></tr>`).join('') + '</table>' : '') +
+      `<p>Akcija u tijeku: <b>${J.akcije_traju}</b>. Roba bez prodaje 7 dana: <b>${J.roba_stoji}</b>.</p>` +
+      (J.roba_stoji ? '<p class="napomena">Pogledajte je li pokvarena (otpis) ili je stavite na akciju.</p>' : ''), gumb('zaliha', 'Akcije', 'data-akcije="1"'));
+  h += kartica('Blagajna', J.smjena_otvorena ? `<p>Smjena je otvorena od ${esc(J.smjena_otvorena.slice(11, 16))} (${datumHr(J.smjena_otvorena.slice(0, 10))}).</p>` :
+      '<p>Smjena nije otvorena. Upišite početno stanje blagajne.</p>', gumb('dan', 'Blagajna'));
+  h += '</div>';
+  $('#j-sadrzaj').innerHTML = h;
+  $('#j-sadrzaj').querySelectorAll('[data-idi]').forEach(b => b.onclick = () => {
+    idiNa(b.dataset.idi);
+    if (b.dataset.prijedlog) ucitajZalihu().then(prikaziPrijedlog);
+    if (b.dataset.akcije) { $('#z-akc').hidden = false; ucitajAkcije(); }
+    if (b.dataset.rokovi) { $('#z-rok').hidden = false; ucitajRokove(); }
+    if (b.dataset.dug) prikaziDugovanja(false);
+  });
+}
+$('#j-osvjezi').addEventListener('click', ucitajDanas);
+$('#j-ispis').addEventListener('click', () => print());
+
+$('#r-datum').value = $('#d-datum').value = danas();
+$('#n-mjesec').value = danas().slice(0, 7);
+osvjeziArtikle().then(() => {
+  crtajKosaricu();
+  // nefiskalna kasa samo za vježbu (TRGOVINA_KASA=0 je sakrije); prodaja se naplaćuje u Robi
+  ['kasa', 'racuni'].forEach(v => document.querySelector(`.tabs button[data-v=${v}]`).hidden = !KASA);
+  $('#d-kasa').hidden = !KASA;
+  oznaciKasu();
+  document.querySelector('.tabs button[data-v=danas]').click();  // ujutro prvo pregled dana
+}).catch(e => toast(e.message, true));
+ucitajKontrolu();
+</script>
+</body>
+</html>

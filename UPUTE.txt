@@ -1,0 +1,517 @@
+KASA I NABAVA - nas program za trgovinu
+=======================================
+
+VAZNO
+  Ovo je NEFISKALNA kasa za probni rad (fiskalizacija se moze isprobati
+  na testu s demo certifikatom, vidi FISKALIZACIJA dolje). Racuni se spremaju u nasu bazu
+  (trgovina.db) i ispisuju s oznakom "NIJE FISKALNI RACUN".
+  Kupcu i dalje izdajte racun iz programa Roba.
+  Program Robu samo CITA. Ne mijenja nista u Robi, ne dira certifikat.
+
+Sto treba?
+  Python 3.8 ili noviji (vec ga imate). Nikakvi dodatni paketi
+  (osim za fiskalizaciju: paket cryptography, instalira se jednim klikom).
+
+Pokretanje
+  1. Kopirajte mapu "trgovina" bilo kamo, npr. na Radnu povrsinu.
+  2. Ako Roba NIJE u C:\Roba: desni klik na pokreni.bat -> Uredi,
+     i promijenite C:\Roba u pravu mapu (onu s mapama 2025, 2026...).
+     Tu mozete upisati i naziv trgovine za ispis (TRGOVINA_NAZIV).
+  3. Dvoklik na pokreni.bat. Prvo se uvezu svjezi podaci iz Robe,
+     zatim se otvori kasa na http://127.0.0.1:8766
+     Crni prozor ostavite otvoren dok radite.
+
+Rad na kasi
+  - Upisite sifru, barkod ili dio naziva i stisnite Enter
+    (strelice gore/dolje biraju artikl). Ili kliknite brzi gumb.
+  - Upisite kolicinu (npr. 0,85 za kg) i Enter.
+  - Barkod skener: komadni artikl s barkodom ide ravno u kosaricu.
+  - Odaberite nacin placanja; za gotovinu upisite primljeno pa vidite
+    koliko vratiti.
+  - Naplati: gumb ili tipka F9. Ispis se otvara u malom prozoru
+    (termalni printer 80 mm ili bilo koji printer).
+  - Racuni: popis po danu, ponovni ispis i storno (racun se nikad ne
+    brise, storno je novi racun s minusom).
+  - Pregled dana: promet po nacinu placanja i PDV po stopama.
+
+  - Klik na stavku u kosarici: promjena kolicine ili popust % na tu
+    stavku (popust se vidi i na ispisu).
+
+  - Barkod s vage (naljepnica koja pocinje s 20-29): skenirajte ga i
+    artikl s tezinom ide ravno u kosaricu. Na vagi artikl mora imati
+    PLU jednak sifri artikla (ili upisite PLU kao barkod artikla u Robi).
+  - "Osvjezi iz Robe" (gore desno): ponovno procita podatke iz Robe bez
+    zatvaranja programa (Robu samo cita).
+
+Blagajna (kartica Blagajna)
+  - Ujutro: "Otvori smjenu" s pocetnom gotovinom u ladici.
+  - Tijekom dana: Polog (npr. donijeli sitnis) ili Isplata (npr. platili
+    dobavljaca iz blagajne, upisite za sto).
+  - Navecer: upisite prebrojanu gotovinu i "Zakljuci smjenu". Program
+    osvjezi podatke iz Robe, izracuna koliko bi trebalo biti (pocetno +
+    gotovinska prodaja iz Robe + pologi - isplate) i pokaze manjak ili
+    visak. Ispis zakljucka ide na mali printer.
+  - Ispod je i pregled racuna s ove (nefiskalne) kase po danu.
+
+Nabava (kartica Nabava)
+  - Nova primka: odaberite dobavljaca, upisite broj njegovog racuna,
+    pa dodajte artikle (sifra ili naziv, Enter), kolicinu (Enter) i
+    cijenu s racuna BEZ PDV-a (Enter) i rabat % (Enter).
+    Nabavna cijena = cijena s racuna umanjena za rabat. Ako dobavljac
+    daje isti rabat na sve (npr. 20 %), upisite ga gore u "Rabat % za
+    sve stavke". Ponudi se zadnja cijena i rabat od tog artikla.
+  - Program odmah pokaze RUC (razliku u cijeni) prema MPC-u iz Robe.
+  - "Iznos s racuna": upisite ukupni iznos s racuna dobavljaca, program
+    pokaze razliku ako ste negdje krivo upisali.
+  - Novi otpis: kalo, pokvarena roba, lom. Smanjuje zalihu.
+  - Ako je nabavna cijena vise od 10 % razlicita od zadnje, pokraj nje
+    se pojavi crvena strelica s postotkom - provjerite racun.
+  - Svaki dokument se moze ispisati (A4) ili stornirati.
+  - Prijedlog narudzbe: prema prosjecnoj dnevnoj prodaji (iz Robe) i
+    zalihi predlozi koliko naruciti za odabrani broj dana, grupirano
+    po zadnjem dobavljacu. "Napravi primku" pripremi primku s tim
+    artiklima kad roba stigne; "Ispisi" daje popis za narudzbu.
+  - Dobavljaci: dodavanje novih i uredivanje postojecih (adresa,
+    telefon, e-mail). OIB se provjerava. Dobavljac iz Robe kojeg
+    uredite ovdje vise se ne prepisuje kod uvoza.
+
+Zaliha i inventura (kartica Zaliha)
+  - Zaliha = stanje iz Robe kod zadnjeg uvoza + nase primke - otpisi
+    +/- inventure. Prodaja se broji iz Robe.
+  - Klik na naziv artikla: oznaka "usluga" (nema zalihu) i minimalna
+    zaliha. Kvacica "pri kraju" pokaze artikle ispod minimalne zalihe,
+    a minimalna zaliha se uzima u obzir u prijedlogu narudzbe.
+  - U postavkama artikla upisite i zemlju podrijetla i klasu.
+  - "Etikete za police": A4 etikete (3 u redu) s nazivom, cijenom,
+    jedinicom i zemljom podrijetla za artikle na popisu (suzite popis
+    pretragom). Za rinfuzno voce i povrce zemlja podrijetla je obvezna
+    i mora biti barem jednako velika kao cijena.
+  - Za svaki artikl vidite vrijednost po NABAVNOJ cijeni (netto i PDV)
+    i po PRODAJNOJ cijeni (netto i PDV), s ukupnim iznosima na dnu.
+  - "Ispisi stanje zalihe": A4 popis za knjigovodstvo s ta 4 stupca.
+  - Inventura: klik na "Inventura", upisite prebrojano stanje za
+    artikle koje ste prebrojali, "Spremi inventuru". Program spremi
+    razliku (visak/manjak) kao dokument I-godina-broj.
+  - Preporuka: prije pocetka napravite inventuru svega, jer je stanje
+    u Robi za puno artikala krivo (neki su u minusu).
+
+Izvjestaji (kartica Izvjestaji)
+  - Odaberite razdoblje (ovaj mjesec, prosli mjesec, ova godina ili
+    od-do). Za razdoblje dulje od 2 mjeseca promet je po mjesecima.
+  - Promet, nacini placanja, izlazni PDV po stopama, ulazni PDV s
+    primki, prodaja i zarada po artiklima, nabava po dobavljacima,
+    otpisi.
+  - Kad se prodaje: promet po satima i po danima u tjednu (za raspored
+    rada i narudzbe). ABC analiza: A = artikli koji donose 80 % prometa,
+    B = iducih 15 %, C = zadnjih 5 %.
+  - "CSV" kod svake tablice sprema datoteku koja se otvara u Excelu.
+    "Ispisi" ispisuje cijeli izvjestaj.
+  - Prodaja dolazi iz Robe i svjeza je koliko i zadnji uvoz (kod svakog
+    pokretanja). Izlazni PDV je zbrojen po stavkama racuna, pa se moze
+    razlikovati za koji cent od zbroja racuna.
+
+NOVI PROPISI O CIJENAMA (provjereno listopad 2026.)
+  - Od 17.11.2026. svaka trgovina uz cijenu mora istaknuti i SIDRENU
+    cijenu: cijenu istog proizvoda na 2.5.2025. (hrana), a za proizvod
+    koji je kasnije usao u ponudu - cijenu na prvi dan u ponudi.
+    (Odluka o isticanju dodatne cijene, NN 101/2026.)
+  - Program je sam upisao sidrenu cijenu svakom artiklu iz povijesti
+    racuna u Robi (najstariji racun koji imamo je od 5.12.2025.).
+    Novi artikl dobije danasnju cijenu i datum kad prvi put dode iz Robe.
+    Ako ste prodavali i prije (u drugom programu), upisite pravu cijenu
+    na 2.5.2025.: Zaliha -> klik na naziv artikla -> Sidrena cijena.
+  - Etikete za police sada imaju red "Cijena na 5.12.2025.: x EUR/kg".
+  - "Cjenik (CSV)" u Zalihi: cjenik za web stranicu. Obvezan je SAMO ako
+    trgovina ima web stranicu (tada se objavljuje svaki radni dan do 8h).
+  - Na kasi: "Obrisi" pokraj svake stavke brise samo tu stavku.
+    Klik na stavku -> mozete promijeniti kolicinu ili "Obrisi stavku".
+
+KONTROLA (nova kartica)
+  - Na jednom mjestu sve sto treba pogledati. Crveno = rijesiti odmah,
+    zuto = pogledati. Broj na kartici kaze koliko je stvari otvoreno.
+  - Provjerava: prodaju ispod nabavne cijene i nisku marzu, zalihu u
+    minusu, robu koja 7 dana stoji bez prodaje (pokvarena? akcija?),
+    voce/povrce bez podrijetla, artikle bez sidrene cijene, staru
+    sigurnosnu kopiju, primke upisane i u Robu, nezakljucenu smjenu i
+    inventuru.
+
+KALKULACIJA NA PRIMCI
+  - Upisite "Zeljena marza %" (npr. 35). Program za svaku stavku pokaze
+    predlozenu MPC (zaokruzeno na ,x9). Marza se pamti za sljedecu primku.
+  - Kod ispisa primke dobijete i popis "Promjene MPC za upis u Robu".
+
+POVRAT ROBE DOBAVLJACU
+  - Nabava -> "Povrat dobavljacu": odaberite dobavljaca, racun na koji se
+    odnosi i razlog. Predlozena cijena je zadnja nabavna bez PDV-a.
+  - Povrat smanjuje zalihu, ima svoj broj (V-godina-broj) i ispis s
+    potpisima "Predao" / "Preuzeo". U izvjestajima umanjuje nabavu i
+    ulazni PDV.
+  - Prije prve nadogradnje baze program sam napravi sigurnosnu kopiju.
+
+ZAKONI - VAZNO (provjereno 22.10.2026.)
+  - Ovaj program NE izdaje fiskalizirane racune. Svaku prodaju naplatite
+    i izdajte racun u Robi (Zakon o fiskalizaciji NN 89/2025, cl. 13-14).
+    Kasa ovdje je samo VJEZBA: papir nosi oznaku "OVO NIJE FISKALIZIRANI
+    RACUN" (cl. 29) i ne daje se kupcu. Ispis je iskljucen. Kasu mozete
+    potpuno sakriti: u pokreni.bat maknite REM ispred TRGOVINA_KASA=0.
+  - Akcija: uz snizenu cijenu mora pisati najniza cijena u 30 dana prije
+    akcije. Zaliha -> klik na naziv -> "Akcija" -> "Predlozi" (za artikl
+    "X AKCIJA" uzima cijene redovnog artikla "X"). Etiketa to ispise.
+  - Otpis je sada "Zapisnik o otpisu": razlog je obavezan, potpisuju dva
+    clana komisije i odgovorna osoba. Izvjestaj Otpisi pokazuje kalo u %
+    prodanog (HGK, NN 129/07: za voce i povrce 2-6 % ovisno o vrsti).
+  - Povrat dobavljacu nije racun ni odobrenje: odobrenje izdaje dobavljac.
+  - PDV u Izvjestajima je informativan; sluzbeni obracun radi knjigovoda.
+  - Sigurnosne kopije: uz zadnjih 30 cuva se zauvijek i zadnja kopija
+    svake godine. Ne brisite trgovina.db ni stare godine.
+
+NARUDZBE KUPACA I USLUGE (nova kartica)
+  - Za restorane, skole, kosare voca, dostave. "Nova narudzba": kupac
+    (ili "Novi kupac"; za gradane dovoljno ime i telefon, za tvrtke OIB),
+    datum isporuke, artikli i usluge (npr. dostava - artikl oznacen kao
+    usluga u Zalihi), kolicina i popust.
+  - Statusi: Nova -> Spremna -> Isporuceno, ili Otkazi. Dok nije
+    isporucena, narudzba se moze urediti. Nista se ne brise.
+  - NARUDZBA NIJE RACUN. Kod isporuke izdajte fiskalizirani racun u Robi
+    (tvrtki R1 / eRacun) i upisite njegov broj u narudzbu. Kontrola
+    crveno pokaze isporucene narudzbe bez broja racuna i one kojima je
+    prosao rok.
+  - Ispis: narudzba (s cijenama) ili otpremnica (bez cijena, s potpisom
+    kupca). Na oba pise "OVO NIJE RACUN".
+  - Prijedlog narudzbe dobavljacima sada dodaje i kolicine iz otvorenih
+    narudzbi kupaca (stupac "Za kupce").
+
+INVENTURA S MOBITELA (kartica Zaliha)
+  Brojati mozete s mobitela, vise ljudi odjednom, bez papira.
+  1. Na racunalu: Zaliha, "Inventura s mobitela". Pokaze adresu
+     (npr. http://192.168.1.20:8767) i PIN od 6 znamenki.
+  2. Mobitel mora biti na istom WiFi-ju kao racunalo. U pregledniku
+     upisite tu adresu, PIN i ime onoga tko broji.
+  3. Trazite artikl po nazivu, sifri ili barkodu i upisite koliko
+     ste izbrojali. Isti artikl na vise mjesta upisite posebno, zbroji se.
+     Krivi unos: "Ponisti" pod "Moji zadnji unosi".
+  4. Na racunalu se vidi sve sto je izbrojano, uzivo. Kad je gotovo:
+     "Zakljuci" (dvaput klik). Upisu se samo razlike (dokument I-...),
+     neprebrojani artikli se ne diraju (moze i djelomicna inventura).
+  5. "Popisna lista" - ispisite je i neka je potpise komisija
+     (popisivaci i odgovorna osoba). Cuvajte je s dokumentima za
+     knjigovodstvo.
+  - Prvi put Windows moze pitati za vatrozid: dozvolite SAMO za
+    privatnu mrezu (ne javnu).
+  - Mobitel vidi samo popis artikala i svoje unose, ne cijene ni promet.
+    Nakon zakljucivanja ili "Odustani" mobitel se vise ne moze spojiti.
+    10 krivih PIN-ova zaustavi brojanje.
+  - Kamera mobitela ne skenira barkod (stranica nije https), ali
+    Bluetooth citac barkoda spojen na mobitel radi.
+
+ZA KNJIGOVODJU (kartica Izvjestaji)
+  Odaberite razdoblje (npr. "Prosli mjesec") pa:
+  - "Za knjigovodju" - ispis A4: sve nase primke, povrati, otpisi i
+    inventure, rekapitulacija i ulazni PDV po stopama, isporucene
+    narudzbe s brojem Robinog racuna i (informativno) prodaja iz Robe.
+    Na dnu potpis "Sastavio" i "Primio".
+  - "Dokumenti CSV" i "Stavke CSV" - isto za Excel (otvara se dvoklikom).
+  - Uz ispis knjigovodji dajte i papirnate racune dobavljaca, potpisane
+    zapisnike o otpisu i popisne liste. Prodaju (fiskalne racune) i
+    dalje knjigovodja uzima iz Robe.
+
+USPOREDBA DOBAVLJACA (kartica Nabava)
+  "Usporedba dobavljaca" pokaze, za artikle koje je dovezlo vise
+  dobavljaca, zadnju, prosjecnu i najnizu nabavnu cijenu (bez PDV-a,
+  nakon rabata) kod svakoga. Zeleno je najjeftiniji po prosjeku.
+  Gledajte i datum (sezona) te kvalitetu i kalo, cijena nije sve.
+
+AKCIJE (kartica Zaliha, gumb "Akcije")
+  Zakon o zastiti potrosaca (izmjene NN 59/2026): akcijska cijena mora
+  biti NIZA od najnize cijene u zadnjih 30 dana, i ta najniza cijena
+  pise uz akcijsku. Postotak snizenja racuna se od te najnize cijene.
+  1. "Prijedlog: roba koja stoji" - roba na zalihi bez prodaje zadnjih
+     7 dana, s prijedlogom akcijske MPC (20 % ispod najnize u 30 dana,
+     ali ne ispod nabavne). Cijenu mozete promijeniti.
+  2. Oznacite artikle i "Pokreni akciju za oznacene". Program pokaze
+     popis novih cijena (moze se ispisati).
+  3. Te cijene upisite U ROBU (Roba izdaje racune, cijena na polici i
+     na racunu mora biti ista), pa "Osvjezi iz Robe".
+  4. "Etikete za akcije". Etiketa pise AKCIJA i najnizu cijenu u 30
+     dana tek kad je cijena u Robi stvarno snizena.
+  5. Kraj akcije: "Zavrsi", vratite MPC u Robi i ispisite nove etikete.
+  - Ispod nabavne cijene program ne dopusta akciju. Takvu robu
+    otpisite (zapisnik) ili donirajte; iznimke dogovorite s knjigovodjom.
+  - Kontrola upozori ako akcija ceka upis u Robu, ili ako artikl ima
+    akciju a cijena nije snizena.
+
+DANAS - JUTARNJI PREGLED (prva kartica)
+  Kad se program otvori, prvo pokaze karticu "Danas": sto treba odmah
+  (crveno iz Kontrole), promet zadnjeg dana iz Robe (i tjedan prije),
+  narudzbe kupaca za danas i sutra (i one koje kasne), sto naruciti od
+  kojeg dobavljaca, akcije koje cekaju upis cijene u Robu, robu koja
+  stoji, smjenu na blagajni, i podsjetnik na nove propise (npr. sidrena
+  cijena od 17.11.2026.). Gumbi vode u pravu karticu. "Ispisi" za papir.
+
+CIJENE I PDV - ZASTO SE PONEKAD NE SLAZE ZA CENT (pregled 22.10.2026.)
+  - Program svugdje zaokruzuje isto: na cent, pola centa navise
+    (matematicki), kao u knjigovodstvu.
+  - PDV na primci i povratu racuna se na zbroj osnovica po stopi (kao
+    rekapitulacija na racunu dobavljaca i eRacun, norma EN 16931), a ne
+    po stavci. Polje "Iznos s racuna (za provjeru)" pokaze razliku.
+  - Roba racuna PDV za svaku stavku i zbraja ga. Zato na otprilike
+    svakom trecem racunu osnovica + PDV odstupa od ukupnog za 1 cent.
+    Za cijelu 2026. to je oko 0,72 EUR. Izvjestaji pokazuju PDV tocno
+    kako ga je Roba fiskalizirala, a razliku u stupcu "Razlika zaokr.".
+  - Kontrola pokaze racune u Robi kojima se stavke ne slazu s ukupnim
+    iznosom, prodaju po stopi 0 % i artikle kojima stopa nije 5 %.
+    To pokazite knjigovodji.
+  - Pakirana hrana na komad (ulje, sok, suho voce u vrecici) mora uz
+    cijenu imati i cijenu za kg ili l (Pravilnik NN 105/2026, cl. 8).
+    Zaliha, klik na naziv, "Pakiranje": upisite npr. 0,5 l. Voce i
+    povrce na komad ili vezicu: "ne treba". Etiketa i cjenik to ispisu.
+
+POSTAVKE (DODATNI MODULI)
+- Gumb "Postavke" gore desno. Ukljucite samo ono sto vasa trgovina koristi:
+  narudzbe kupaca, inventura s mobitela, prijedlog akcija, usporedba
+  dobavljaca, voce i povrce (podrijetlo i klasa), HACCP dnevnik i
+  dodatke (vidi DODACI dolje).
+- Iskljucen modul ne brise podatke. Kad ga ponovno ukljucite, sve je tu.
+- Zakonske obveze se ne mogu iskljuciti: sidrena cijena, najniza cijena
+  u 30 dana kod akcije, cijena za kg/l na etiketi.
+
+HACCP DNEVNIK (ukljucuje se u Postavkama)
+- Prvi put: HACCP > "Uredjaji i plan ciscenja". Dodajte hladnjake,
+  vitrine i zamrzivace (granice: hladnjak 0 do 4, vitrina 2 do 8,
+  zamrzivac -18 ili hladnije; ako proizvodjac trazi drukcije, upisite to)
+  i plan ciscenja (sto, koliko cesto, nacin, sredstvo).
+- Svaki dan: gore upisite tko upisuje, pa temperaturu za svaki uredjaj.
+  Ako je izvan granica, program trazi sto ste napravili (korektivna mjera).
+- Ciscenje: gumb "Ocisceno" uz stavku plana. Prijem robe: dobavljac,
+  otpremnica, roba, temperatura hladne robe, prihvaceno ili odbijeno.
+- Zapisi se ne brisu. Pogresan zapis "Ponisti" uz razlog; ostaje prekrizen.
+  Upisati se moze najvise 7 dana unatrag.
+- "Ispisi mjesec" daje A4 za sanitarnu inspekciju, s mjestom za potpis.
+- Sto jos niste upisali danas pise na ekranu Danas i u Kontroli.
+- Program ne zamjenjuje vas HACCP plan / vodic dobre higijenske prakse,
+  nego vodi evidencije koje on trazi. Tko je odgovoran i sto se mjeri
+  odredite po svom planu (npr. HGK Vodic za trgovinu).
+
+HACCP S MOBITELA
+- HACCP > "Upis s mobitela" > Ukljuci. Na mobitelu (isti WiFi) otvorite
+  adresu koja pise na ekranu, upisite PIN i svoje ime.
+- S mobitela se upisuju temperature, ciscenje i prijem robe. Vrijeme je
+  uvijek "sada". Mobitel ne vidi cijene ni promet.
+- Ostaje ukljuceno i kad ponovno pokrenete program. "Novi PIN" odjavi sve
+  mobitele. Poslije 10 krivih PIN-ova mobitel se zakljuca do novog PIN-a.
+- Krivi upis ponistava se na racunalu, uz razlog.
+
+KUPCI NA TVRTKU I CJENIK PO KUPCU (ukljucuje se u Postavkama)
+- Narudzbe > "Kupci i cjenici" > kliknite kupca. Upisite rabat (%) i rok
+  placanja, i ugovorene cijene za pojedine artikle (s PDV-om).
+- U novoj narudzbi program sam stavi ugovorenu cijenu, a za ostale
+  artikle rabat kupca. Ispod nabavne cijene s PDV-om ne moze.
+- Racun se i dalje izdaje u Robi (tvrtki R1 / eRacun). Ako je cijena u
+  Robi drukcija, na racunu je ispravite prema ugovorenoj.
+- Zbirni pregled: za kupca koji placa virmanom, isporuke istog mjeseca
+  mogu ici na jedan zbirni racun (Zakon o PDV-u cl. 78). Odaberite mjesec,
+  "Ispisi podlogu", izdajte racun u Robi i upisite njegov broj ("Upisi za
+  sve gore"). Gotovina ili kartica: racun odmah kod isporuke.
+- Kontrola: isporuke ovog mjeseca bez racuna su zute, starije crvene.
+  Rok i nacin izdavanja zbirnog racuna potvrdite s knjigovodjom.
+
+ROKOVI TRAJANJA I KALO (ukljucuje se u Postavkama)
+- Zaliha > "Rokovi i kalo". Za pakiranu robu upisite artikl, kolicinu,
+  sto pise na ambalazi i datum.
+- "Upotrijebiti do" (mlijeko, meso, svjezi sir): poslije roka se NE SMIJE
+  prodavati ni donirati, samo otpisati (Nabava, Novi otpis).
+- "Najbolje upotrijebiti do": poslije roka smije se prodavati samo
+  IZDVOJENO i uz jasnu obavijest kupcima, ili donirati.
+- 3 dana prije roka program upozorava (Danas, Kontrola): stavite na akciju.
+- Kalo: gubitak (otpis + inventurni manjak) u % od nabavljene kolicine.
+  Dopusteni kalo % dogovorite s knjigovodjom; iznad toga je crveno.
+
+POKLON BONOVI (ukljucuje se u Postavkama)
+- Kartica "Bonovi": upisite iznos, rok i broj racuna iz Robe kojim je bon
+  prodan, pa "Izdaj bon" i ispisite ga. Bon ima jedinstveni broj (B26-...).
+- Kad kupac placa bonom: upisite broj bona, "Provjeri", iznos i broj
+  racuna iz Robe, pa "Iskoristi". Bon se moze trositi u vise kupnji.
+- Bon za bilo koju robu je visenamjenski: prodaja bona u Robi bez PDV-a,
+  PDV ide na racun kad se bonom plati. Potvrdite s knjigovodjom.
+
+KARTICA VJERNOSTI (ukljucuje se u Postavkama)
+- Novi clan: broj kartice (ili ga program da), ime i kontakt nisu obavezni.
+  Ispisite pristupnicu s privolom; clan je potpise i cuvajte je.
+- Nakon kupnje: kartica, iznos racuna i broj racuna iz Robe > "Upisi
+  bodove". Isti racun se ne moze upisati dvaput.
+- Kad clan skupi bodove: "Daj nagradu", a popust dajte na racunu u Robi.
+- Na zahtjev clana "Obrisi podatke" brise ime i kontakt (GDPR).
+
+RACUNI DOBAVLJACA I DUGOVANJA (ukljucuje se u Postavkama)
+- Nabava > "Dugovanja". Svaka primka je racun dobavljaca. Dospijece je
+  datum racuna + rok dobavljaca (zadano 30 dana, mijenja se u tablici).
+- Kliknite primku i upisite placanje (virman, gotovina, kartica,
+  kompenzacija). Djelomicno placanje je moguce.
+- "Prati od": starije primke se ne prate (placene su prije programa).
+- Zakon: rok izmedju poduzetnika najvise 60 dana (dulje samo uz pisani
+  ugovor); gotovinom se ne smije platiti 10.000 EUR ili vise.
+
+PODACI IZ NOVIJE ROBE (svako se ukljucuje posebno u Postavkama)
+- "Sidrena cijena iz Robe": novija Roba ima polje sidrene cijene. Kad
+  je ukljuceno, nasa sidrena se kod svakog osvjezavanja uzima iz Robe.
+  Sidrenu koju ste ovdje rucno upisali Roba ne mijenja. Kad je
+  iskljuceno, Kontrola samo pokaze artikle gdje se nasa i Robina
+  razlikuju. Provjerite: sidrena je cijena na 2.5.2025. ili prvi dan
+  prodaje, a ne cijena na dan kad ju je Roba upisala.
+- "Promjene cijena": Zaliha > "Promjene cijena" pokaze Robine zapisnike
+  o promjeni cijena (mogu se ispisati). U kartici artikla vidi se
+  povijest cijene, a "Predlozi" kod akcije uzima i te promjene za
+  najnizu cijenu u 30 dana.
+- "KPD sifre": u kartici artikla pise KPD sifra iz Robe. Kontrola
+  javlja artikle prodane tvrtkama bez ispravne KPD sifre (treba za
+  eRacun). Sifra se upisuje u Robi.
+
+PONUDE I NARUDZBENICA (ukljucuje se u Postavkama, uz Narudzbe)
+- Narudzbe > "Ponude" > "Nova ponuda". Ponuda vrijedi 15 dana (moze
+  se promijeniti). Ponuda NIJE racun.
+- Kad kupac prihvati: "Prihvati" napravi narudzbu s istim cijenama.
+  Upisite broj narudzbenice kupca; ispisuje se na otpremnici i na
+  zbirnom pregledu, da kupac lakse sparuje racun.
+- Racun i dalje izdaje Roba.
+
+DODACI (sest modula, listopad 2026.; svaki se ukljucuje u Postavkama)
+Kad je ukljucen barem jedan, gore se pojavi kartica "Dodaci".
+
+PRIJEDLOG NARUDZBE PO DANIMA
+- Nabava > "Prijedlog narudzbe" tada gleda koliko se artikla prodaje
+  bas taj dan u tjednu (zadnjih 8 tjedana), blagdane (trgovina zatvorena)
+  i dan prije blagdana (koliko se tada proda vise, program nauci iz Robe).
+- Poslije 14 h prijedlog racuna od sutra (narudzba za sutra ujutro).
+- Vremenska prognoza: Dodaci > upisite koordinate trgovine (Google Karte,
+  desni klik na trgovinu; Dubrovnik je oko 42,65 i 18,09). Prognoza je s
+  open-meteo.com (besplatno, bez prijave). Koliko se vise ili manje proda
+  kad je vruce (30 i vise) ili kisa, program nauci tek kad ima barem 5
+  takvih dana u povijesti; do tada vrijeme samo pise uz dan.
+
+BRZO SNIZENJE ROBE KOJA VENE
+- Dodaci > Brzo snizenje: nadjite artikl i kliknite -20/-30/-40/-50 %.
+  Postotak je od najnize cijene u 30 dana; ispod nabavne s PDV-om ne
+  moze (onda otpis ili donacija). "Pokreni" ispise etiketu SNIZENO.
+- Snizenu cijenu NAPLATITE U ROBI (popust na stavci ili nova MPC), jer
+  istaknuta cijena mora biti ista kao naplacena. Snizenje traje do kraja
+  dana (ili do upisanog vremena); "Zavrsi" ga prekine.
+- Kad osvjezite podatke iz Robe, vidi se koliko je prodano po snizenoj
+  cijeni i koliko bi to inace otislo u otpis, a koliko je ipak otpisano.
+
+GAJBE I POVRATNA AMBALAZA
+- Dodaci > Gajbe: kad roba stigne, upisite koliko je gajbi/paleta stiglo;
+  kad vozac odnese, koliko je vraceno. Ispise se potvrda za potpis vozaca.
+- Gore pise koliko cega jos imate od kojeg dobavljaca. Vrste ambalaze i
+  polog po komadu mijenjate na "Vrste ambalaze". Pogresan upis "Ponisti".
+
+USPOREDBA S CIJENAMA LANACA
+- Dodaci > upisite mjesto (npr. Dubrovnik) i "Preuzmi cijene". Program
+  skine dnevne javne cjenike lanaca (cijene.dev, oko 80 MB, par minuta)
+  i spremi ih u lanci.db pokraj programa (ne ulazi u sigurnosne kopije).
+- Pakirana roba se poveze sama po barkodu. Voce i povrce povezite jednom:
+  "Povezi", nadjite npr. "banane" i odaberite proizvod svakog lanca.
+- Za artikle na kg usporedjuje se cijena za kg. Crveno: skuplji ste vise
+  od 10 % od najjeftinijeg lanca. Cijene preuzmite kad zelite (npr.
+  jednom tjedno); lanci objavljuju nove svaki dan.
+
+RADNICI S PIN-om
+- Kod ukljucivanja program trazi vlasnika i PIN (4 do 8 brojki). PIN
+  zapamtite: bez njega se program ne otvara.
+- Dodaci > Radnici: dodajte radnike, PIN i ovlasti. Bez ovlasti radnik
+  radi kasu, racune, blagajnu, narudzbe, HACCP, snizenja i gajbe, ali ne
+  vidi nabavne cijene ni marzu, Nabavu, Zalihu, Izvjestaje i Postavke.
+- Svaka promjena (primka, otpis, storno, smjena, polog/isplata, postavke)
+  upisuje se u "Dnevnik radnji" s imenom i vremenom.
+- Odjava: gore desno uz ime. Moze i automatska odjava nakon N minuta.
+  Poslije 5 krivih PIN-ova treba pricekati minutu.
+- Zaboravljen PIN radnika: vlasnik mu upise novi. Zaboravljen PIN jedinog
+  vlasnika: u pokreni.bat privremeno dodajte redak
+  set TRGOVINA_BEZ_RADNIKA=1, pokrenite, u Dodaci > Radnici upisite novi
+  PIN, zatvorite program i obrisite taj redak.
+
+VECERNJI SAZETAK NA E-MAIL
+- Dodaci > E-mail sazetak: SMTP posluzitelj, korisnik, lozinka i kome.
+  Gmail: smtp.gmail.com, port 587, STARTTLS i "lozinka za aplikacije"
+  (Google racun > Sigurnost > Potvrda u 2 koraka > Lozinke za aplikacije),
+  ne obicna lozinka. "Posalji probni e-mail" provjeri postavke.
+- Salje se kad u Blagajni zakljucite smjenu i/ili svaki dan u upisano
+  vrijeme (ako taj dan jos nije poslan; program mora biti upaljen).
+- U e-mailu: promet iz Robe, blagajna (manjak/visak), sto naruciti,
+  snizenja, gajbe i sto je crveno u Kontroli.
+- Lozinka je spremljena samo u trgovina.db na ovom racunalu (i u njezinim
+  sigurnosnim kopijama). Ekran je ne prikazuje.
+
+FISKALIZACIJA (TEST S DEMO CERTIFIKATOM) - novo 18.11.2026.
+  Kasa u ovom programu moze slati racune Poreznoj. Zadano je ISKLJUCENO.
+  Prvo se sve isproba na TESTU s demo certifikatom FINA-e: racuni idu na
+  testni posluzitelj Porezne (cistest.apis-it.hr) i NE VRIJEDE (na ispisu
+  pise "TEST FISKALIZACIJA (DEMO) - NIJE VAZECI RACUN"). Prava prodaja i
+  dalje ide kroz Robu dok sami ne odlucite drugacije.
+  Radi po Tehnickoj specifikaciji Porezne v2.7 (potpis RSA-SHA256, QR kod).
+
+  Kad stigne demo certifikat (.p12 datoteka i lozinka):
+  1. Gumb Postavke -> ukljucite "Fiskalizacija racuna (kasa)".
+  2. Kartica Dodaci -> Fiskalizacija. Ako pise da nedostaje paket
+     "cryptography", kliknite Instaliraj (treba internet, jednom).
+  3. Certifikat: odaberite .p12 datoteku i upisite lozinku. Datoteka se
+     kopira u mapu "certifikati" pokraj programa. Lozinka je spremljena
+     sifrirano (samo za vaseg Windows korisnika).
+  4. Upisite OIB obveznika (mora biti isti kao u certifikatu), oznaku
+     poslovnog prostora (npr. PJ1) i oznaku naplatnog uredjaja. Uzmite
+     DRUGI broj uredjaja nego u Robi (npr. 2), da se brojevi ne preklapaju.
+     Upisite naziv i adresu za racun i oznaku operatera. Spremi.
+  5. "Provjeri vezu" - mora pisati da veza radi.
+     Ako javi gresku s certifikatom posluzitelja: kvacica "Ne provjeravaj
+     certifikat posluzitelja (samo test)" ili FINA demo CA certifikat
+     (.cer/.pem) u mapu "certifikati".
+  6. "Probni racun (provjera certifikata)" - Porezna provjeri potpis, OIB
+     i certifikat bez pravog racuna. Ako pise greska s004/s005, javite
+     tocnu poruku.
+  7. Kartica Kasa: naplatite par racuna (gotovina, kartica) i jedan
+     stornirajte. Na ispisu moraju biti ZKI, JIR i QR kod. QR kod mozete
+     skenirati mobitelom (na testu stranica Porezne racun ne nalazi).
+  8. Izvucite mrezni kabel / ugasite WiFi i naplatite racun: izda se
+     racun sa ZKI bez JIR-a ("salje se naknadno"). Ukljucite internet:
+     program ga sam posalje u roku 2 minute (ili Dodaci -> Fiskalizacija
+     -> Posalji ponovno sve). Racuni bez JIR-a su crveno u Kontroli.
+
+  Brojevi racuna: 1/PJ1/2 (broj/prostor/uredjaj), od 1 svake godine,
+  posebno za test i posebno za pravu fiskalizaciju. Interni broj K-...
+  ostaje kao i prije. Storno je novi racun s minusom (i on se fiskalizira).
+  Nacini placanja se sami prepoznaju (Gotovina = G, kartice = K,
+  Transakcija = T, ostalo = O); u tablici se moze promijeniti.
+
+  Prava fiskalizacija (produkcija): tek kad test prodje, kad imate PRAVI
+  certifikat za fiskalizaciju, prijavljen poslovni prostor u ePoreznoj i
+  dogovor s knjigovodjom. Na dnu kartice upisete rijec PRODUKCIJA i
+  kliknete gumb. Program ne dopusta produkciju s demo certifikatom.
+
+VAZNO ZA NABAVU
+  Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
+  inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,
+  jer Roba izdaje fiskalne racune.
+
+Napomene
+  - Brojevi nasih dokumenata su K-godina-broj (npr. K-2026-15), redom,
+    bez rupa, da se ne mijesaju s Robinim racunima.
+  - Cijene i nazivi dolaze iz Robe kod svakog pokretanja.
+    Prodaja na ovoj (nefiskalnoj) kasi NE mijenja zalihu, jer je ista
+    prodaja vec u Robi.
+  - Sve je samo na ovom racunalu (127.0.0.1), ne s interneta. Internet
+    koriste samo dodaci ako ih ukljucite: cijene lanaca, vremenska
+    prognoza i e-mail sazetak.
+  - Sigurnosna kopija baze radi se sama kod svakog pokretanja, i na
+    gumb "Sigurnosna kopija" gore desno, u mapu "sigurnosne_kopije"
+    pokraj programa (cuva se zadnjih 30). U pokreni.bat mozete upisati
+    i dodatnu mapu (USB, OneDrive) - TRGOVINA_KOPIJA_MAPA.
+    Vracanje: zatvorite kasu i kopirajte zeljenu kopiju preko
+    trgovina.db.
+  - Racuni iz Robe u izvjestajima i blagajni (provjereno 26.10.2026.):
+    racun placen dijelom gotovinom, dijelom karticom broji se po
+    dijelovima (u ladicu ide samo gotovinski dio). Racun R1 tvrtki ima
+    PDV na osnovicu po stopi, kao na samom racunu. Medjuskladisnica
+    (prijenos iz vlastitog skladista ili pogona) nije nabava i ne ulazi
+    u pretporez; povratnica dobavljacu se oduzima. Stornirani racun se
+    ne broji u broj racuna. Kontrola javlja i artikl prodan po dvije
+    stope PDV-a te racun s razlicitim nacinom placanja u Robi.
+  - Moze raditi istovremeno s Roba Pregledom (on je na portu 8765).
