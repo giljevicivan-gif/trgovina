@@ -2423,6 +2423,7 @@ async function ucitajDanas() {
   const red = (l, d, cls) => `<tr><td>${l}</td><td class="r ${cls || ''}">${d}</td></tr>`;
   let h = '';
   if (J.rokovi.length) h += J.rokovi.map(r => `<div class="card upoz j-rok"><b>Za ${r.dana} ${r.dana === 1 ? 'dan' : 'dana'} (${datumHr(r.datum)}):</b> ${esc(r.tekst)}</div>`).join('');
+  if (J.kopija_van) h += `<div class="card upoz j-kopija" style="${J.kopija_van.razina === 'crveno' ? 'background:var(--danger-soft);color:var(--danger)' : ''}"><b>${esc(J.kopija_van.naslov)}.</b> ${esc(J.kopija_van.opis)} <button class="btn" onclick="prikaziPostavke()" style="padding:2px 10px">Postavke</button></div>`;
   if (J.upozorenja.length) h += '<div class="i-grid" style="grid-template-columns:1fr;margin-bottom:16px">' + kartica('Treba odmah', '<ul>' + J.upozorenja.map(u => `<li><b>${esc(u.naslov)}</b>${u.ukupno ? ' (' + u.ukupno + ')' : ''}<br><span class="napomena">${esc(u.opis)}</span></li>`).join('') + '</ul>', gumb('kontrola', 'Kontrola')) + '</div>';
   const P = J.promet, T = J.promet_tjedan_prije;
   let promet = '<p class="napomena">Podaci iz Robe nisu učitani.</p>';
@@ -2495,5 +2496,7 @@ osvjeziArtikle().then(() => {
 }).catch(e => toast(e.message, true));
 ucitajKontrolu();
 </script>
+<script src="/kopija_van.js"></script>
+<script src="/donacije.js"></script>
 </body>
 </html>

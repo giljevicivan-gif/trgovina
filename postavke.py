@@ -54,6 +54,12 @@ MODULI = (
      "Pita za potvrdu kad se na kasi upiše više od 50 kg (npr. 1250 upisano u gramima umjesto 1,25).", True),
     ("podijeljeno_placanje", "Plaćanje dijelom gotovinom, dijelom karticom",
      "Na kasi gumb 'Gotovina + kartica'. Fiskalno se šalje kao način plaćanja 'O' (ostalo): potvrdite s knjigovođom.", False),
+    ("kopija_van", "Kopija baze izvan računala",
+     "Jednom dnevno (i kod zaključka smjene) provjerena kopija baze na USB disk ili u OneDrive / Google Drive mapu. "
+     "Na kartici Danas crveno upozorenje ako kopije nema 2 dana.", False),
+    ("donacije", "Donacije hrane",
+     "Evidencija donirane hrane (smanjuje zalihu kao otpis), zapisnik za potpis i godišnji zbroj prema 2 % prihoda. "
+     "Potvrdite s knjigovođom.", False),
     ("radnici", "Radnici s PIN-om",
      "Svaki radnik ulazi svojim PIN-om, vidi se tko je što napravio, a radnik bez ovlasti ne vidi nabavne cijene ni maržu.", False),
     ("fiskalizacija", "Fiskalizacija računa (kasa)",
