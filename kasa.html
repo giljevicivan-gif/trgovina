@@ -71,6 +71,9 @@ main { padding: 16px; height: calc(100% - 53px); }
 .plac button { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 7px 11px; font-size: 14px; }
 .plac button.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .gotovina { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.brzi-novac[hidden], #podijeljeno[hidden] { display: none; }
+.brzi-novac { display: flex; gap: 6px; margin: -4px 0 10px; }
+.brzi-novac button { flex: 1; padding: 8px 0; font-size: 15px; border: 1px solid var(--line); border-radius: 8px; background: var(--card, #fff); cursor: pointer; }
 .gotovina input { width: 110px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; text-align: right; }
 #naplati { width: 100%; font-size: 20px; padding: 14px; }
 .opcije { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; color: var(--muted); font-size: 14px; }
@@ -218,6 +221,13 @@ table.t tfoot td { font-weight: 600; border-bottom: 0; }
         <div class="gotovina" id="gotovina">
           <label>Primljeno <input id="primljeno" inputmode="decimal"></label>
           <span>Vratiti: <b id="vratiti">-</b></span>
+        </div>
+        <div class="brzi-novac" id="brzi-novac" hidden>
+          <button data-n="0">Točno</button><button data-n="1000">10 €</button><button data-n="2000">20 €</button><button data-n="5000">50 €</button>
+        </div>
+        <div class="gotovina" id="podijeljeno" hidden>
+          <label>Gotovinom <input id="dio-gotovina" inputmode="decimal"></label>
+          <span>Karticom: <b id="dio-kartica">-</b></span>
         </div>
         <button class="btn prim" id="naplati" disabled>Naplati (F9)</button>
         <div class="opcije">
@@ -457,6 +467,7 @@ function dodaj(a, kol, popust) {
   popust = popust || 0;
   if (!(kol > 0)) { toast('Upišite količinu', true); return; }
   if (!(popust >= 0 && popust <= 100)) { toast('Popust mora biti između 0 i 100 %', true); return; }
+  if (!provjeriTezinu(a, kol)) { if (odabran) $('#kol-unos').select(); else odustani(); return; }
   if (uredjuje >= 0) { kosarica[uredjuje].kol = kol; kosarica[uredjuje].popust = popust; }
   else {
     const isti = kosarica.find(s => s.a.id === a.id && (s.popust || 0) === popust);
@@ -479,12 +490,34 @@ function crtajKosaricu() {
   $('#ukupno').textContent = eur(ukupno());
   $('#naplati').disabled = !kosarica.length;
   vratiti();
+  podijeljeno();
 }
+const nacinPo = re => PLACANJA.find(p => re.test(p.naziv));
 function crtajPlacanja() {
+  const split = MODULI.podijeljeno_placanje && nacinPo(/gotov/i) && nacinPo(/kartic/i);
+  if (placanje === 'split' && !split) placanje = PLACANJA.length ? PLACANJA[0].id : null;
   $('#plac').innerHTML = PLACANJA.map(p =>
-    `<button data-id="${p.id}" class="${p.id === placanje ? 'on' : ''}">${esc(p.naziv)}</button>`).join('');
+    `<button data-id="${p.id}" class="${p.id === placanje ? 'on' : ''}">${esc(p.naziv)}</button>`).join('') +
+    (split ? `<button data-id="split" class="${placanje === 'split' ? 'on' : ''}">Gotovina + kartica</button>` : '');
   const got = PLACANJA.find(p => p.id === placanje);
-  $('#gotovina').style.visibility = got && /gotov/i.test(got.naziv) ? 'visible' : 'hidden';
+  const jeGot = got && /gotov/i.test(got.naziv);
+  $('#gotovina').style.visibility = jeGot ? 'visible' : 'hidden';
+  $('#gotovina').style.display = placanje === 'split' ? 'none' : '';
+  $('#brzi-novac').hidden = !(MODULI.brzo_placanje && jeGot);
+  $('#podijeljeno').hidden = placanje !== 'split';
+  podijeljeno();
+}
+function podijeljeno() {
+  const g = Math.round(parseFloat($('#dio-gotovina').value.replace(',', '.')) * 100);
+  const k = ukupno() - g;
+  $('#dio-kartica').textContent = g >= 0 && k >= 0 ? eur(k) : '-';
+  $('#dio-kartica').style.color = g > ukupno() ? '#c0392b' : '';
+}
+// težina iznad 50 kg je skoro sigurno greška (grami umjesto kilograma)
+function provjeriTezinu(a, kol) {
+  if (!MODULI.kg_upozorenje || !a || a.jm.toLowerCase() !== 'kg' || !(kol > 50)) return true;
+  return confirm(`${a.naziv}: ${kolTxt(kol)} kg?\n\nTo je jako puno (${eur(Math.round(a.cijena * kol))} €). ` +
+                 `Ako ste upisali grame, kliknite Odustani i upišite npr. 1,25.`);
 }
 function vratiti() {
   const p = parseFloat($('#primljeno').value.replace(',', '.'));
@@ -522,14 +555,21 @@ async function naplati() {
   $('#naplati').disabled = true;
   // ista oznaka dok se košarica ne promijeni: ponovni klik nakon izgubljenog odgovora ne daje drugi račun
   if (!naplati.oznaka) naplati.oznaka = Date.now().toString(36) + Math.random().toString(36).slice(2);
+  let dijelovi = null, nacin = placanje;
+  if (placanje === 'split') {
+    const g = Math.round(parseFloat($('#dio-gotovina').value.replace(',', '.')) * 100);
+    if (!(g > 0 && g < ukupno())) { toast('Upišite koliko se plaća gotovinom (manje od ukupnog iznosa).', true); $('#naplati').disabled = false; $('#dio-gotovina').focus(); return; }
+    nacin = nacinPo(/gotov/i).id;
+    dijelovi = [{nacin_placanja_id: nacin, iznos: g}, {nacin_placanja_id: nacinPo(/kartic/i).id, iznos: ukupno() - g}];
+  }
   const prim = parseFloat($('#primljeno').value.replace(',', '.'));
   const vrati = prim > 0 && $('#gotovina').style.visibility !== 'hidden' ? Math.round(prim * 100) - ukupno() : null;
   try {
-    const r = await api('/api/naplati', {nacin_placanja_id: placanje, oznaka_naplate: naplati.oznaka,
+    const r = await api('/api/naplati', {nacin_placanja_id: nacin, oznaka_naplate: naplati.oznaka, ...(dijelovi ? {dijelovi} : {}),
       stavke: kosarica.map(s => ({artikl_id: s.a.id, kolicina: s.kol, popust: s.popust || 0}))});
     if ($('#ispisi').checked) window.open('/ispis/' + r.id + '#ispis', 'ispis', 'width=420,height=640');
     naplati.oznaka = null;
-    kosarica = []; $('#primljeno').value = ''; crtajKosaricu();
+    kosarica = []; $('#primljeno').value = ''; $('#dio-gotovina').value = ''; crtajKosaricu();
     if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
     if (vrati !== null && vrati >= 0) {
       $('#vratiti').textContent = eur(vrati) + ' (zadnji račun)';
@@ -570,13 +610,35 @@ $('#kosarica').addEventListener('click', e => {
   const st = e.target.closest('.stavka'); if (st) urediStavku(+st.dataset.i);
 });
 $('#plac').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (b) { placanje = +b.dataset.id; crtajPlacanja(); vratiti(); $('#trazi').focus(); }
+  const b = e.target.closest('button');
+  if (b) {
+    placanje = b.dataset.id === 'split' ? 'split' : +b.dataset.id; crtajPlacanja(); vratiti();
+    (placanje === 'split' ? $('#dio-gotovina') : $('#trazi')).focus();
+  }
 });
+$('#dio-gotovina').addEventListener('input', podijeljeno);
+$('#dio-gotovina').addEventListener('keydown', e => { if (e.key === 'Enter') naplati(); });
+$('#brzi-novac').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const n = +b.dataset.n || ukupno();
+  $('#primljeno').value = (n / 100).toFixed(2).replace('.', ','); vratiti(); $('#trazi').focus();
+});
+function odaberiNacin(re) {
+  const p = nacinPo(re); if (!p) return;
+  placanje = p.id; crtajPlacanja(); vratiti();
+  toast('Plaćanje: ' + p.naziv);
+}
 $('#primljeno').addEventListener('input', vratiti);
+$('#primljeno').addEventListener('keydown', e => { if (e.key === 'Enter' && MODULI.brzo_placanje) naplati(); });
 $('#naplati').addEventListener('click', naplati);
 $('#ocisti').addEventListener('click', () => { kosarica = []; crtajKosaricu(); odustani(); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'F9') { e.preventDefault(); if ($('#v-kasa').classList.contains('on')) naplati(); }
+  const naKasi = $('#v-kasa').classList.contains('on');
+  if (e.key === 'F9') { e.preventDefault(); if (naKasi) naplati(); }
+  else if (MODULI.brzo_placanje && naKasi && (e.key === 'F5' || e.key === 'F6')) {
+    e.preventDefault(); odaberiNacin(e.key === 'F5' ? /gotov/i : /kartic/i);
+    if (e.key === 'F5') $('#primljeno').focus(); else $('#trazi').focus();
+  }
 });
 
 // ---------------------------------------------------------------- Računi
@@ -1681,6 +1743,7 @@ $('#k-osvjezi').addEventListener('click', ucitajKontrolu);
 let MODULI = {};
 function primijeniModule() {
   const m = MODULI;
+  if (typeof crtajPlacanja === 'function' && PLACANJA.length) crtajPlacanja();
   const tab = v => document.querySelector(`.tabs button[data-v=${v}]`);
   tab('narudzbe').hidden = !m.narudzbe;
   $('#o-kupci').hidden = !(m.narudzbe && m.kupci_tvrtke);

@@ -378,13 +378,14 @@
     const ovl = R.ovlasti;
     const red = r => `<tr data-rd="${r.id}"><td><input class="rd-ime" value="${esc(r.ime)}" style="width:140px;text-align:left"></td>` +
       `<td><input class="rd-pin" type="password" inputmode="numeric" maxlength="8" placeholder="${r.id ? 'ne mijenja' : 'PIN'}" style="width:100px"></td>` +
+      `<td><input class="rd-oib" inputmode="numeric" maxlength="11" value="${esc(r.oib || '')}" placeholder="OIB (za fiskalni račun)" title="OIB radnika ide na fiskalni račun kao OIB operatera. Prazno = OIB iz postavki fiskalizacije." style="width:120px"></td>` +
       `<td><label><input type="checkbox" class="rd-vl" ${r.vlasnik ? 'checked' : ''} style="width:auto"> vlasnik</label></td>` +
       `<td>${ovl.map(([k, n]) => `<label style="white-space:nowrap;margin-right:8px" title="${esc(n)}"><input type="checkbox" class="rd-o" value="${k}" ${r.ovlasti.includes(k) ? 'checked' : ''} style="width:auto"> ${esc(n.split(' (')[0])}</label>`).join(' ')}</td>` +
       `<td>${r.id ? `<label><input type="checkbox" class="rd-ak" ${r.aktivan ? 'checked' : ''} style="width:auto"> aktivan</label>` : ''}</td>` +
       `<td><button class="btn mali">${r.id ? 'Spremi' : 'Dodaj'}</button></td></tr>`;
     box.innerHTML = '<h2>Radnici i ovlasti</h2><p class="napomena">Vlasnik smije sve. Radnik bez ovlasti radi kasu, račune, blagajnu, narudžbe, HACCP, sniženja i gajbe, ' +
       'ali ne vidi nabavne cijene ni maržu. Svaka promjena se upisuje u dnevnik ispod.</p>' +
-      '<div class="scroll" style="max-height:none"><table class="t"><tr><th>Ime</th><th>PIN</th><th></th><th>Ovlasti</th><th></th><th></th></tr>' +
+      '<div class="scroll" style="max-height:none"><table class="t"><tr><th>Ime</th><th>PIN</th><th>OIB</th><th></th><th>Ovlasti</th><th></th><th></th></tr>' +
       R.radnici.map(red).join('') + red({id: 0, ime: '', vlasnik: false, ovlasti: [], aktivan: true}) + '</table></div>' +
       `<div class="polja"><label>Automatska odjava nakon (minuta, 0 = nikad)<input id="rd-odjava" value="${esc(R.odjava_min)}" style="width:80px"></label><button class="btn" id="rd-odjava-spremi">Spremi</button></div>` +
       '<h3>Dnevnik radnji</h3><div class="polja">' +
@@ -394,7 +395,7 @@
     box.querySelectorAll('[data-rd]').forEach(r => r.querySelector('button').onclick = async () => {
       const ak = r.querySelector('.rd-ak');
       try {
-        await api('/api/radnici/spremi', {id: +r.dataset.rd, ime: r.querySelector('.rd-ime').value, pin: r.querySelector('.rd-pin').value,
+        await api('/api/radnici/spremi', {id: +r.dataset.rd, ime: r.querySelector('.rd-ime').value, pin: r.querySelector('.rd-pin').value, oib: r.querySelector('.rd-oib').value,
           vlasnik: r.querySelector('.rd-vl').checked, ovlasti: [...r.querySelectorAll('.rd-o:checked')].map(c => c.value), aktivan: ak ? ak.checked : true});
         toast('Spremljeno'); ucitajRadnike(); osvjeziStanje();
       } catch (e) { toast(e.message, true); }

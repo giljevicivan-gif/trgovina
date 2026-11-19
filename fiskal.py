@@ -234,6 +234,14 @@ def _provjeri_za_produkciju(pst):
         raise Greska("Isključena provjera poslužitelja smije se koristiti samo na testu.")
 
 
+def _nacin_racuna(con, rid, pid):
+    """Račun plaćen s više načina (gotovina + kartica) šalje se kao O (ostalo)."""
+    if con.execute("SELECT COUNT(DISTINCT nacin_placanja_id) FROM racun_placanja WHERE racun_id = ?",
+                   (rid,)).fetchone()[0] > 1:
+        return "O"
+    return nacin_za(con, pid)
+
+
 def nacin_za(con, pid, naziv=None):
     """Način plaćanja za fiskalizaciju (G, K, T, O): ručno odabran u postavkama ili po nazivu."""
     v = postavke.vrijednost(con, "fiskal.nacin.%s" % pid, "")
@@ -557,7 +565,7 @@ def spreman(con):
     return pst
 
 
-def pri_naplati(con, rid, operater=""):
+def pri_naplati(con, rid, operater="", oib_radnika=""):
     """U istoj transakciji kao račun: fiskalni broj i ZKI. Slanje ide poslije (posalji)."""
     pst = spreman(con)
     key, _ = _ucitaj(pst)
@@ -567,7 +575,7 @@ def pri_naplati(con, rid, operater=""):
         "SELECT COALESCE(MAX(broj), 0) + 1 FROM fiskal_racuni WHERE okolina = ? AND godina = ? "
         "AND prostor = ? AND uredjaj = ?", (pst["okolina"], godina, pst["prostor"], pst["uredjaj"])).fetchone()[0]
     datv = dat_vrijeme(r["vrijeme"])
-    oib_oper = pst["oib_operatera"] or pst["oib"]
+    oib_oper = oib_radnika or pst["oib_operatera"] or pst["oib"]  # OIB prijavljenog radnika ako ga ima
     zki = izracunaj_zki(key, pst["oib"], datv, broj, pst["prostor"], pst["uredjaj"], r["ukupno"])
     con.execute(
         """INSERT INTO fiskal_racuni (racun_id, okolina, godina, broj, prostor, uredjaj, oib, u_pdv,
@@ -575,7 +583,7 @@ def pri_naplati(con, rid, operater=""):
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (rid, pst["okolina"], godina, broj, pst["prostor"], pst["uredjaj"], pst["oib"], int(pst["u_pdv"]),
          oib_oper, (operater or pst["operater"] or "")[:60], datv, r["ukupno"],
-         nacin_za(con, r["nacin_placanja_id"]), zki))
+         _nacin_racuna(con, rid, r["nacin_placanja_id"]), zki))
 
 
 def posalji(con, rid):

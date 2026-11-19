@@ -53,6 +53,15 @@ CREATE TABLE IF NOT EXISTS racuni (
     UNIQUE (godina, broj)
 );
 
+-- Račun plaćen s više načina (npr. dio gotovinom, dio karticom); jedan način = nema redaka.
+CREATE TABLE IF NOT EXISTS racun_placanja (
+    id                 INTEGER PRIMARY KEY,
+    racun_id           INTEGER NOT NULL REFERENCES racuni(id),
+    nacin_placanja_id  INTEGER NOT NULL REFERENCES nacini_placanja(id),
+    iznos              INTEGER NOT NULL        -- u centima
+);
+CREATE INDEX IF NOT EXISTS ix_racun_placanja ON racun_placanja(racun_id);
+
 CREATE TABLE IF NOT EXISTS racun_stavke (
     id          INTEGER PRIMARY KEY,
     racun_id    INTEGER NOT NULL REFERENCES racuni(id),
