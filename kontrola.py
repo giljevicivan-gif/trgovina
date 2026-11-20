@@ -20,6 +20,7 @@ import narudzbe
 import ponude
 import postavke
 import roba_dodatno
+import sat
 from baza import ZALIHA_SQL
 from narudzbe import oznaka as oznaka_n
 
@@ -395,6 +396,7 @@ def provjere(con):
         out.append(_p("zuto", "Inventura je stara", "Zadnja je od %s." % _hr(inv)))
 
     out[:0] = fiskal.kontrola(con)  # računi bez JIR-a i certifikat
+    out[:0] = sat.kontrola(con)  # sat računala kasni (Porezna: greška 174)
     redoslijed = {"crveno": 0, "zuto": 1, "ok": 2}
     out.sort(key=lambda p: redoslijed[p["razina"]])
     return out

@@ -26,6 +26,7 @@ import postavke
 import prijedlog_dan
 import radnici
 import sazetak
+import sat
 import snizenje
 from baza import DB_PATH, spoji
 from nabava import Greska
@@ -60,6 +61,7 @@ def pri_pokretanju(con):
     pripremi(con)
     sazetak.pokreni_sat()
     fiskal.pokreni_sat()
+    sat.pokreni()
 
 
 def _json(h, code, body, kolacic=None):

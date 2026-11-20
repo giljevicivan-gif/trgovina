@@ -40,6 +40,7 @@ import uuid
 import xml.etree.ElementTree as ET
 
 import postavke
+import sat
 from baza import oib_ispravan, pdv_iz_bruto, spoji
 from nabava import Greska
 
@@ -432,6 +433,12 @@ def racun_xml(f, stavke):
             x.append("<tns:Porez><tns:Stopa>%.2f</tns:Stopa><tns:Osnovica>%s</tns:Osnovica>"
                      "<tns:Iznos>%s</tns:Iznos></tns:Porez>" % (stopa, iznos(osn), iznos(p)))
         x.append("</tns:Pdv>")
+    # Porezna (greška 166): ukupni iznos = zbroj osnovica + PDV (tolerancija 0,01 EUR).
+    # Ovdje je osnovica = bruto - PDV po stopi, pa je zbroj točan na cent ako su stavke
+    # zbrojene u ukupno; inače račun ne šaljemo krivo nego javimo grešku.
+    if pdv and abs(sum(o + p for _, o, p in pdv) - f["ukupno"]) > 1:
+        raise Greska("Zbroj osnovica i PDV-a (%s) nije jednak ukupnom iznosu računa (%s)."
+                     % (iznos(sum(o + p for _, o, p in pdv)), iznos(f["ukupno"])))
     x += ["<tns:IznosUkupno>%s</tns:IznosUkupno>" % iznos(f["ukupno"]),
           "<tns:NacinPlac>%s</tns:NacinPlac>" % f["nacin"],
           "<tns:OibOper>%s</tns:OibOper>" % f["oib_operatera"],
@@ -518,12 +525,14 @@ def posalji_soap(pst, tijelo, akcija):
     try:
         with urllib.request.urlopen(zahtjev, timeout=int(pst["timeout"]), context=_ssl(pst)) as r:
             tekst = r.read().decode("utf-8", "replace")
+            sat.zabiljezi_odgovor(r, "Porezna")  # sat računala prema poslužitelju (greška 174)
         if "Envelope" not in tekst:  # npr. stranica proxyja ili Wi-Fi prijave, a ne Porezna
             raise NemaVeze("Odgovor nije stigao od Porezne (%s)." % re.sub(r"\s+", " ", tekst)[:80])
         return tekst
     except urllib.error.HTTPError as e:  # SOAP greška dolazi s HTTP 500, ali tijelo je odgovor
         tekst = e.read().decode("utf-8", "replace")
         if "Envelope" in tekst:
+            sat.zabiljezi_odgovor(e, "Porezna")
             return tekst
         raise NemaVeze("Poslužitelj je vratio HTTP %d." % e.code)
     except ssl.SSLCertVerificationError as e:
@@ -685,7 +694,11 @@ def echo(con):
     ms = int((time.time() - t0) * 1000)
     if poslano not in odg:
         raise Greska("Poslužitelj je odgovorio, ali ne očekivano: %s" % odg[:300])
-    return {"ok": True, "poruka": "Veza s poslužiteljem (%s) radi, odgovor za %d ms." % (pst["okolina"], ms)}
+    poruka = "Veza s poslužiteljem (%s) radi, odgovor za %d ms." % (pst["okolina"], ms)
+    razlika, _ = sat.zadnje(con)
+    if razlika is not None:
+        poruka += " " + (sat.opis(razlika) if abs(razlika) >= sat.ZUTO else "Sat računala je točan.")
+    return {"ok": True, "poruka": poruka}
 
 
 def provjera(con):
@@ -782,6 +795,8 @@ def stanje(con):
             upozorenja.append("Certifikat je istekao %s." % cert["vrijedi_do"])
         elif cert["dana_do_isteka"] < 30:
             upozorenja.append("Certifikat ističe za %d dana (%s)." % (cert["dana_do_isteka"], cert["vrijedi_do"]))
+    if sat.upozorenje(con):
+        upozorenja.append(sat.upozorenje(con))
     placanja = [{"id": r["id"], "naziv": r["naziv"], "nacin": nacin_za(con, r["id"], r["naziv"]),
                  "rucno": postavke.vrijednost(con, "fiskal.nacin.%d" % r["id"], "")}
                 for r in con.execute("SELECT id, naziv FROM nacini_placanja WHERE aktivan = 1 ORDER BY roba_sifra, id")]

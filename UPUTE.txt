@@ -499,6 +499,19 @@ BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
   - OIB radnika (Dodaci, Radnici i ovlasti): ako je upisan, ide na
     fiskalni racun kao OIB operatera; inace OIB iz postavki fiskalizacije.
 
+SAT RACUNALA I GRESKE POREZNE 166 / 174 (od 0.4.1)
+  - Greska 174 ("racun kasni u sustav fiskalizacije vise od 10 minuta"):
+    Porezna usporeduje vrijeme na racunu sa svojim satom. Ako sat racunala
+    kasni, svaki racun izgleda zakasnjelo. Program sad jednom na sat (i kod
+    svakog slanja Poreznoj) provjeri sat i u Kontroli javi "Sat racunala
+    nije tocan" ako odstupa vise od 1 minute. Popravak u Windowsu: Postavke,
+    Vrijeme i jezik, Datum i vrijeme, "Automatski postavi vrijeme" ukljuceno,
+    pa "Sinkroniziraj sada". Sat program ne mijenja sam.
+  - Greska 166 ("ukupan iznos nije ispravan prema formuli"): kod nas je
+    osnovica = iznos po stopi minus PDV, pa je osnovica + PDV uvijek tocno
+    jednako ukupnom iznosu. Ako ikad ne bi bilo, racun se ne salje krivo
+    nego ostaje u Dodaci, Fiskalizacija s porukom.
+
 FISKALIZACIJA 2.0: KPD, R1 NA KASI, PRIMKA IZ eRACUNA (od 0.3.0)
   Svaki dio se ukljucuje u Postavkama (zadano iskljuceno):
   - KPD sifre: u Zalihi kliknite naziv artikla, upisite KPD (npr. 01.13.12)
