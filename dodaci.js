@@ -550,13 +550,13 @@
       `<span data-veza="com" style="display:flex;gap:10px">${polje('com', 'COM port', 'style="width:80px"')}` +
       izbor('brzina', 'Brzina', [['', 'kako je postavljeno'], ['9600', '9600'], ['19200', '19200'], ['38400', '38400'], ['115200', '115200']]) + '</span></div>' +
       '<div class="polja">' + izbor('sirina', 'Papir', [['80', '80 mm'], ['58', '58 mm']]) +
-      polje('znakova', `Znakova u retku (prazno = ${P.sirina === '58' ? 32 : 48})`, 'style="width:90px" inputmode="numeric"') +
+      polje('znakova', `Znakova u retku (prazno = ${P.sirina === '58' ? 32 : 42})`, 'style="width:90px" inputmode="numeric"') +
       izbor('kodna', 'Hrvatska slova', P.kodne) + kv('rezanje', 'Odreži papir') + polje('redova', 'Praznih redova prije reza', 'style="width:60px" inputmode="numeric"') + '</div>' +
       '<div class="polja">' + kv('qr', 'QR kod (inače se ispiše adresa)') + polje('qr_velicina', 'Veličina QR (1-16)', 'style="width:60px" inputmode="numeric"') +
       kv('ladica', 'Otvori ladicu kod gotovine') + izbor('ladica_pin', 'Ladica na', [['2', 'pin 2 (obično)'], ['5', 'pin 5']]) + '</div>' +
       '<div class="polja">' + kv('papir', 'Provjeri papir prije i poslije ispisa (mrežni, Windows i USB pisač; ako ga nema, kasa nudi "Ispiši ponovno")') + '</div>' +
-      '<p class="napomena">Ako umjesto č ć ž š đ izlaze krivi znakovi, probajte drugu kodnu stranicu ili "bez kvačica". QR kod na računu mora biti najmanje 2 x 2 cm (veličina 5 je oko 2,5 cm na 80 mm pisaču).</p>' +
-      '<div class="red"><button class="btn prim" id="ts-spremi">Spremi</button><button class="btn" id="ts-probni">Probni ispis</button><button class="btn" id="ts-ladica">Otvori ladicu</button></div>' +
+      '<p class="napomena">Ako umjesto č ć ž š đ izlaze krivi znakovi, kliknite "Proba slova": pisač ispiše 18 redova s brojevima. U Hrvatska slova odaberite broj reda u kojem su slova ispravna (ako nijedan, "bez kvačica"). Na istoj probi je ravnalo: ako se red lomi prije kraja, upišite u Znakova u retku broj znakova koji stane. QR kod na računu mora biti najmanje 2 x 2 cm (veličina 5 je oko 2,5 cm na 80 mm pisaču).</p>' +
+      '<div class="red"><button class="btn prim" id="ts-spremi">Spremi</button><button class="btn" id="ts-probni">Probni ispis</button><button class="btn" id="ts-slova">Proba slova (svi brojevi)</button><button class="btn" id="ts-ladica">Otvori ladicu</button></div>' +
       '<p id="ts-rez" class="napomena"></p>' +
       (P.zadnje ? `<p class="napomena">Zadnji ispis: ${esc(P.zadnje)}</p>` : '') + (P.zadnja_greska ? `<p class="minus">Zadnja greška: ${esc(P.zadnja_greska)}</p>` : '') +
       (P.pregled ? `<h3>Zadnji račun, kako ide na pisač</h3><pre style="font-family:monospace;width:fit-content">${esc(P.pregled)}</pre>` : '');
@@ -575,6 +575,7 @@
     }; };
     gumb('ts-spremi', async () => { await api('/api/tisak/postavke', podaci()); toast('Spremljeno'); return 'Spremljeno.'; });
     gumb('ts-probni', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/probni', {}); return 'Probni ispis poslan pisaču.'; });
+    gumb('ts-slova', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/proba_slova', {}); return 'Proba slova poslana. Odaberite u Hrvatska slova broj reda koji je ispravan pa kliknite Spremi.'; });
     gumb('ts-ladica', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/otvori_ladicu', {}); return 'Ladica: naredba poslana.'; });
     $('#ts-trazi-usb').onclick = async () => {
       try {

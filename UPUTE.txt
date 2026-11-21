@@ -642,10 +642,13 @@ IZRAVNI ISPIS NA TERMALNI PISAC I LADICA (modul "termo_pisac")
     mrezni pisac (IP, port 9100) ili COM
     port (npr. COM3; brzina obicno 9600 ili 115200, prazno = kako je
     postavljeno u Windowsima).
-  - Papir 80 mm (48 znakova) ili 58 mm (32); broj znakova se moze
-    promijeniti ako red prelazi u novi.
-  - Hrvatska slova: CP852 (vecina pisaca), CP1250 ili "bez kvacica".
-    Kliknite Probni ispis i pogledajte jesu li c c z s d ispravni.
+  - Papir 80 mm (zadano 42 znaka, stane na svaki pisac) ili 58 mm
+    (32); broj znakova se moze promijeniti (neki pisaci imaju 48).
+  - Hrvatska slova: kliknite "Proba slova (svi brojevi)". Pisac ispise
+    18 redova s brojevima; u "Hrvatska slova" odaberite broj reda u
+    kojem su c c z s d ispravni i kliknite Spremi (ako nijedan, "bez
+    kvacica"). Na istoj probi su crte za 32, 42, 48, 56 i 64 znaka:
+    upisite u Znakova u retku najveci broj cija crta stane u jedan red.
   - Rezanje papira, prazni redovi prije reza, QR kod (velicina 5 je
     oko 2,5 cm; mora biti najmanje 2 x 2 cm), ladica na pinu 2 ili 5.
   Na kasi: kvacica "Ispisi nakon naplate" salje racun ravno pisacu.

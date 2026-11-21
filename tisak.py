@@ -37,11 +37,30 @@ _BRAVA = threading.Lock()  # jedan ispis odjednom (dva računa se ne smiju izmij
 # ---------------------------------------------------------------- ESC/POS naredbe
 ESC, GS, LF = b"\x1b", b"\x1d", b"\n"
 INIT = ESC + b"@"
-KODNE = {  # ključ: (python kodna stranica, broj za ESC t n, naziv)
-    "cp852": ("cp852", 18, "CP852 (Latin 2), ESC t 18"),
-    "cp1250": ("cp1250", 45, "CP1250 (Windows), ESC t 45"),
+KODNE = {  # ključ: (python kodna stranica, broj za ESC t n, naziv); broj na početku naziva = broj na probi
+    "cp852": ("cp852", 18, "1. CP852, ESC t 18 (većina pisača)"),
+    "cp1250": ("cp1250", 45, "2. CP1250, ESC t 45"),
+    "iso2_39": ("iso8859_2", 39, "3. ISO 8859-2, ESC t 39"),
+    "cp852_54": ("cp852", 54, "4. CP852, ESC t 54"),
+    "cp1250_72": ("cp1250", 72, "5. CP1250, ESC t 72"),
+    "cp852_5": ("cp852", 5, "6. CP852, ESC t 5"),
+    "cp1250_33": ("cp1250", 33, "7. CP1250, ESC t 33"),
+    "cp852_9": ("cp852", 9, "8. CP852, ESC t 9"),
+    "cp852_2": ("cp852", 2, "9. CP852, ESC t 2"),
+    "cp1250_17": ("cp1250", 17, "10. CP1250, ESC t 17"),
+    "cp1250_30": ("cp1250", 30, "11. CP1250, ESC t 30"),
+    "cp852_13": ("cp852", 13, "12. CP852, ESC t 13"),
+    "cp1250_50": ("cp1250", 50, "13. CP1250, ESC t 50"),
+    "cp852_32": ("cp852", 32, "14. CP852, ESC t 32"),
+    "cp852_68": ("cp852", 68, "15. CP852, ESC t 68"),
+    "iso2_36": ("iso8859_2", 36, "16. ISO 8859-2, ESC t 36"),
+    "cp1250_18": ("cp1250", 18, "17. CP1250, ESC t 18"),
+    "cp852_6": ("cp852", 6, "18. CP852, ESC t 6"),
     "ascii": ("ascii", None, "bez kvačica (č -> c)"),
 }
+# Kineski pisači (Xprinter, Winpos, MicroPOS...) često su u "kineskom" načinu: bajt iznad 127 s idućim
+# bajtom čine kineski znak, pa č ć ž š đ izlaze kao kocke. FS . ga isključuje (Epson ga zanemari).
+BEZ_KINESKOG = b"\x1c."
 PRESLOVI = str.maketrans({"č": "c", "ć": "c", "š": "s", "ž": "z", "đ": "dj", "Č": "C", "Ć": "C", "Š": "S",
                           "Ž": "Z", "Đ": "Dj", "€": "EUR", "×": "x", "–": "-", "—": "-", "„": '"', "“": '"',
                           "”": '"', "‘": "'", "’": "'", "…": "...", "\u00a0": " "})
@@ -110,7 +129,7 @@ def znakova(p):
     z = str(p.get("znakova") or "").strip()
     if z.isdigit() and 24 <= int(z) <= 64:
         return int(z)
-    return 32 if str(p.get("sirina")) == "58" else 48
+    return 32 if str(p.get("sirina")) == "58" else 42  # 42 stane na svaki 80 mm pisač (neki imaju 48)
 
 
 def spremi_postavke(con, p):
@@ -135,7 +154,7 @@ def spremi_postavke(con, p):
         raise Greska("Širina papira: 80 ili 58 mm.")
     zn = d("znakova")
     if zn and not (zn.isdigit() and 24 <= int(zn) <= 64):
-        raise Greska("Znakova u retku: od 24 do 64 (ili prazno = 48 za 80 mm, 32 za 58 mm).")
+        raise Greska("Znakova u retku: od 24 do 64 (ili prazno = 42 za 80 mm, 32 za 58 mm).")
     kodna = d("kodna")
     if kodna not in KODNE:
         raise Greska("Nepoznata kodna stranica.")
@@ -293,6 +312,30 @@ def slozi_probni(w=48, naziv=NAZIV, kodna="cp852"):
     return R
 
 
+def proba_kodnih(p):
+    """Jedan red po kodnoj stranici, s brojem: Ivan kaže koji broj ima ispravna slova."""
+    w = znakova(p)
+    b = bytearray(INIT + BEZ_KINESKOG)
+    b += ESC + b"a\x01" + ESC + b"E\x01" + b"PROBA HRVATSKIH SLOVA" + LF + ESC + b"E\x00" + ESC + b"a\x00"
+    b += kodiraj("Dobar red: c c z s d s kvacicom ili crticom.", "ascii") + LF
+    b += kodiraj("Upisite broj dobrog reda u Hrvatska slova.", "ascii") + LF
+    b += b"-" * w + LF
+    for k, (enc, n, naziv) in KODNE.items():
+        if n is None:
+            continue
+        broj = naziv.split(".")[0]
+        b += ESC + b"t" + bytes([n]) + ("%3s: " % broj).encode("ascii") + kodiraj("č ć ž š đ  Č Ć Ž Š Đ", k) + LF
+    b += ESC + b"t\x00" + b"-" * w + LF
+    b += kodiraj("Znakova u retku (sada %d): najveci broj" % w, "ascii") + LF
+    b += kodiraj("ciji red stane u jedan red, s | na kraju:", "ascii") + LF
+    for n in (32, 42, 48, 56, 64):
+        b += (("%d " % n) + "=" * (n - 4) + "|").encode("ascii") + LF
+    b += LF * int(p.get("redova") or 0)
+    if p.get("rezanje", "1") == "1":
+        b += REZ
+    return bytes(b)
+
+
 def kao_tekst(R, w=48, qr=True):
     """Pregled na ekranu (i ispis bez QR naredbi)."""
     out = []
@@ -317,7 +360,7 @@ def u_bajtove(R, p, ladica=False):
     """Redovi u ESC/POS bajtove prema postavkama p."""
     w = znakova(p)
     kodna = p.get("kodna") if p.get("kodna") in KODNE else "cp852"
-    b = bytearray(INIT)
+    b = bytearray(INIT + BEZ_KINESKOG)
     if ladica:
         b += ladica_naredba(p.get("ladica_pin", "2"))
     n = KODNE[kodna][1]
@@ -939,6 +982,12 @@ def probni(con):
     return {"ok": True}
 
 
+def proba(con):
+    p = postavke_modula(con)
+    _posalji_i_zabiljezi(con, p, proba_kodnih(p), "Proba hrvatskih slova")
+    return {"ok": True}
+
+
 def get(h, con, put, q, racun):
     """GET /api/tisak/... (racun = kasa.racun)."""
     if put == "/api/tisak/postavke":
@@ -977,6 +1026,8 @@ def post(h, con, put, podaci, racun):
         h._send(200, otvori_ladicu(con, rid))
     elif put == "/api/tisak/otvori_ladicu":
         h._send(200, otvori_ladicu(con))
+    elif put == "/api/tisak/proba_slova":
+        h._send(200, proba(con))
     elif put == "/api/tisak/probni":
         h._send(200, probni(con))
     else:
