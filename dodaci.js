@@ -457,6 +457,9 @@
       `<p class="napomena">Poslužitelj: ${esc(F.url)}</p>`;
     if (!F.cryptography) h += '<p class="minus">Nedostaje Python paket <b>cryptography</b> (za certifikat i potpis). <button class="btn prim" id="fk-instaliraj">Instaliraj (treba internet)</button></p>';
     h += (F.upozorenja || []).map(u => `<p class="minus">${esc(u)}</p>`).join('');
+    const PP = F.potpis_porezne || {};
+    if (PP.stanje) h += `<p class="${PP.stanje === 'ok' ? 'napomena' : 'minus'}">Potpis Porezne na zadnjem odgovoru (${esc(PP.kada.slice(0, 16))}): ${esc(PP.opis)}${PP.cert ? ' Certifikat: ' + esc(PP.cert) + '.' : ''}</p>`;
+    if (F.mail_greska) h += `<p class="minus">E-mail upozorenje za račune bez JIR-a nije poslano: ${esc(F.mail_greska)}</p>`;
     h += '<h3>1. Certifikat</h3>';
     if (C && !C.greska) h += `<p>${C.demo ? '<b>DEMO</b> certifikat' : 'Certifikat'}: ${esc(C.subjekt)}<br><span class="napomena">Izdavatelj: ${esc(C.izdavatelj)} · vrijedi do ${C.vrijedi_do}${C.oib ? ' · OIB u certifikatu ' + C.oib : ''}</span></p>`;
     else if (C && C.greska) h += `<p class="minus">${esc(C.greska)}</p>`;
@@ -596,6 +599,21 @@
       '<p class="napomena">Nema. Roba koja vene? Snizite je jednim klikom.</p>');
     if (D.ambalaza && D.ambalaza.length) kartica('Gajbe za vratiti', '<table class="t">' + D.ambalaza.map(a => `<tr><td>${esc(a.partner)}</td><td class="r">${a.vrste.map(v => esc(v.vrsta) + ' ' + v.saldo).join(', ')}</td></tr>`).join('') + '</table>');
   };
+
+  // ---------------------------------------------------------------- traka upozorenja na vrhu (računi bez JIR-a, sat)
+  const traka = document.createElement('div');
+  traka.id = 'kasa-traka'; traka.hidden = true; traka.setAttribute('role', 'alert');
+  traka.style.cssText = 'background:#c62828;color:#fff;padding:10px 16px;font-size:15px;font-weight:600;line-height:1.4';
+  document.querySelector('.top').insertAdjacentElement('afterend', traka);
+  async function osvjeziTraku() {
+    let R;
+    try { R = await api('/api/kasa_upozorenje'); } catch (e) { return; }
+    const p = (R && R.poruke) || [];
+    traka.hidden = !p.length;
+    traka.innerHTML = p.map(x => `<div>⚠ ${esc(x.tekst)}</div>`).join('');
+  }
+  osvjeziTraku();
+  setInterval(osvjeziTraku, 60000);
 
   osvjeziStanje();
 })();

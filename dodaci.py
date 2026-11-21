@@ -133,6 +133,16 @@ def get(h, con, put, q):
             h._send(200, {"moduli": m, "radnik": r, "ovlasti": radnici.OVLASTI,
                           "radnici": [{"id": x["id"], "ime": x["ime"]} for x in radnici.popis(con)] if m["radnici"] else [],
                           "ima_vlasnika": radnici.ima_vlasnika(con), "prijava": bool(m["radnici"] and not r and not BEZ_RADNIKA)})
+        elif put == "/api/kasa_upozorenje":
+            # traka na vrhu kase (svi prijavljeni radnici): računi bez JIR-a i sat računala
+            poruke = []
+            t = fiskal.traka(con)
+            if t:
+                poruke.append(t)
+            razlika, _ = sat.zadnje(con)
+            if razlika is not None and abs(razlika) >= sat.CRVENO:
+                poruke.append({"razina": "crveno", "tekst": sat.upozorenje(con)})
+            h._send(200, {"poruke": poruke})
         elif put == "/api/dodaci/danas":
             m = postavke.moduli(con)
             out = {}

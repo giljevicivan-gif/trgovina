@@ -373,7 +373,8 @@ def provjere(con):
         bk = roba_dodatno.bez_kpd(con)
         if bk:
             out.append(_p("zuto", "Artikli prodani tvrtkama bez ispravne KPD šifre",
-                          "KPD šifra je obvezna na eRačunu. Upišite je u Robi (šifrarnik artikala).",
+                          "KPD šifra je obvezna na eRačunu i mora imati točno 6 znamenki (npr. 01.13.12). "
+                          "Upišite je u Robi (šifrarnik artikala) ili kod nas (Zaliha, klik na naziv).",
                           [[x["naziv"], x["kpd"], x["problem"], str(x["racuna"])] for x in bk],
                           ["Artikl", "KPD", "Problem", "Računa"]))
     if moduli["ponude"] and moduli["narudzbe"]:

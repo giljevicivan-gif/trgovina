@@ -1132,10 +1132,10 @@ $('#z-kpd-gumb').addEventListener('click', async () => {
   try {
     const R = await api('/api/kpd/bez');
     box.hidden = false;
-    box.innerHTML = `<div class="red"><b>Artikli bez KPD šifre: ${R.artikli.length}${R.artikli.length >= 500 ? '+' : ''}</b><button class="btn" id="kpd-zatvori">Zatvori</button></div>` +
-      '<p class="napomena">KPD je obvezan na svakoj stavci eRačuna (za račune tvrtkama). Kliknite naziv u tablici Zaliha i upišite šifru, ili je upišite u Robi. Fiskalnom računu za građane KPD ne treba.</p>' +
-      (R.artikli.length ? '<div class="scroll" style="max-height:300px"><table class="t"><tr><th>Šifra</th><th>Naziv</th><th>JM</th></tr>' +
-        R.artikli.map(x => `<tr><td>${esc(x.sifra)}</td><td>${esc(x.naziv)}</td><td>${esc(x.jm)}</td></tr>`).join('') + '</table></div>' : '<p>Svi aktivni artikli imaju KPD šifru.</p>');
+    box.innerHTML = `<div class="red"><b>Artikli bez ispravne KPD šifre: ${R.artikli.length}${R.artikli.length >= 500 ? '+' : ''}</b><button class="btn" id="kpd-zatvori">Zatvori</button></div>` +
+      '<p class="napomena">KPD je obvezan na svakoj stavci eRačuna (za račune tvrtkama) i mora imati točno 6 znamenki, npr. 01.13.12: kraće šifre (01.13) Porezna ne prima. Kliknite naziv u tablici Zaliha i upišite šifru, ili je upišite u Robi. Fiskalnom računu za građane KPD ne treba.</p>' +
+      (R.artikli.length ? '<div class="scroll" style="max-height:300px"><table class="t"><tr><th>Šifra</th><th>Naziv</th><th>JM</th><th>Sadašnja KPD</th></tr>' +
+        R.artikli.map(x => `<tr><td>${esc(x.sifra)}</td><td>${esc(x.naziv)}</td><td>${esc(x.jm)}</td><td>${esc(x.kpd || '')}</td></tr>`).join('') + '</table></div>' : '<p>Svi aktivni artikli imaju ispravnu KPD šifru.</p>');
     $('#kpd-zatvori').onclick = () => box.hidden = true;
   } catch (e) { toast(e.message, true); }
 });

@@ -44,13 +44,22 @@ def pripremi(con):
 
 # ---------------------------------------------------------------- KPD
 
-KPD_OBLIK = re.compile(r"^\d{2}(\.\d{1,2}){1,3}$")  # npr. 01.13 ili 01.13.12
+# Porezna (FiskAplikacija od 26.9.2026.) prima samo punu šestoznamenkastu KPD šifru, npr. 01.13.12.
+KPD_OBLIK = re.compile(r"^\d{2}\.\d{2}\.\d{2}$")
+KPD_GLOB = "[0-9][0-9].[0-9][0-9].[0-9][0-9]"  # isto za SQL (GLOB)
+
+
+def kpd_ispravan(kpd):
+    return bool(KPD_OBLIK.match(str(kpd or "").strip()))
 
 
 def spremi_kpd(con, aid, kpd):
     kpd = str(kpd or "").strip()
+    if re.fullmatch(r"\d{6}", kpd):  # upisano bez točaka: 011312 -> 01.13.12
+        kpd = "%s.%s.%s" % (kpd[:2], kpd[2:4], kpd[4:])
     if kpd and not KPD_OBLIK.match(kpd):
-        raise Greska("KPD šifra je oblika 01.13.12 (brojke odvojene točkom).")
+        raise Greska("KPD šifra mora imati točno 6 znamenki u obliku 01.13.12 (Porezna ne prima kraće šifre "
+                     "poput 01.13).")
     with con:
         if not con.execute("SELECT 1 FROM artikli WHERE id = ?", (aid,)).fetchone():
             raise Greska("Artikl ne postoji.")
@@ -75,24 +84,24 @@ def prijedlog_kpd(con, aid):
     kandidati = []
     if len(rijec) >= 3:
         kandidati = con.execute(
-            """SELECT kpd, COUNT(*) n FROM artikli WHERE kpd != '' AND id != ? AND naziv LIKE ?
-               GROUP BY kpd ORDER BY n DESC LIMIT 3""", (aid, rijec + "%")).fetchall()
+            """SELECT kpd, COUNT(*) n FROM artikli WHERE kpd GLOB ? AND id != ? AND naziv LIKE ?
+               GROUP BY kpd ORDER BY n DESC LIMIT 3""", (KPD_GLOB, aid, rijec + "%")).fetchall()
     izvor = "isti početak naziva (%s)" % rijec
     if not kandidati:
         kandidati = con.execute(
-            """SELECT kpd, COUNT(*) n FROM artikli WHERE kpd != '' AND id != ? AND lower(jm) = lower(?)
+            """SELECT kpd, COUNT(*) n FROM artikli WHERE kpd GLOB ? AND id != ? AND lower(jm) = lower(?)
                AND pdv_stopa = ? GROUP BY kpd ORDER BY n DESC LIMIT 3""",
-            (aid, a["jm"], a["pdv_stopa"])).fetchall()
+            (KPD_GLOB, aid, a["jm"], a["pdv_stopa"])).fetchall()
         izvor = "ista jedinica mjere i PDV"
     return {"prijedlozi": [{"kpd": k["kpd"], "naziv": naziv_kpd(con, k["kpd"]), "artikala": k["n"]}
                            for k in kandidati], "izvor": izvor if kandidati else ""}
 
 
 def bez_kpd(con, samo_tvrtke=False, granica=500):
-    """Aktivni artikli bez KPD šifre (eRačun je traži na svakoj stavci)."""
+    """Aktivni artikli bez ispravne KPD šifre (eRačun je traži na svakoj stavci, točno 6 znamenki)."""
     rows = con.execute(
-        """SELECT id, sifra, naziv, jm FROM artikli WHERE aktivan = 1 AND kpd = '' AND usluga = 0
-           ORDER BY naziv LIMIT ?""", (granica,)).fetchall()
+        """SELECT id, sifra, naziv, jm, kpd FROM artikli WHERE aktivan = 1 AND NOT (kpd GLOB ?) AND usluga = 0
+           ORDER BY kpd = '', naziv LIMIT ?""", (KPD_GLOB, granica)).fetchall()
     return [dict(r) for r in rows]
 
 
@@ -274,6 +283,6 @@ def spremi_veze(con, p):
                     con.execute("INSERT OR REPLACE INTO eracun_veze (partner_id, kljuc, artikl_id) VALUES (?, ?, ?)",
                                 (pid, k[:120], aid))
                     n += 1
-            if v.get("kpd") and KPD_OBLIK.match(v["kpd"]):  # KPD s eRačuna, ako artikl nema svoj
-                con.execute("UPDATE artikli SET kpd = ? WHERE id = ? AND kpd = ''", (v["kpd"], aid))
+            if v.get("kpd") and KPD_OBLIK.match(v["kpd"]):  # KPD s eRačuna, ako artikl nema ispravan svoj
+                con.execute("UPDATE artikli SET kpd = ? WHERE id = ? AND NOT (kpd GLOB ?)", (v["kpd"], aid, KPD_GLOB))
     return n
