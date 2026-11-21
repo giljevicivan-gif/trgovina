@@ -17,16 +17,22 @@
       '<div class="red" style="flex-wrap:wrap;gap:8px"><label style="flex:1 1 260px">Mapa <input id="kv-mapa" style="width:100%" value="' + esc(S.mapa) + '"' +
       (S.mapa_env ? ' placeholder="' + esc(S.mapa_env) + ' (iz pokreni.bat)"' : ' placeholder="E:\\Trgovina"') + '></label>' +
       '<label>Čuvaj kopija <input id="kv-zadrzi" inputmode="numeric" style="width:60px" value="' + S.zadrzi + '"></label></div>' +
-      (S.cilj ? '<p class="napomena">Kopija ide u: <b>' + esc(S.cilj) + '</b> ' + (S.dostupna ? '(dostupna)' : '<span class="minus">(nije dostupna)</span>') + '</p>' : '') +
+      '<div class="red" style="flex-wrap:wrap;gap:8px"><label style="flex:1 1 260px">Druga mapa (po želji) <input id="kv-mapa2" style="width:100%" value="' + esc(S.mapa2 || '') + '"' +
+      ' placeholder="npr. %USERPROFILE%\\OneDrive\\Trgovina (prazno = samo jedna mapa)"></label></div>' +
+      (S.cilj ? '<p class="napomena">Kopija ide u: <b>' + esc(S.cilj) + '</b> ' + (S.dostupna ? '(dostupna)' : '<span class="minus">(nije dostupna)</span>') +
+        (S.cilj2 ? ' i u: <b>' + esc(S.cilj2) + '</b> ' + (S.dostupna2 ? '(dostupna)' : '<span class="minus">(nije dostupna)</span>') : '') + '</p>' : '') +
+      (S.dojava ? '' : '<p class="napomena">Savjet: uključite modul "Dojava kad kopija izostane" (crvena traka na kasi i e-mail kad kopije nema).</p>') +
       '<div class="red"><button class="btn" id="kv-spremi">Spremi mapu</button><button class="btn prim" id="kv-napravi">Napravi kopiju sada</button>' +
       '<button class="btn" id="kv-provjeri">Provjeri</button></div><p id="kv-rez" class="napomena"></p>' +
       (U ? '<p class="' + (U.razina === 'crveno' ? 'minus' : 'upoz') + '"><b>' + esc(U.naslov) + '.</b> ' + esc(U.opis) + '</p>'
-         : (Z ? '<p>Zadnja provjerena kopija: <b>' + esc(Z.vrijeme.slice(0, 16)) + '</b> (' + mb(Z.velicina) + ')</p>' : '')) +
+         : (Z ? '<p>Zadnja provjerena kopija: <b>' + esc(Z.vrijeme.slice(0, 16)) + '</b> (' + mb(Z.velicina) + ')' +
+           (S.zadnja_ok2 ? ', u drugoj mapi: <b>' + esc(S.zadnja_ok2.vrijeme.slice(0, 16)) + '</b>' : '') + '</p>' : '')) +
       (S.log.length ? '<details><summary>Zadnji pokušaji</summary><table class="t">' + S.log.map(l =>
-        '<tr><td>' + esc(l.vrijeme.slice(0, 16)) + '</td><td>' + esc(l.nacin) + '</td><td class="' + (l.ok ? '' : 'minus') + '">' +
+        '<tr><td>' + esc(l.vrijeme.slice(0, 16)) + '</td><td>' + esc(l.nacin) + (l.mjesto === '2' ? ' (2. mapa)' : '') + '</td><td class="' + (l.ok ? '' : 'minus') + '">' +
         (l.ok ? 'u redu' : 'GREŠKA') + '</td><td style="font-size:12px">' + esc(l.poruka) + '</td></tr>').join('') + '</table></details>' : '');
     const rez = (t, err) => { const r = document.getElementById('kv-rez'); r.textContent = t; r.className = err ? 'minus' : 'napomena'; };
-    const spremi = () => api('/api/kopija_van/postavke', {mapa: document.getElementById('kv-mapa').value, zadrzi: document.getElementById('kv-zadrzi').value});
+    const spremi = () => api('/api/kopija_van/postavke', {mapa: document.getElementById('kv-mapa').value,
+      mapa2: document.getElementById('kv-mapa2').value, zadrzi: document.getElementById('kv-zadrzi').value});
     const gumb = (id, fn) => { const b = document.getElementById(id); b.onclick = async () => {
       b.disabled = true; rez('Radim…');
       let t, err = false;
@@ -34,7 +40,10 @@
       await crtaj(); rez(t, err);
     }; };
     gumb('kv-spremi', async () => { await spremi(); return 'Spremljeno.'; });
-    gumb('kv-napravi', async () => { await spremi(); const r = await api('/api/kopija_van/napravi', {}); return 'Kopija spremljena i provjerena: ' + r.datoteka + ' (' + mb(r.velicina) + ').'; });
+    gumb('kv-napravi', async () => { await spremi(); const r = await api('/api/kopija_van/napravi', {});
+      const R = r.rezultati || [];
+      if (R.length > 1) return R.map(x => x.naziv + ': ' + (x.ok ? 'spremljena i provjerena ' + x.datoteka + ' (' + mb(x.velicina) + ')' : 'GREŠKA ' + x.poruka)).join(' · ');
+      return 'Kopija spremljena i provjerena: ' + r.datoteka + ' (' + mb(r.velicina) + ').'; });
     gumb('kv-provjeri', async () => { await spremi(); const r = await api('/api/kopija_van/provjeri', {}); if (!r.ok) throw new Error(r.poruka); return r.poruka; });
   }
 
