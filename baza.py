@@ -191,6 +191,15 @@ CREATE TABLE IF NOT EXISTS blagajna_promet (
     iznos      INTEGER NOT NULL,   -- + polog (npr. sitniš), - isplata (npr. plaćen dobavljač)
     opis       TEXT NOT NULL DEFAULT ''
 );
+-- Brzo brojanje ladice usred smjene (smjena ostaje otvorena)
+CREATE TABLE IF NOT EXISTS blagajna_brojanja (
+    id          INTEGER PRIMARY KEY,
+    smjena_id   INTEGER NOT NULL REFERENCES smjene(id),
+    vrijeme     TEXT NOT NULL,
+    ocekivano   INTEGER NOT NULL,   -- centi, izračun u tom trenutku
+    prebrojano  INTEGER NOT NULL,
+    napomena    TEXT NOT NULL DEFAULT ''
+);
 
 CREATE TABLE IF NOT EXISTS uvozi (
     id          INTEGER PRIMARY KEY,

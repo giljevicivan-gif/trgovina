@@ -395,7 +395,7 @@ async function api(url, body) {
   catch (e) { throw new Error('Nema veze s kasom (program ne radi ili se ponovno pokreće). Pokušajte ponovno.'); }
   try { j = await r.json(); }
   catch (e) { throw new Error('Kasa je vratila neispravan odgovor (' + r.status + '). Pokušajte ponovno.'); }
-  if (!r.ok) throw new Error(j.greska || 'Greška');
+  if (!r.ok) { const g = new Error(j.greska || 'Greška'); g.podaci = j; throw g; }
   return j;
 }
 function toast(t, err) {
@@ -547,7 +547,11 @@ function oznaciKasu() {
     $('#znacka').textContent = 'Fiskalna kasa';
     v.hidden = true;
     $('#naplati').textContent = 'Naplati (F9)';
-  } else {
+  }
+  // prava fiskalizacija: račun se mora izdati i uručiti kupcu, pa se ispis ne može isključiti
+  const isp = $('#ispisi');
+  if (FISKAL === 'produkcija') { isp.checked = true; isp.disabled = true; isp.parentElement.title = 'Kod prave fiskalizacije račun se uvijek ispisuje: mora se uručiti kupcu.'; }
+  else if (isp.disabled) { isp.disabled = false; isp.parentElement.title = ''; } else {
     $('#znacka').textContent = 'Kasa: VJEŽBA';
     v.hidden = false;
     v.textContent = 'VJEŽBA: ovdje se ne naplaćuje. Svaku prodaju naplatite i izdajte račun u Robi.';
@@ -569,8 +573,32 @@ function prozorIspisa(id) {
 }
 async function ispisiRacun(id, ladica) {
   if (!MODULI.termo_pisac) return prozorIspisa(id);
-  try { await api('/api/tisak/racun/' + id, {ladica: !!ladica}); }
-  catch (e) { toast('Pisač: ' + e.message + ' Otvaram obični ispis.', true); prozorIspisa(id); }
+  try {
+    const r = await api('/api/tisak/racun/' + id, {ladica: !!ladica});
+    skloniPonovniIspis(id);
+    if (r.upozorenje) toast(r.upozorenje, true);
+  } catch (e) {
+    ponudiPonovniIspis(id);
+    if (e.podaci && e.podaci.papir) toast('Pisač: ' + e.message, true);  // bez papira obični ispis ne pomaže
+    else { toast('Pisač: ' + e.message + ' Otvaram obični ispis.', true); prozorIspisa(id); }
+  }
+}
+// gumb "Ispiši ponovno" kad ispis ne uspije (npr. nestalo papira); ostaje dok ispis ne uspije ili se zatvori
+function ponudiPonovniIspis(id) {
+  let b = $('#ponovni-ispis');
+  if (!b) {
+    b = document.createElement('div'); b.id = 'ponovni-ispis';
+    b.style.cssText = 'position:fixed;right:16px;top:100px;z-index:60;display:flex;gap:6px;align-items:center;background:var(--panel);border:2px solid #c62828;border-radius:10px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.2)';
+    document.body.appendChild(b);
+  }
+  b.dataset.id = id;
+  b.innerHTML = '<span style="font-weight:600">Račun nije ispisan</span><button class="btn prim" id="pi-da">Ispiši ponovno</button><button class="btn" id="pi-ne" title="Zatvori">✕</button>';
+  $('#pi-da').onclick = () => ispisiRacun(+b.dataset.id, false);
+  $('#pi-ne').onclick = () => b.remove();
+}
+function skloniPonovniIspis(id) {
+  const b = $('#ponovni-ispis');
+  if (b && +b.dataset.id === id) b.remove();
 }
 async function naplati() {
   if (!kosarica.length || $('#naplati').disabled) return;
@@ -1473,6 +1501,7 @@ async function ucitajBlagajnu() {
       '<table class="t">' +
       `<tr><td>Početna gotovina</td><td class="r">${eur(s.pocetno)}</td></tr>` +
       `<tr><td>Gotovinska prodaja (Roba)</td><td class="r">${eur(s.gotovina_sada)}</td></tr>` +
+      (s.gotovina_kasa ? `<tr><td>Gotovinska prodaja (naša fiskalna kasa)</td><td class="r">${eur(s.gotovina_kasa)}</td></tr>` : '') +
       `<tr><td>Pologi</td><td class="r">${eur(s.polozi)}</td></tr>` +
       `<tr><td>Isplate</td><td class="r">${s.isplate ? '−' : ''}${eur(s.isplate)}</td></tr>` +
       `<tfoot><tr><td>Trebalo bi biti u ladici</td><td class="r">${eur(s.ocekivano_sada)}</td></tr></tfoot></table>` +
@@ -1483,6 +1512,13 @@ async function ucitajBlagajnu() {
       '<div class="red" style="margin-top:10px"><label>Iznos <input id="b-iznos" inputmode="decimal" style="width:90px"></label>' +
       '<label>Opis <input id="b-opis" placeholder="npr. plaćen dobavljač" style="width:180px"></label>' +
       '<button class="btn" data-vrsta="polog">Polog</button><button class="btn" data-vrsta="isplata">Isplata</button></div>' +
+      '<h3 style="margin:14px 0 4px">Brzo prebroji ladicu</h3><p class="napomena" style="margin:0 0 6px">Usred smjene (npr. prije pauze ili kad dolazi inspekcija): prebrojite gotovinu i odmah vidite slaže li se. Smjena ostaje otvorena.</p>' +
+      '<div class="red"><label>U ladici sada <input id="b-brzo" inputmode="decimal" style="width:110px"> €</label>' +
+      '<button class="btn" id="b-brzo-gumb">Brzo prebroji</button><span id="b-brzo-rez" style="font-weight:600"></span></div>' +
+      (s.brojanja.length ? '<table class="t"><tr><th>Brojanje</th><th class="r">Očekivano</th><th class="r">Prebrojano</th><th class="r">Razlika</th></tr>' +
+        s.brojanja.map(x => `<tr><td>${x.vrijeme.slice(11, 16)}</td><td class="r">${eur(x.ocekivano)}</td><td class="r">${eur(x.prebrojano)}</td>` +
+          `<td class="r ${x.razlika ? 'minus' : ''}">${x.razlika > 0 ? '+' : ''}${eur(x.razlika)}</td></tr>`).join('') + '</table>' : '') +
+      '<h3 style="margin:14px 0 4px">Zaključak smjene</h3>' +
       '<div class="red"><label>Prebrojana gotovina <input id="b-prebrojano" inputmode="decimal" style="width:110px"> €</label>' +
       '<label>Napomena <input id="b-napomena" style="width:160px"></label>' +
       '<button class="btn prim" id="b-zatvori">Zaključi smjenu</button></div>';
@@ -1490,6 +1526,19 @@ async function ucitajBlagajnu() {
       try { await api('/api/smjena/promet', {vrsta: btn.dataset.vrsta, iznos: $('#b-iznos').value, opis: $('#b-opis').value}); ucitajBlagajnu(); }
       catch (e) { toast(e.message, true); }
     });
+    $('#b-brzo-gumb').onclick = async () => {
+      if (!$('#b-brzo').value.trim()) { toast('Upišite koliko je gotovine u ladici', true); $('#b-brzo').focus(); return; }
+      const btn = $('#b-brzo-gumb'); btn.disabled = true;
+      try {
+        const r = await api('/api/smjena/brojanje', {prebrojano: $('#b-brzo').value});
+        const poruka = r.razlika === 0 ? 'Slaže se (' + eur(r.ocekivano) + ' €).' :
+          (r.razlika > 0 ? 'VIŠAK ' : 'MANJAK ') + eur(Math.abs(r.razlika)) + ' € (trebalo bi biti ' + eur(r.ocekivano) + ' €).';
+        await ucitajBlagajnu();
+        $('#b-brzo-rez').textContent = poruka; $('#b-brzo-rez').className = r.razlika ? 'minus' : '';
+        toast(poruka + (r.razlika && !b.roba ? ' Ako zadnji računi iz Robe još nisu uvezeni, osvježite iz Robe i prebrojite opet.' : ''), !!r.razlika);
+      } catch (e) { toast(e.message, true); btn.disabled = false; }
+    };
+    $('#b-brzo').addEventListener('keydown', e => { if (e.key === 'Enter') $('#b-brzo-gumb').click(); });
     $('#b-zatvori').onclick = async () => {
       if (!$('#b-prebrojano').value.trim()) { toast('Upišite prebrojanu gotovinu', true); return; }
       try {
@@ -1513,12 +1562,13 @@ async function ispisSmjene(id) {
   w.document.write('<!doctype html><meta charset="utf-8"><title>Zaključak smjene</title><style>body{font:12px "Courier New",monospace;width:72mm;margin:10px auto}' +
     'table{width:100%;border-collapse:collapse}td{padding:2px 0}.b td{font-weight:bold;border-top:1px dashed #000}</style>' +
     `<p style="text-align:center"><b>ZAKLJUČAK SMJENE</b><br>${s.otvorena} – ${s.zatvorena || ''}</p><table>` +
-    red('Početna gotovina', eur(s.pocetno)) + red('Gotovinska prodaja', eur(s.gotovina ?? s.gotovina_sada)) +
+    red('Početna gotovina', eur(s.pocetno)) + red('Gotovinska prodaja', eur(s.gotovina ?? (s.gotovina_sada + (s.gotovina_kasa || 0)))) +
     red('Pologi', eur(s.polozi)) + red('Isplate', (s.isplate ? '−' : '') + eur(s.isplate)) +
     '<tr class="b"><td>Očekivano</td><td style="text-align:right">' + eur(s.ocekivano ?? s.ocekivano_sada) + '</td></tr>' +
     (s.zatvorena ? red('Prebrojano', eur(s.prebrojano)) + '<tr class="b"><td>Razlika</td><td style="text-align:right">' + eur(s.razlika) + '</td></tr>' : '') +
     red('Kartice i ostalo', eur(s.kartice ?? s.kartice_sada)) + red('Računa', s.racuna ?? s.racuna_sada) + '</table>' +
     (s.promet.length ? '<p>Pologi i isplate:</p><table>' + s.promet.map(p => red(p.vrijeme.slice(11, 16) + ' ' + esc(p.opis), eur(p.iznos))).join('') + '</table>' : '') +
+    ((s.brojanja || []).length ? '<p>Brza brojanja (prebrojano / razlika):</p><table>' + s.brojanja.map(x => red(x.vrijeme.slice(11, 16), eur(x.prebrojano) + ' / ' + (x.razlika > 0 ? '+' : '') + eur(x.razlika))).join('') + '</table>' : '') +
     (s.napomena ? '<p>Napomena: ' + esc(s.napomena) + '</p>' : '') + '<script>print()<\/script>');
   w.document.close();
 }

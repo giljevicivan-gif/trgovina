@@ -88,7 +88,7 @@ REZ = GS + b"V\x42\x00"  # GS V 66 0: djelomično rezanje
 
 ZADANO = {"veza": "windows", "pisac": "", "adresa": "", "com": "COM3", "brzina": "", "sirina": "80",
           "znakova": "", "kodna": "cp852", "rezanje": "1", "redova": "4", "ladica": "1", "ladica_pin": "2",
-          "qr": "1", "qr_velicina": "5"}
+          "qr": "1", "qr_velicina": "5", "papir": "1"}
 
 
 def _v(con, k):
@@ -149,9 +149,10 @@ def spremi_postavke(con, p):
         raise Greska("Ladica: pin 2 ili pin 5.")
     vals = {"veza": veza, "pisac": d("pisac")[:200], "adresa": adresa[:100], "com": com[:60], "brzina": brzina,
             "sirina": sirina, "znakova": zn, "kodna": kodna, "rezanje": da("rezanje"), "redova": redova,
-            "ladica": da("ladica"), "ladica_pin": pin, "qr": da("qr"), "qr_velicina": qv}
+            "ladica": da("ladica"), "ladica_pin": pin, "qr": da("qr"), "qr_velicina": qv, "papir": da("papir")}
     for k, v in vals.items():
         postavke.postavi(con, "tisak." + k, v)
+    _ne_javlja.clear()
     return postavke_modula(con)
 
 
@@ -506,6 +507,95 @@ def _enum_printers():
     return [x.pPrinterName for x in niz if x.pPrinterName]
 
 
+# ---------------------------------------------------------------- stanje papira
+# ESC/POS "DLE EOT 4": pisač odmah vrati jedan bajt o senzoru papira
+# (bitovi 2-3 = papir pri kraju, bitovi 5-6 = nema papira). Radi za mrežni pisač
+# (odgovor stiže istom vezom). Za Windows pisač stanje se čita iz spoolera
+# (PRINTER_INFO_2.Status: nema papira, offline, greška) ako ga upravljački program javlja.
+# COM port se ne pita (čitanje bez vremenskog ograničenja moglo bi zaključati port).
+DLE_EOT_PAPIR = b"\x10\x04\x04"
+class NemaPapira(Greska):
+    """Pisač javlja da nema papira (prije ili tijekom ispisa)."""
+
+
+NEMA_PAPIRA = "Nestalo je papira u pisaču. Stavite novu rolu i kliknite \"Ispiši ponovno\"."
+
+
+def _papir_iz_bajta(b):
+    if b & 0x93 != 0x12:  # bitovi 1 i 4 su uvijek 1, bitovi 0 i 7 uvijek 0: inače to nije odgovor o papiru
+        return None
+    return {"ima": not (b & 0x60), "pri_kraju": bool(b & 0x0C)}
+
+
+_ne_javlja = set()  # mrežni pisači koji ne odgovaraju na DLE EOT: ne pitati ih kod svakog računa
+
+
+def _papir_mreza(adresa):
+    host, port = _host_port(adresa)
+    if (host, port) in _ne_javlja:
+        return None
+    try:
+        with socket.create_connection((host, port), timeout=2.0) as s:
+            s.settimeout(1.5)
+            s.sendall(DLE_EOT_PAPIR)
+            b = s.recv(1)
+    except socket.timeout:
+        _ne_javlja.add((host, port))
+        return None
+    except OSError:
+        return None
+    r = _papir_iz_bajta(b[0]) if b else None
+    if r is None:
+        _ne_javlja.add((host, port))
+    return r
+
+
+def _papir_windows(ime):
+    if os.name != "nt" or not ime:
+        return None
+    import ctypes
+    from ctypes import wintypes
+    ws = ctypes.WinDLL("winspool.drv", use_last_error=True)
+    ws.OpenPrinterW.argtypes = [wintypes.LPWSTR, ctypes.POINTER(wintypes.HANDLE), ctypes.c_void_p]
+    ws.GetPrinterW.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                               ctypes.POINTER(wintypes.DWORD)]
+    ws.ClosePrinter.argtypes = [wintypes.HANDLE]
+    h = wintypes.HANDLE()
+    if not ws.OpenPrinterW(ime, ctypes.byref(h), None):
+        return None
+    try:
+        treba = wintypes.DWORD(0)
+        ws.GetPrinterW(h, 6, None, 0, ctypes.byref(treba))  # PRINTER_INFO_6 = samo Status
+        if not treba.value:
+            return None
+        buf = ctypes.create_string_buffer(treba.value)
+        if not ws.GetPrinterW(h, 6, buf, treba.value, ctypes.byref(treba)):
+            return None
+        status = ctypes.cast(buf, ctypes.POINTER(wintypes.DWORD)).contents.value
+    finally:
+        ws.ClosePrinter(h)
+    PAPER_OUT, PAPER_PROBLEM, OFFLINE, ERROR, NOT_AVAILABLE = 0x10, 0x40, 0x80, 0x2, 0x1000
+    if status & (PAPER_OUT | PAPER_PROBLEM):
+        return {"ima": False, "pri_kraju": False}
+    if status & (OFFLINE | NOT_AVAILABLE):
+        return {"ima": None, "pri_kraju": False, "offline": True}
+    return {"ima": True, "pri_kraju": False} if not status & ERROR else None
+
+
+def stanje_papira(p):
+    """{"ima": True/False/None, "pri_kraju": bool} ili None ako se ne može saznati."""
+    if p.get("papir", "1") != "1":
+        return None
+    try:
+        if p["veza"] == "mreza":
+            return _papir_mreza(p["adresa"])
+        if p["veza"] == "windows":
+            return _papir_windows(p.get("pisac"))
+    except Exception:
+        return None
+    return None
+
+
 def posalji(p, podaci, dokument="Racun"):
     """Bajtovi pisaču prema postavkama; Greska kad ne uspije."""
     if not _BRAVA.acquire(timeout=3 * TIMEOUT):
@@ -569,12 +659,33 @@ def _smije_ladicu(con, rid):
 
 
 def ispisi_racun(con, racun, ladica=False):
-    """racun = kasa.racun(con, rid). Vraća {"ok", "ladica"}."""
+    """racun = kasa.racun(con, rid). Vraća {"ok", "ladica", "upozorenje"}.
+    Prije ispisa provjeri papir (ako ga nema: Greska "papir"), a poslije javi ako je
+    papir nestao usred ispisa ili je pri kraju."""
     p = postavke_modula(con)
+    opis = "Račun " + ((racun.get("fiskal") or {}).get("oznaka") or racun["oznaka"])
+    prije = stanje_papira(p)
+    if prije and prije.get("ima") is False:
+        _zabiljezi(con, False, "%s: nema papira" % opis)
+        if ladica and p["ladica"] == "1" and _smije_ladicu(con, racun["id"]):
+            try:  # kupac čeka ostatak: ladica se otvara i bez papira
+                posalji(p, INIT + ladica_naredba(p["ladica_pin"]), "Ladica")
+            except Exception:
+                pass
+        raise NemaPapira(NEMA_PAPIRA)
     otvori = bool(ladica) and p["ladica"] == "1" and _smije_ladicu(con, racun["id"])
     podaci = u_bajtove(slozi_racun(racun, znakova(p)), p, ladica=otvori)
-    _posalji_i_zabiljezi(con, p, podaci, "Račun " + ((racun.get("fiskal") or {}).get("oznaka") or racun["oznaka"]))
-    return {"ok": True, "ladica": otvori}
+    _posalji_i_zabiljezi(con, p, podaci, opis)
+    out = {"ok": True, "ladica": otvori, "upozorenje": ""}
+    if prije is not None:  # pisač javlja stanje: provjera i poslije ispisa
+        poslije = stanje_papira(p)
+        if poslije and poslije.get("ima") is False:
+            _zabiljezi(con, False, "%s: papir je nestao tijekom ispisa" % opis)
+            raise NemaPapira("Papir je nestao tijekom ispisa: račun možda nije cijeli. Stavite novu rolu i "
+                             "kliknite \"Ispiši ponovno\".")
+        if (poslije or prije).get("pri_kraju"):
+            out["upozorenje"] = "Papir u pisaču je pri kraju: pripremite novu rolu."
+    return out
 
 
 def otvori_ladicu(con, rid=None):
@@ -614,7 +725,10 @@ def post(h, con, put, podaci, racun):
     if put == "/api/tisak/postavke":
         h._send(200, spremi_postavke(con, podaci))
     elif re.fullmatch(r"/api/tisak/racun/\d+", put):
-        h._send(200, ispisi_racun(con, racun(con, int(put.rsplit("/", 1)[1])), podaci.get("ladica") in (True, 1, "1")))
+        try:
+            h._send(200, ispisi_racun(con, racun(con, int(put.rsplit("/", 1)[1])), podaci.get("ladica") in (True, 1, "1")))
+        except NemaPapira as e:
+            h._send(409, {"greska": str(e), "papir": True})
     elif put == "/api/tisak/ladica":
         try:
             rid = int(podaci.get("racun_id"))

@@ -264,7 +264,7 @@ OPISI = (
     ("/api/naplati", "Račun na kasi (vježba)"), ("/api/storno/", "Storno računa"),
     ("/api/dokument", "Dokument nabave (primka, otpis, povrat, inventura)"), ("/api/storno_dok/", "Storno dokumenta nabave"),
     ("/api/smjena/otvori", "Otvorena smjena"), ("/api/smjena/promet", "Polog/isplata u blagajni"),
-    ("/api/smjena/zatvori", "Zaključena smjena"), ("/api/uvoz", "Osvježeno iz Robe"),
+    ("/api/smjena/zatvori", "Zaključena smjena"), ("/api/smjena/brojanje", "Brzo brojanje ladice"), ("/api/uvoz", "Osvježeno iz Robe"),
     ("/api/postavke", "Promijenjene postavke"), ("/api/artikl/", "Promijenjen artikl"),
     ("/api/partner", "Dobavljač"), ("/api/akcije/", "Akcija"), ("/api/inv/", "Inventura"),
     ("/api/narudzba", "Narudžba kupca"), ("/api/kupac", "Kupac"), ("/api/ponuda", "Ponuda"),
@@ -296,8 +296,10 @@ def opis_radnje(con, putanja, podaci, odgovor):
                 dodatak = "%s %s" % (r["vrsta"], nabava.oznaka(r))
         elif putanja == "/api/smjena/promet":
             dodatak = "%s %s %s" % (podaci.get("vrsta") or "polog", podaci.get("iznos") or "", podaci.get("opis") or "")
-        elif putanja == "/api/smjena/zatvori":
+        elif putanja in ("/api/smjena/zatvori", "/api/smjena/brojanje"):
             dodatak = "prebrojano %s" % (podaci.get("prebrojano") or "")
+            if putanja == "/api/smjena/brojanje" and isinstance(odgovor, dict) and "razlika" in odgovor:
+                dodatak += ", razlika %.2f €" % (odgovor["razlika"] / 100.0)
         elif putanja == "/api/postavke":
             dodatak = ", ".join("%s=%s" % (k, "da" if v else "ne") for k, v in sorted(podaci.items())
                                 if isinstance(v, bool))

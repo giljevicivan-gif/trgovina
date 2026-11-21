@@ -746,6 +746,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, narudzba_mail.posalji(con, podaci))
             elif u.path == "/api/smjena/otvori":
                 self._send(200, {"id": blagajna.otvori(con, podaci)})
+            elif u.path == "/api/smjena/brojanje":
+                if ROBA_MAPA:
+                    osvjezi_robu(con)
+                self._send(200, blagajna.brojanje(con, podaci))
             elif u.path == "/api/smjena/promet":
                 blagajna.promet(con, podaci)
                 self._send(200, {"ok": True})
