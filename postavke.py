@@ -68,7 +68,7 @@ MODULI = (
      "Kasa sama očita težinu s vage (COM port ili mreža): gumb Vaga (F4) kod artikla na kg. "
      "Postavke veze i probno očitanje ispod popisa modula.", False),
     ("termo_pisac", "Izravni ispis na termalni pisač",
-     "Račun ide ravno na termalni pisač 80/58 mm (ESC/POS: Windows pisač, mreža ili COM) bez prozora za ispis, "
+     "Račun ide ravno na termalni pisač 80/58 mm (ESC/POS: Windows pisač, USB bez drivera, mreža ili COM) bez prozora za ispis, "
      "s QR kodom, rezanjem papira i otvaranjem ladice kod gotovine. Kad pisač ne radi, otvara se obični ispis.", False),
     ("uvoz_artikala", "Uvoz artikala druge trgovine",
      "Jednokratno preuzimanje artikala (šifra, naziv, barkod, cijena, PDV, KPD) iz Robe druge trgovine ili .zip kopije. "
