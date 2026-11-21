@@ -178,7 +178,24 @@ def _stanje_baze(con):
             "fiskal_naziv": postavke.vrijednost(con, "fiskal.naziv_tvrtke", "")}
 
 
-def _plan(con, putanja, izbor, zaliha, roba_mapa):
+def _koristeni(con):
+    """id artikala na koje se nešto poziva (računi, primke, narudžbe, inventure...): ti se ne brišu."""
+    ids = set()
+    for (tab,) in con.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name <> 'artikli'").fetchall():
+        if any(r[1] == "artikl_id" for r in con.execute('PRAGMA table_info("%s")' % tab)):
+            ids.update(r[0] for r in con.execute('SELECT DISTINCT artikl_id FROM "%s"' % tab) if r[0] is not None)
+    return ids
+
+
+def _stari(con):
+    """Plan za zamjenu: koji se postojeći artikli brišu, a koji samo skrivaju (imaju povijest)."""
+    koristeni = _koristeni(con)
+    svi = [r[0] for r in con.execute("SELECT id FROM artikli")]
+    cuvaj = [i for i in svi if i in koristeni]
+    return {"ukupno": len(svi), "brisanje": len(svi) - len(cuvaj), "skrivanje": len(cuvaj), "_cuvaj": cuvaj}
+
+
+def _plan(con, putanja, izbor, zaliha, roba_mapa, zamijeni=False):
     if izbor not in IZBORI:
         raise Greska("Nepoznat izbor artikala.")
     P = _ucitaj(putanja)
@@ -186,6 +203,8 @@ def _plan(con, putanja, izbor, zaliha, roba_mapa):
     t = P["trgovina"]
 
     upozorenja, potvrda = [], False
+    if zamijeni:
+        baza = dict(baza, iz_robe=0)  # postojeći artikli se miču, pa se ne miješaju
     oib_izvora = re.sub(r"\D", "", t["oib"])
     if baza["fiskal_oib"] and oib_izvora and baza["fiskal_oib"] != oib_izvora:
         upozorenja.append("Ova baza je fiskalizirana na OIB %s, a artikli su iz Robe trgovine s OIB-om %s. "
@@ -199,10 +218,15 @@ def _plan(con, putanja, izbor, zaliha, roba_mapa):
         potvrda = True
     # Robina šifra se zadržava samo u "praznoj" bazi bez zadane Robe (nova instalacija te trgovine)
     veza = (not baza["iz_robe"] or ista) and not roba_mapa
+    if zamijeni and con.execute("SELECT 1 FROM roba_stavke LIMIT 1").fetchone() and not ista:
+        veza = False  # povijest prodaje iz Robe druge trgovine: Robine šifre se ne bi poklapale
 
-    sifre = {r[0].strip().lower() for r in con.execute("SELECT sifra FROM artikli")}
-    barkodi = {r[0].strip() for r in con.execute("SELECT barkod FROM artikli WHERE barkod <> ''")}
-    roba_sifre = {r[0] for r in con.execute("SELECT roba_sifra FROM artikli WHERE roba_sifra IS NOT NULL")}
+    if zamijeni:
+        sifre, barkodi, roba_sifre = set(), set(), set()
+    else:
+        sifre = {r[0].strip().lower() for r in con.execute("SELECT sifra FROM artikli")}
+        barkodi = {r[0].strip() for r in con.execute("SELECT barkod FROM artikli WHERE barkod <> ''")}
+        roba_sifre = {r[0] for r in con.execute("SELECT roba_sifra FROM artikli WHERE roba_sifra IS NOT NULL")}
 
     novi, preskoceni = [], []
     razlozi = {"sifra": 0, "barkod": 0, "bez_cijene": 0, "neaktivan": 0}
@@ -258,24 +282,32 @@ def _plan(con, putanja, izbor, zaliha, roba_mapa):
         "primjer_novi": [{k: s[k] for k in ("sifra", "barkod", "naziv", "jm", "cijena", "pdv_stopa", "zaliha")}
                          for s in novi[:PRIMJERA]],
         "primjer_preskoceni": preskoceni[:PRIMJERA],
-        "_novi": novi,
+        "_novi": novi, "zamijeni": bool(zamijeni),
+        "stari": _stari(con) if zamijeni else None,
+        "roba_mapa": bool(roba_mapa),
     }
 
 
 def pregled(con, p, roba_mapa=""):
     with _LOCK:
-        plan = _plan(con, p.get("putanja"), p.get("izbor") or "prodani_zaliha", p.get("zaliha"), roba_mapa)
+        plan = _plan(con, p.get("putanja"), p.get("izbor") or "prodani_zaliha", p.get("zaliha"), roba_mapa,
+                     bool(p.get("zamijeni")))
     plan.pop("_novi")
+    if plan["stari"]:
+        plan["stari"].pop("_cuvaj")
     return plan
 
 
 def uvezi(con, p, roba_mapa=""):
     """Upiše samo nove artikle. Postojeće ne dira. Vraća {upisano, kopija}."""
     with _LOCK:
-        plan = _plan(con, p.get("putanja"), p.get("izbor") or "prodani_zaliha", p.get("zaliha"), roba_mapa)
+        zamijeni = bool(p.get("zamijeni"))
+        plan = _plan(con, p.get("putanja"), p.get("izbor") or "prodani_zaliha", p.get("zaliha"), roba_mapa, zamijeni)
         novi = plan["_novi"]
         if not novi:
             raise Greska("Nema novih artikala za upis.")
+        if zamijeni and not p.get("potvrda_brisanja"):
+            raise Greska("Potvrdite brisanje svojih artikala (kvačica iznad gumba).")
         if plan["potvrda_potrebna"] and not p.get("potvrda"):
             raise Greska("Potvrdite da artikle stvarno želite u ovu bazu (kvačica ispod upozorenja).")
         kop = [k for k in kopija.napravi() if k["datoteka"]]
@@ -287,6 +319,10 @@ def uvezi(con, p, roba_mapa=""):
         con.isolation_level = ""
         try:
             with con:
+                if zamijeni:
+                    _makni_stare(con, plan["stari"]["_cuvaj"])
+                    # artikli iz vlastite Robe se više ne uvoze, inače bi se stari vratili kod pokretanja
+                    con.execute("INSERT OR REPLACE INTO postavke (kljuc, vrijednost) VALUES ('uvoz.bez_artikala', '1')")
                 for s in novi:
                     red = {"roba_sifra": s["roba_sifra"], "sifra": s["sifra"], "barkod": s["barkod"],
                            "naziv": s["naziv"], "jm": s["jm"], "cijena": s["cijena"],
@@ -308,8 +344,9 @@ def uvezi(con, p, roba_mapa=""):
                         con.execute("UPDATE artikli SET sidrena = ?, sidrena_datum = ? WHERE id = ?",
                                     (c, d, cur.lastrowid))
                 t = plan["trgovina"]
-                opis = "uvoz artikala druge trgovine: %d novih iz %s%s" % (
-                    len(novi), t["naziv"] or "Robe", " (s zalihom)" if zaliha else "")
+                opis = "%s artikala druge trgovine: %d novih iz %s%s" % (
+                    "zamjena" if zamijeni else "uvoz", len(novi), t["naziv"] or "Robe",
+                    " (s zalihom)" if zaliha else "")
                 if plan["veza"] and t["oib"]:
                     # ista trgovina kod sljedećeg uvoza (dopuna artikala) ne traži potvrdu
                     con.execute("INSERT OR REPLACE INTO postavke (kljuc, vrijednost) VALUES (?, ?)",
@@ -318,5 +355,27 @@ def uvezi(con, p, roba_mapa=""):
                             (dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), plan["izvor"], opis))
         finally:
             con.isolation_level = nivo
+    st = plan["stari"] or {}
     return {"upisano": len(novi), "preskoceno": plan["preskoceni"], "kopija": kop[0]["datoteka"],
-            "veza": plan["veza"]}
+            "veza": plan["veza"], "obrisano": st.get("brisanje", 0), "skriveno": st.get("skrivanje", 0)}
+
+
+def _makni_stare(con, cuvaj):
+    """Briše postojeće artikle. Oni s poviješću (računi, primke...) ostaju skriveni, da stari
+    dokumenti i dalje imaju naziv: neaktivni, bez barkoda, šifra s oznakom S-, bez veze s Robom."""
+    cuvaj = set(cuvaj)
+    for (aid,) in con.execute("SELECT id FROM artikli").fetchall():
+        if aid in cuvaj:
+            con.execute("""UPDATE artikli SET aktivan = 0, roba_sifra = NULL, barkod = '',
+                           sifra = CASE WHEN sifra LIKE 'S-%' THEN sifra ELSE 'S-' || sifra END WHERE id = ?""",
+                        (aid,))
+        else:
+            con.execute("DELETE FROM artikli WHERE id = ?", (aid,))
+
+
+def bez_artikala_iz_robe(con):
+    return postavke.vrijednost(con, "uvoz.bez_artikala", "0") == "1"
+
+
+def vrati_artikle_iz_robe(con):
+    postavke.postavi(con, "uvoz.bez_artikala", "0")

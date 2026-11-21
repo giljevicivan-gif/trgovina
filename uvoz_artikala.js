@@ -21,11 +21,28 @@
       [['prodani_zaliha', 'Prodavani u toj godini ili imaju zalihu'], ['zaliha', 'Samo artikli sa zalihom'], ['svi', 'Svi artikli']]
         .map(([k, n]) => '<option value="' + k + '"' + (k === izbor ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>' +
       '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="ua-zaliha"> preuzmi i količine na zalihi</label></div>' +
-      '<div class="red"><button class="btn" id="ua-pregled">Pregled</button></div><div id="ua-rez"></div>';
+      '<div style="margin-top:6px"><label style="display:flex;gap:6px;align-items:center"><input type="radio" name="ua-nacin" value="dodaj" checked> Dodaj nove artikle (moji ostaju)</label>' +
+      '<label style="display:flex;gap:6px;align-items:center"><input type="radio" name="ua-nacin" value="zamijeni"> Zamijeni moje artikle ovima (moji se brišu)</label></div>' +
+      '<div class="red"><button class="btn" id="ua-pregled">Pregled</button></div><div id="ua-rez"></div><div id="ua-stanje"></div>';
     $id('ua-pregled').onclick = pregled;
+    stanje();
   }
 
-  const podaci = () => ({putanja: $id('ua-putanja').value, izbor: $id('ua-izbor').value, zaliha: $id('ua-zaliha').checked});
+  async function stanje() {
+    let S;
+    try { S = await api('/api/uvoz_artikala'); } catch (e) { return; }
+    const el = $id('ua-stanje');
+    if (!el || !S.bez_artikala) return;
+    el.innerHTML = '<p class="upoz">Artikli iz vaše Robe se više ne uvoze (zamijenjeni su). Prodaja i dokumenti iz Robe se i dalje čitaju.' +
+      ' <button class="btn" id="ua-vrati">Opet uvozi artikle iz Robe</button></p>';
+    $id('ua-vrati').onclick = async () => {
+      try { await api('/api/uvoz_artikala/vrati', {}); toast('Artikli iz Robe se opet uvoze kod sljedećeg osvježavanja'); el.innerHTML = ''; }
+      catch (e) { toast(e.message, true); }
+    };
+  }
+
+  const podaci = () => ({putanja: $id('ua-putanja').value, izbor: $id('ua-izbor').value, zaliha: $id('ua-zaliha').checked,
+    zamijeni: (document.querySelector('input[name=ua-nacin]:checked') || {}).value === 'zamijeni'});
 
   async function pregled() {
     const rez = $id('ua-rez'), b = $id('ua-pregled');
@@ -63,23 +80,33 @@
                 : ' Zaliha ostaje 0 dok ne napravite inventuru ili primku.') + '</p>' +
       (P.novi ? '<details><summary>Prvih ' + P.primjer_novi.length + ' novih</summary>' + tablica(P.primjer_novi, false) + '</details>' : '') +
       (P.preskoceni ? '<details><summary>Preskočeni (prvih ' + P.primjer_preskoceni.length + ')</summary>' + tablica(P.primjer_preskoceni, true) + '</details>' : '') +
+      (P.stari ? '<p class="minus"><b>Zamjena:</b> od vaših ' + br(P.stari.ukupno) + ' artikala briše se ' + br(P.stari.brisanje) +
+        (P.stari.skrivanje ? ', a ' + br(P.stari.skrivanje) + ' ima povijest (računi, primke, inventure…) pa se samo skrivaju, da stari dokumenti ostanu ispravni' : '') +
+        '. Računi, dokumenti, postavke i radnici ostaju. Prije toga se napravi sigurnosna kopija baze.' +
+        (P.roba_mapa ? ' Artikli iz vaše Robe se poslije više neće uvoziti (može se vratiti ovdje).' : '') + '</p>' +
+        '<label style="display:flex;gap:8px;align-items:flex-start;margin:8px 0"><input type="checkbox" id="ua-brisanje" style="margin-top:3px">' +
+        '<span>Da, obriši moje artikle i stavi ove.</span></label>' : '') +
       (P.potvrda_potrebna ? '<label style="display:flex;gap:8px;align-items:flex-start;margin:8px 0"><input type="checkbox" id="ua-potvrda" style="margin-top:3px">' +
         '<span>Pročitao sam upozorenje i ipak želim artikle u <b>ovu</b> bazu.</span></label>' : '') +
-      (P.novi ? '<div class="red"><button class="btn prim" id="ua-uvezi">Uvezi ' + br(P.novi) + ' novih artikala</button></div>' : '');
+      (P.novi ? '<div class="red"><button class="btn prim" id="ua-uvezi">' + (P.stari ? 'Zamijeni artikle (' + br(P.novi) + ' novih)' : 'Uvezi ' + br(P.novi) + ' novih artikala') + '</button></div>' : '');
     const u = $id('ua-uvezi');
     if (u) u.onclick = uvezi;
   }
 
   async function uvezi() {
     const b = $id('ua-uvezi');
-    const p = Object.assign(podaci(), {potvrda: !!($id('ua-potvrda') && $id('ua-potvrda').checked)});
+    const p = Object.assign(podaci(), {potvrda: !!($id('ua-potvrda') && $id('ua-potvrda').checked),
+      potvrda_brisanja: !!($id('ua-brisanje') && $id('ua-brisanje').checked)});
     if (zadnji && zadnji.potvrda_potrebna && !p.potvrda) { toast('Prvo označite kvačicu ispod upozorenja.', true); return; }
+    if (zadnji && zadnji.stari && !p.potvrda_brisanja) { toast('Prvo označite kvačicu za brisanje svojih artikala.', true); return; }
+    if (zadnji && !!zadnji.stari !== p.zamijeni) { toast('Promijenili ste način: kliknite ponovno Pregled.', true); return; }
     b.disabled = true; b.textContent = 'Upisujem…';
     try {
       const r = await api('/api/uvoz_artikala/uvezi', p);
-      $id('ua-rez').innerHTML = '<p><b>Upisano ' + br(r.upisano) + ' novih artikala.</b> Preskočeno ' + br(r.preskoceno) + '.</p>' +
+      $id('ua-rez').innerHTML = '<p><b>Upisano ' + br(r.upisano) + ' novih artikala.</b> Preskočeno ' + br(r.preskoceno) + '.' +
+        (r.obrisano || r.skriveno ? ' Vaših artikala obrisano ' + br(r.obrisano) + ', skriveno ' + br(r.skriveno) + '.' : '') + '</p>' +
         '<p class="napomena">Sigurnosna kopija prije uvoza: ' + esc(r.kopija) + '</p>';
-      toast('Upisano ' + r.upisano + ' artikala');
+      toast('Upisano ' + r.upisano + ' artikala'); stanje();
       if (typeof osvjeziArtikle === 'function') osvjeziArtikle();
     } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = 'Uvezi'; }
   }
