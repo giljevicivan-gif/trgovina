@@ -15,10 +15,16 @@ def _jd_to_date(jd):
     return dt.date(1, 1, 1) + dt.timedelta(days=jd - 1721426)
 
 
-def read_dbf(path):
+def read_dbf(path, polja=None):
     """Pročita Visual FoxPro .DBF i vrati listu rječnika. Samo čitanje."""
     with open(path, "rb") as f:
         data = f.read()
+    return read_dbf_bytes(data, polja)
+
+
+def read_dbf_bytes(data, polja=None):
+    """Isto kao read_dbf, iz već učitanih bajtova (npr. iz .zip arhive).
+    polja = skup imena polja koja trebaju (brže za velike datoteke), None = sva."""
     count = struct.unpack("<I", data[4:8])[0]
     header_len, rec_len = struct.unpack("<HH", data[8:12])
     fields, pos = [], 32
@@ -39,6 +45,8 @@ def read_dbf(path):
         for name, ftype, flen in fields:
             raw = rec[off:off + flen]
             off += flen
+            if polja is not None and name not in polja:
+                continue
             if ftype == "C":
                 row[name] = raw.decode(ENCODING, "replace").rstrip()
             elif ftype in "NF":

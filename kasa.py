@@ -61,6 +61,7 @@ import nadogradnja
 import narudzbe
 import narudzba_mail
 import uplata
+import uvoz_artikala
 import postavke
 import povrat_ambalaze
 import zaslon_kupca
@@ -366,6 +367,7 @@ PUTANJE_MODULA = (
     ("/api/vaga", "vaga_veza"),
     ("/api/uplata", "qr_uplata"), ("/api/dob_mail", "narudzba_mail"), ("/ispis_narudzba_dob", "narudzba_mail"),
     ("/api/kopija_van", "kopija_van"), ("/api/donacij", "donacije"), ("/ispis_donacija", "donacije"),
+    ("/api/uvoz_artikala", "uvoz_artikala"),
 )
 
 
@@ -471,7 +473,7 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/ispis_zpc/\d+/\d+", u.path):
                 g, s = u.path.split("/")[2:4]
                 self._send(200, ispis_zpc_html(roba_dodatno.zpc(con, int(g), int(s))), "text/html; charset=utf-8")
-            elif u.path in ("/kopija_van.js", "/donacije.js"):
+            elif u.path in ("/kopija_van.js", "/donacije.js", "/uvoz_artikala.js"):
                 with open(os.path.join(SCRIPT_DIR, u.path[1:]), encoding="utf-8") as f:
                     self._send(200, f.read(), "text/javascript; charset=utf-8")
             elif u.path == "/api/kopija_van":
@@ -758,6 +760,11 @@ class Handler(BaseHTTPRequestHandler):
                     osvjezi_robu(con)
                 self._send(200, {"id": blagajna.zatvori(con, podaci)})
                 kopija_van.nakon_zakljucka()
+            elif u.path == "/api/uvoz_artikala/pregled":
+                self._send(200, uvoz_artikala.pregled(con, podaci, ROBA_MAPA or ""))
+            elif u.path == "/api/uvoz_artikala/uvezi":
+                with UVOZ_LOCK:  # ne usred uvoza iz Robe
+                    self._send(200, uvoz_artikala.uvezi(con, podaci, ROBA_MAPA or ""))
             elif u.path == "/api/uvoz":
                 if not ROBA_MAPA:
                     raise Greska("Mapa Robe nije zadana (pokrenite preko pokreni.bat).")

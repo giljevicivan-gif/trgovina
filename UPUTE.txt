@@ -706,6 +706,32 @@ KOPIJA IZVAN RACUNALA I DONACIJE HRANE
     mora biti registrirani posrednik, do 2 % prihoda prosle godine.
     Potvrdite s knjigovodjom.
 
+UVOZ ARTIKALA DRUGE TRGOVINE
+  Za trgovinu koja prelazi na ovaj program (npr. Petica): artikli se
+  jednom preuzmu iz njezine Robe. Ukljucuje se u Postavkama ("Uvoz
+  artikala druge trgovine"), panel je ispod popisa modula.
+  - Upisite mapu Robe (npr. D:\Roba), mapu godine (D:\Roba\2025) ili
+    .zip kopiju te godine. Robine datoteke se samo citaju.
+  - Odaberite koje artikle: prodavane u toj godini ili sa zalihom
+    (zadano), samo sa zalihom ili sve. Kvacica "preuzmi i kolicine na
+    zalihi": inace zaliha ostaje 0 do inventure ili primke.
+  - "Pregled" pokaze trgovinu (naziv, OIB iz Robe), koliko je novih i
+    sto se preskace i zasto. Nista se jos ne upisuje.
+  - "Uvezi" prvo napravi sigurnosnu kopiju baze, pa upise SAMO NOVE
+    artikle (sifra, naziv, barkod, JM, MPC, PDV, prosjecna nabavna, KPD,
+    sidrena cijena iz Robe). Postojeci artikli se nikad ne mijenjaju.
+    Artikl se preskace ako u bazi vec postoji ista sifra ili barkod, pa
+    se uvoz moze ponoviti bez dupliciranja.
+  - Ako baza vec ima artikle iz Robe druge trgovine ili je fiskalizirana
+    na drugi OIB, program upozori i trazi potvrdu kvacicom.
+  - U praznoj bazi bez zadane Robe artikli zadrzavaju Robinu sifru, pa
+    kasnije spajanje Robe te trgovine osvjezava iste artikle.
+  Druga trgovina na istom racunalu, s vlastitom bazom: kopirajte
+  instalacija\Kasa_druga_trgovina.cmd na radnu povrsinu i pokrenite ga.
+  Baza je u C:\TrgovinaPetica, kasa na http://127.0.0.1:8791, bez uvoza
+  iz Robe i bez dodatne mape kopija (sve se mijenja u retcima "set" na
+  vrhu datoteke). Glavna kasa i njezina baza se ne diraju.
+
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
   inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,

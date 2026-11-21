@@ -169,7 +169,7 @@ def provjere(con):
         star = (dt.datetime.now() - dt.datetime.strptime(zad, "%Y-%m-%d %H:%M:%S")).days
         if star >= STARA_KOPIJA_DANA:
             out.append(_p("crveno", "Sigurnosna kopija je stara", "Zadnja je od %s." % _hr(zad)))
-        elif not os.environ.get("TRGOVINA_KOPIJA_MAPA", "").strip():
+        elif os.environ.get("TRGOVINA_KOPIJA_MAPA", "").strip() in ("", "-"):
             out.append(_p("zuto", "Kopija je samo na ovom računalu",
                           "Ako se računalo pokvari, kopija nestaje s njim. U pokreni.bat upišite "
                           "TRGOVINA_KOPIJA_MAPA (USB ili OneDrive)."))
