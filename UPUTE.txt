@@ -499,6 +499,26 @@ BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
   - OIB radnika (Dodaci, Radnici i ovlasti): ako je upisan, ide na
     fiskalni racun kao OIB operatera; inace OIB iz postavki fiskalizacije.
 
+BRZO BROJANJE LADICE, ISPIS UZ PRAVU FISKALIZACIJU, PAPIR U PISACU (od 0.4.3)
+  - Blagajna, "Brzo prebroji ladicu": usred smjene (prije pauze, kad
+    dolazi inspekcija) upisite koliko je gotovine u ladici i kliknite
+    "Brzo prebroji". Program odmah pokaze slaze li se, ili visak/manjak.
+    Smjena ostaje otvorena; brojanja se vide u smjeni i na ispisu
+    zakljucka. Kao i kod zakljucka, podaci iz Robe se prije osvjeze.
+  - Gotovina s pravih fiskalnih racuna nase kase (kad je ukljucena prava
+    fiskalizacija) sad se racuna u "Trebalo bi biti u ladici". Test i
+    vjezba se ne racunaju.
+  - Uz pravu fiskalizaciju "Ispisi nakon naplate" je uvijek ukljuceno i
+    ne moze se iskljuciti: racun se mora izdati i uruciti kupcu.
+  - Termalni pisac (modul "termo_pisac"): prije i poslije ispisa program
+    pita pisac ima li papira (mrezni pisac odgovara sam; Windows pisac
+    ako upravljacki program javlja stanje). Ako papira nema ili nestane
+    usred ispisa, kasa javi i pokaze gumb "Ispisi ponovno" (gore desno);
+    stavite novu rolu i kliknite ga. Kad je papir pri kraju, kasa
+    upozori. Ladica se kod gotovine otvori i kad nema papira. Provjera
+    se iskljucuje u Dodaci, Termalni pisac ("Provjeri papir...") ako je
+    pisac ne podrzava. COM port se ne pita.
+
 RACUNI BEZ JIR-a, POTPIS POREZNE I KPD OD 6 ZNAMENKI (od 0.4.2)
   - Crvena traka na vrhu kase: ako neki fiskalni racun ceka JIR dulje od
     1 sata (ili je Porezna javila gresku), na vrhu svakog ekrana pise

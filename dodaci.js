@@ -552,6 +552,7 @@
       izbor('kodna', 'Hrvatska slova', P.kodne) + kv('rezanje', 'Odreži papir') + polje('redova', 'Praznih redova prije reza', 'style="width:60px" inputmode="numeric"') + '</div>' +
       '<div class="polja">' + kv('qr', 'QR kod (inače se ispiše adresa)') + polje('qr_velicina', 'Veličina QR (1-16)', 'style="width:60px" inputmode="numeric"') +
       kv('ladica', 'Otvori ladicu kod gotovine') + izbor('ladica_pin', 'Ladica na', [['2', 'pin 2 (obično)'], ['5', 'pin 5']]) + '</div>' +
+      '<div class="polja">' + kv('papir', 'Provjeri papir prije i poslije ispisa (mrežni i Windows pisač; ako ga nema, kasa nudi "Ispiši ponovno")') + '</div>' +
       '<p class="napomena">Ako umjesto č ć ž š đ izlaze krivi znakovi, probajte drugu kodnu stranicu ili "bez kvačica". QR kod na računu mora biti najmanje 2 x 2 cm (veličina 5 je oko 2,5 cm na 80 mm pisaču).</p>' +
       '<div class="red"><button class="btn prim" id="ts-spremi">Spremi</button><button class="btn" id="ts-probni">Probni ispis</button><button class="btn" id="ts-ladica">Otvori ladicu</button></div>' +
       '<p id="ts-rez" class="napomena"></p>' +
@@ -562,7 +563,7 @@
     const podaci = () => {
       const o = {};
       ['veza', 'pisac', 'adresa', 'com', 'brzina', 'sirina', 'znakova', 'kodna', 'redova', 'qr_velicina', 'ladica_pin'].forEach(k => o[k] = $('#ts-' + k).value);
-      ['rezanje', 'qr', 'ladica'].forEach(k => o[k] = $('#ts-' + k).checked);
+      ['rezanje', 'qr', 'ladica', 'papir'].forEach(k => o[k] = $('#ts-' + k).checked);
       return o;
     };
     const rez = (t, err) => { const el = $('#ts-rez'); el.textContent = t; el.className = err ? 'minus' : 'napomena'; };
