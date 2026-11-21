@@ -499,6 +499,39 @@ BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
   - OIB radnika (Dodaci, Radnici i ovlasti): ako je upisan, ide na
     fiskalni racun kao OIB operatera; inace OIB iz postavki fiskalizacije.
 
+RACUNI BEZ JIR-a, POTPIS POREZNE I KPD OD 6 ZNAMENKI (od 0.4.2)
+  - Crvena traka na vrhu kase: ako neki fiskalni racun ceka JIR dulje od
+    1 sata (ili je Porezna javila gresku), na vrhu svakog ekrana pise
+    koliko racuna ceka i od kada. Vide je i radnici. Od 2027. Porezna
+    kasno poslane racune kaznjava, a starije od 2 dana ne prima. Traka
+    javlja i kad sat racunala kasni vise od 5 minuta.
+  - E-mail vlasniku: ako su upisane postavke e-mail sazetka (SMTP i
+    "Kome"), program jednom posalje e-mail kad racuni cekaju JIR dulje od
+    1 sata, i jos jednom ako cekaju dulje od 24 sata. Bez interneta ni
+    e-mail ne moze otici; tada ostaje traka na ekranu.
+  - Potpis Porezne: svaki odgovor Porezne je potpisan njihovim
+    certifikatom "fiskalcis" (zamijenjen 8.9.2026.). Program provjeri
+    potpis. Ako ne odgovara (odgovor je promijenjen ili nije od Porezne),
+    JIR se ne prihvaca i racun se salje ponovno. Rezultat zadnje provjere
+    pise u Dodaci, Fiskalizacija; ako nesto nije u redu, javi i Kontrola.
+  - KPD sifra: Porezna od 26.9.2026. prima samo punu sifru od 6 znamenki
+    (npr. 01.13.12). Kraca (01.13) se vise ne moze spremiti; moze se
+    upisati i bez tocaka (011312). "Bez KPD sifre" i Kontrola pokazuju i
+    artikle s prekratkom sifrom.
+
+SAT RACUNALA I GRESKE POREZNE 166 / 174 (od 0.4.1)
+  - Greska 174 ("racun kasni u sustav fiskalizacije vise od 10 minuta"):
+    Porezna usporeduje vrijeme na racunu sa svojim satom. Ako sat racunala
+    kasni, svaki racun izgleda zakasnjelo. Program sad jednom na sat (i kod
+    svakog slanja Poreznoj) provjeri sat i u Kontroli javi "Sat racunala
+    nije tocan" ako odstupa vise od 1 minute. Popravak u Windowsu: Postavke,
+    Vrijeme i jezik, Datum i vrijeme, "Automatski postavi vrijeme" ukljuceno,
+    pa "Sinkroniziraj sada". Sat program ne mijenja sam.
+  - Greska 166 ("ukupan iznos nije ispravan prema formuli"): kod nas je
+    osnovica = iznos po stopi minus PDV, pa je osnovica + PDV uvijek tocno
+    jednako ukupnom iznosu. Ako ikad ne bi bilo, racun se ne salje krivo
+    nego ostaje u Dodaci, Fiskalizacija s porukom.
+
 FISKALIZACIJA 2.0: KPD, R1 NA KASI, PRIMKA IZ eRACUNA (od 0.3.0)
   Svaki dio se ukljucuje u Postavkama (zadano iskljuceno):
   - KPD sifre: u Zalihi kliknite naziv artikla, upisite KPD (npr. 01.13.12)

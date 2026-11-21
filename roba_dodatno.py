@@ -15,6 +15,7 @@ uključuje se u Postavkama.
   eRačun; ovdje samo provjeravamo koji artikli prodani tvrtkama je nemaju.
 """
 
+import re
 import datetime as dt
 
 from baza import centi
@@ -194,6 +195,9 @@ def bez_kpd(con, dana=365):
         k = r["kpd"]
         if not k:
             out.append({"naziv": r["naziv"], "kpd": "", "racuna": r["racuna"], "problem": "nema KPD"})
+        elif not re.fullmatch(r"\d{2}\.\d{2}\.\d{2}", k):
+            out.append({"naziv": r["naziv"], "kpd": k, "racuna": r["racuna"],
+                        "problem": "nije 6 znamenki (Porezna ne prima)"})
         elif poznate and k not in poznate:
             out.append({"naziv": r["naziv"], "kpd": k, "racuna": r["racuna"], "problem": "nepoznata šifra"})
     return out

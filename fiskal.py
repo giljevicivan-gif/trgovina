@@ -40,6 +40,8 @@ import uuid
 import xml.etree.ElementTree as ET
 
 import postavke
+import potpis_odgovora
+import sat
 from baza import oib_ispravan, pdv_iz_bruto, spoji
 from nabava import Greska
 
@@ -60,6 +62,8 @@ QR_URL = "https://porezna.gov.hr/rn"
 
 NACINI = (("G", "Gotovina"), ("K", "Kartice"), ("T", "Transakcijski račun"), ("O", "Ostalo"))
 PONOVI_SVAKIH = 120      # sekundi između pokušaja slanja računa bez JIR-a
+TRAKA_MINUTA = 60        # račun bez JIR-a stariji od ovoga: crvena traka na kasi i e-mail vlasniku
+MAIL_PONOVI = 15 * 60    # sekundi između pokušaja slanja upozorenja e-mailom ako ne uspije
 # Greške poslužitelja koje se mogu ponoviti (privremene); ostale traže ispravak podataka
 PRIVREMENE = ("s006",)
 
@@ -110,7 +114,7 @@ CREATE INDEX IF NOT EXISTS ix_fiskal_status ON fiskal_racuni(status);
 
 _lock = threading.Lock()
 _cert_cache = {}
-_sat = {"radi": False}
+_sat = {"radi": False, "mail_pokusaj": 0.0}
 
 
 def pripremi(con):
@@ -432,6 +436,12 @@ def racun_xml(f, stavke):
             x.append("<tns:Porez><tns:Stopa>%.2f</tns:Stopa><tns:Osnovica>%s</tns:Osnovica>"
                      "<tns:Iznos>%s</tns:Iznos></tns:Porez>" % (stopa, iznos(osn), iznos(p)))
         x.append("</tns:Pdv>")
+    # Porezna (greška 166): ukupni iznos = zbroj osnovica + PDV (tolerancija 0,01 EUR).
+    # Ovdje je osnovica = bruto - PDV po stopi, pa je zbroj točan na cent ako su stavke
+    # zbrojene u ukupno; inače račun ne šaljemo krivo nego javimo grešku.
+    if pdv and abs(sum(o + p for _, o, p in pdv) - f["ukupno"]) > 1:
+        raise Greska("Zbroj osnovica i PDV-a (%s) nije jednak ukupnom iznosu računa (%s)."
+                     % (iznos(sum(o + p for _, o, p in pdv)), iznos(f["ukupno"])))
     x += ["<tns:IznosUkupno>%s</tns:IznosUkupno>" % iznos(f["ukupno"]),
           "<tns:NacinPlac>%s</tns:NacinPlac>" % f["nacin"],
           "<tns:OibOper>%s</tns:OibOper>" % f["oib_operatera"],
@@ -518,12 +528,14 @@ def posalji_soap(pst, tijelo, akcija):
     try:
         with urllib.request.urlopen(zahtjev, timeout=int(pst["timeout"]), context=_ssl(pst)) as r:
             tekst = r.read().decode("utf-8", "replace")
+            sat.zabiljezi_odgovor(r, "Porezna")  # sat računala prema poslužitelju (greška 174)
         if "Envelope" not in tekst:  # npr. stranica proxyja ili Wi-Fi prijave, a ne Porezna
             raise NemaVeze("Odgovor nije stigao od Porezne (%s)." % re.sub(r"\s+", " ", tekst)[:80])
         return tekst
     except urllib.error.HTTPError as e:  # SOAP greška dolazi s HTTP 500, ali tijelo je odgovor
         tekst = e.read().decode("utf-8", "replace")
         if "Envelope" in tekst:
+            sat.zabiljezi_odgovor(e, "Porezna")
             return tekst
         raise NemaVeze("Poslužitelj je vratio HTTP %d." % e.code)
     except ssl.SSLCertVerificationError as e:
@@ -535,6 +547,32 @@ def posalji_soap(pst, tijelo, akcija):
     except (urllib.error.URLError, OSError, TimeoutError) as e:
         razlog = getattr(e, "reason", e)
         raise NemaVeze("Nema veze s poslužiteljem Porezne (%s)." % razlog)
+
+
+def provjeri_potpis(con, odgovor):
+    """Provjeri potpis Porezne na odgovoru i zapamti zadnji rezultat (za Kontrolu i postavke).
+    Vraća stanje: ok / neispravan / upozorenje / nije_provjeren."""
+    try:
+        stanje, opis, cert = potpis_odgovora.provjeri(odgovor, CERT_MAPA)
+    except Exception as e:  # greška u samoj provjeri ne smije zaustaviti račune
+        stanje, opis, cert = "nije_provjeren", "Provjera potpisa nije uspjela (%s: %s)." % (type(e).__name__, e), {}
+    try:
+        postavke.postavi(con, "fiskal.potpis_stanje", stanje)
+        postavke.postavi(con, "fiskal.potpis_opis", opis)
+        postavke.postavi(con, "fiskal.potpis_kada", dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        if cert:
+            postavke.postavi(con, "fiskal.potpis_cert", "%s, izdao %s, vrijedi do %s, otisak %s" % (
+                cert.get("cn", ""), cert.get("izdavatelj", ""), cert.get("vrijedi_do", ""), cert.get("otisak", "")))
+            postavke.postavi(con, "fiskal.potpis_cert_do", cert.get("isteka_iso", ""))
+    except Exception:
+        pass
+    return stanje
+
+
+def potpis_stanje(con):
+    """Zadnja provjera potpisa Porezne (za prikaz)."""
+    v = lambda k: postavke.vrijednost(con, "fiskal.potpis_" + k, "")
+    return {"stanje": v("stanje"), "opis": v("opis"), "kada": v("kada"), "cert": v("cert"), "cert_do": v("cert_do")}
 
 
 def procitaj_odgovor(tekst):
@@ -606,7 +644,12 @@ def posalji(con, rid):
             podaci = dict(f)
             podaci["nak_dost"] = nak
             xml = potpisi("RacunZahtjev", _zaglavlje() + racun_xml(podaci, stavke), key, cert)
-            jir, greske = procitaj_odgovor(posalji_soap(pst, xml, "racuni"))
+            odgovor = posalji_soap(pst, xml, "racuni")
+            jir, greske = procitaj_odgovor(odgovor)
+            if jir and provjeri_potpis(con, odgovor) == "neispravan":
+                # JIR iz odgovora koji nije potpisala Porezna (ili je promijenjen) ne vrijedi
+                jir, greske = "", [("potpis", "Potpis na odgovoru Porezne nije ispravan: %s JIR nije prihvaćen, "
+                                              "račun se šalje ponovno." % postavke.vrijednost(con, "fiskal.potpis_opis", ""))]
         except NemaVeze as e:
             jir, greske, status = "", [("veza", str(e))], "ceka"
         except Greska as e:
@@ -616,7 +659,7 @@ def posalji(con, rid):
         else:
             if jir:
                 status = "poslan"
-            elif greske and all(g[0] in PRIVREMENE or g[0] == "xml" for g in greske):
+            elif greske and all(g[0] in PRIVREMENE or g[0] in ("xml", "potpis") for g in greske):
                 status = "ceka"
             elif not greske:  # odgovor bez JIR-a i bez greške: pokušaj ponovno
                 status, greske = "ceka", [("?", "Odgovor bez JIR-a, šalje se ponovno.")]
@@ -624,7 +667,7 @@ def posalji(con, rid):
                 status = "greska"
                 if not greske:
                     greske = [("?", "Odgovor bez JIR-a.")]
-        poruka = "; ".join(("%s: %s" % g) if g[0] not in ("veza", "postavke") else g[1] for g in greske)
+        poruka = "; ".join(("%s: %s" % g) if g[0] not in ("veza", "postavke", "potpis") else g[1] for g in greske)
         with con:
             con.execute(
                 """UPDATE fiskal_racuni SET jir = ?, status = ?, nak_dost = ?, pokusaja = pokusaja + 1,
@@ -665,6 +708,7 @@ def pokreni_sat():
                     if postavke.ukljucen(con, "fiskalizacija") and con.execute(
                             "SELECT 1 FROM fiskal_racuni WHERE status = 'ceka' LIMIT 1").fetchone():
                         posalji_neposlane(con)
+                    upozori_mailom(con)
                 finally:
                     con.close()
             except Exception:
@@ -685,7 +729,11 @@ def echo(con):
     ms = int((time.time() - t0) * 1000)
     if poslano not in odg:
         raise Greska("Poslužitelj je odgovorio, ali ne očekivano: %s" % odg[:300])
-    return {"ok": True, "poruka": "Veza s poslužiteljem (%s) radi, odgovor za %d ms." % (pst["okolina"], ms)}
+    poruka = "Veza s poslužiteljem (%s) radi, odgovor za %d ms." % (pst["okolina"], ms)
+    razlika, _ = sat.zadnje(con)
+    if razlika is not None:
+        poruka += " " + (sat.opis(razlika) if abs(razlika) >= sat.ZUTO else "Sat računala je točan.")
+    return {"ok": True, "poruka": poruka}
 
 
 def provjera(con):
@@ -710,8 +758,14 @@ def provjera(con):
     greske = [g for g in greske if g[0].lower() != "v100"]
     if greske:
         raise Greska("Porezna je javila grešku: " + "; ".join("%s: %s" % g for g in greske))
-    return {"ok": True, "poruka": "Probni račun je prošao provjeru Porezne (v100: poruka je ispravna). "
-                                  "Certifikat, OIB i potpis su u redu."}
+    stanje = provjeri_potpis(con, odg)
+    p = potpis_stanje(con)
+    dodatak = {"ok": " Potpis odgovora Porezne je ispravan (%s)." % p["cert"],
+               "neispravan": " POZOR: potpis odgovora Porezne NIJE ispravan: %s" % p["opis"],
+               "upozorenje": " Potpis Porezne je ispravan, ali: %s" % p["opis"],
+               "nije_provjeren": " Potpis odgovora nije provjeren: %s" % p["opis"]}[stanje]
+    return {"ok": stanje != "neispravan", "poruka": "Probni račun je prošao provjeru Porezne (v100: poruka je "
+                                                    "ispravna). Certifikat, OIB i potpis su u redu." + dodatak}
 
 
 # ---------------------------------------------------------------- prikaz
@@ -782,6 +836,8 @@ def stanje(con):
             upozorenja.append("Certifikat je istekao %s." % cert["vrijedi_do"])
         elif cert["dana_do_isteka"] < 30:
             upozorenja.append("Certifikat ističe za %d dana (%s)." % (cert["dana_do_isteka"], cert["vrijedi_do"]))
+    if sat.upozorenje(con):
+        upozorenja.append(sat.upozorenje(con))
     placanja = [{"id": r["id"], "naziv": r["naziv"], "nacin": nacin_za(con, r["id"], r["naziv"]),
                  "rucno": postavke.vrijednost(con, "fiskal.nacin.%d" % r["id"], "")}
                 for r in con.execute("SELECT id, naziv FROM nacini_placanja WHERE aktivan = 1 ORDER BY roba_sifra, id")]
@@ -798,7 +854,8 @@ def stanje(con):
         n["oznaka"] = oznaka(n)
     return {"postavke": javno, "certifikat": cert, "upozorenja": upozorenja, "cryptography": ima_cryptography(),
             "url": URL[pst["okolina"]], "nacini": NACINI, "placanja": placanja,
-            "neposlani": neposlani, "zadnji": zadnji, "ukljucen": postavke.ukljucen(con, "fiskalizacija")}
+            "neposlani": neposlani, "zadnji": zadnji, "ukljucen": postavke.ukljucen(con, "fiskalizacija"),
+            "potpis_porezne": potpis_stanje(con), "mail_greska": postavke.vrijednost(con, "fiskal.mail_greska", "")}
 
 
 def kontrola(con):
@@ -810,7 +867,7 @@ def kontrola(con):
         """SELECT f.*, r.vrijeme FROM fiskal_racuni f JOIN racuni r ON r.id = f.racun_id
            WHERE f.status != 'poslan' ORDER BY f.racun_id""").fetchall()
     if rows:
-        star = (dt.datetime.now() - dt.timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+        star = (dt.datetime.now() - dt.timedelta(minutes=TRAKA_MINUTA)).strftime("%Y-%m-%d %H:%M:%S")
         crveno = any(r["status"] == "greska" or r["vrijeme"] < star for r in rows)
         stavke = [[oznaka(r), r["vrijeme"][:16], ("%.2f" % (r["ukupno"] / 100)).replace(".", ","),
                    "TEST" if r["okolina"] == "test" else "", r["poruka"][:120]] for r in rows]
@@ -818,6 +875,14 @@ def kontrola(con):
                     "opis": "Ovi računi nisu potvrđeni u Poreznoj. Program ih sam šalje ponovno svake 2 minute; "
                             "kod greške ispravite postavke i kliknite Pošalji ponovno (Dodaci, Fiskalizacija).",
                     "ukupno": len(stavke), "stavke": stavke[:50], "stupci": ["Račun", "Vrijeme", "Iznos", "", "Greška"]})
+    p = potpis_stanje(con)
+    if p["stanje"] in ("neispravan", "upozorenje", "nije_provjeren"):
+        out.append({"razina": "crveno" if p["stanje"] == "neispravan" else "zuto",
+                    "naslov": "Potpis na odgovoru Porezne",
+                    "opis": "Zadnja provjera (%s): %s%s" % (p["kada"][:16], p["opis"],
+                            " Račun se šalje ponovno dok ne stigne ispravno potpisan odgovor."
+                            if p["stanje"] == "neispravan" else " JIR je prihvaćen."),
+                    "ukupno": 0, "stavke": [], "stupci": []})
     pst = sve_postavke(con)
     if pst["cert_putanja"]:
         c = podaci_certifikata(pst)
@@ -830,6 +895,95 @@ def kontrola(con):
                         "opis": "Vrijedi do %s. Novi certifikat se naručuje kod FINA-e." % c["vrijedi_do"],
                         "ukupno": 0, "stavke": [], "stupci": []})
     return out
+
+
+def bez_jir(con):
+    """Računi koji još nemaju JIR: broj, najstariji i koliko minuta čeka. None ako ih nema."""
+    r = con.execute(
+        """SELECT COUNT(*) n, MIN(r.vrijeme) najstariji, MIN(f.racun_id) prvi,
+                  SUM(f.status = 'greska') greske, SUM(f.okolina = 'test') test
+           FROM fiskal_racuni f JOIN racuni r ON r.id = f.racun_id WHERE f.status != 'poslan'""").fetchone()
+    if not r or not r["n"]:
+        return None
+    try:
+        minuta = int((dt.datetime.now() - dt.datetime.strptime(r["najstariji"][:19], "%Y-%m-%d %H:%M:%S"))
+                     .total_seconds() // 60)
+    except (TypeError, ValueError):
+        minuta = 0
+    return {"broj": r["n"], "najstariji": r["najstariji"][:16], "prvi": r["prvi"], "minuta": max(minuta, 0),
+            "greske": r["greske"] or 0, "samo_test": r["test"] == r["n"]}
+
+
+def _racuna(n):
+    return "%d %s" % (n, "račun" if n % 10 == 1 and n % 100 != 11 else "računa")
+
+
+def _koliko(minuta):
+    if minuta < 60:
+        return "%d min" % minuta
+    if minuta < 48 * 60:
+        return "%d h %d min" % (minuta // 60, minuta % 60)
+    return "%d dana" % (minuta // (24 * 60))
+
+
+def traka(con):
+    """Upozorenje za ekran kase: računi bez JIR-a stariji od sat vremena ili s greškom. None ako je sve u redu."""
+    if not postavke.ukljucen(con, "fiskalizacija"):
+        return None
+    b = bez_jir(con)
+    if not b or (b["minuta"] < TRAKA_MINUTA and not b["greske"]):
+        return None
+    d, v = b["najstariji"][:10], b["najstariji"][11:16]
+    kada = "%s.%s.%s. %s" % (d[8:10], d[5:7], d[:4], v)
+    tekst = ("%s bez JIR-a (nije potvrđeno u Poreznoj), najstariji od %s, čeka %s. "
+             % (_racuna(b["broj"]), kada, _koliko(b["minuta"])))
+    if b["greske"]:
+        tekst += "Porezna je javila grešku: pogledajte Dodaci, Fiskalizacija i kliknite Pošalji ponovno. "
+    else:
+        tekst += "Provjerite internet; program ih sam šalje svake 2 minute. "
+    tekst += "Kasno poslane račune Porezna kažnjava, a starije od 2 dana ne prima."
+    if b["samo_test"]:
+        tekst = "TEST: " + tekst
+    return {"razina": "crveno", "tekst": tekst, "broj": b["broj"], "minuta": b["minuta"]}
+
+
+def upozori_mailom(con):
+    """Jednom po slučaju (i još jednom nakon 24 h) pošalje vlasniku e-mail kad računi predugo čekaju JIR.
+    Koristi SMTP postavke e-mail sažetka; bez njih ne radi ništa."""
+    try:
+        import sazetak
+        t = traka(con)
+        if not t or not sazetak.smtp_upisan(con):
+            return False
+        za = postavke.vrijednost(con, "sazetak.za", "")
+        if not za:
+            return False
+        b = bez_jir(con)
+        kljuc = "%s:%s" % (b["prvi"], "24h" if b["minuta"] >= 24 * 60 else "1h")
+        if postavke.vrijednost(con, "fiskal.mail_poslan", "") == kljuc:
+            return False
+        if time.time() - _sat["mail_pokusaj"] < MAIL_PONOVI:
+            return False
+        _sat["mail_pokusaj"] = time.time()
+        from email.message import EmailMessage
+        from email.utils import formatdate, make_msgid
+        msg = EmailMessage()
+        msg["Subject"] = "Kasa: %s bez JIR-a (čeka %s)" % (_racuna(b["broj"]), _koliko(b["minuta"]))
+        msg["To"] = za
+        msg["Date"] = formatdate(localtime=True)
+        msg["Message-ID"] = make_msgid()
+        msg.set_content(t["tekst"] + "\n\nPopis računa je u programu: kartica Kontrola, \"Fiskalni računi bez "
+                        "JIR-a\". Ova poruka stiže jednom (i još jednom ako računi čekaju dulje od 24 sata).\n")
+        sazetak.posalji_poruku(con, msg)
+        postavke.postavi(con, "fiskal.mail_poslan", kljuc)
+        postavke.postavi(con, "fiskal.mail_greska", "")
+        return True
+    except Exception as e:
+        try:
+            postavke.postavi(con, "fiskal.mail_greska", "%s %s" % (dt.datetime.now().strftime("%Y-%m-%d %H:%M"), e))
+        except Exception:
+            pass
+        return False
 
 
 def ispis_dio(f):
