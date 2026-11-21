@@ -183,9 +183,66 @@ def sadrzaj(con, datum=None, smjena_id=None):
     except Exception:
         pass
 
+    if m.get("sazetak_stanje"):
+        try:
+            dijelovi.append(stanje_programa(con, datum, m))
+        except Exception as e:
+            dijelovi.append("STANJE\n  Nije izračunato: %s" % e)
+
     naslov = "%s: sažetak %d.%d.%d. – %s EUR" % (naziv, d.day, d.month, d.year, _eur(p.get("iznos")))
     tekst = "\n\n".join(dijelovi) + "\n\n--\nPoslao program za trgovinu. Ovo nije račun ni službeni izvještaj."
     return naslov, tekst
+
+
+def stanje_programa(con, datum, m):
+    """Odjeljak STANJE (modul sazetak_stanje): fiskalizacija, kopija, sat računala, manjak u ladici 7 dana."""
+    red = ["STANJE"]
+    if m.get("fiskalizacija"):
+        import fiskal
+        r = con.execute(
+            """SELECT COUNT(*) n, SUM(f.status = 'poslan') ok, MAX(f.okolina) okolina FROM fiskal_racuni f
+               JOIN racuni r ON r.id = f.racun_id WHERE substr(r.vrijeme, 1, 10) = ?""", (datum,)).fetchone()
+        test = " (TEST)" if r["n"] and r["okolina"] == "test" else ""
+        red.append("  Fiskalni računi naše kase danas%s: %d, s JIR-om %d" % (test, r["n"] or 0, r["ok"] or 0))
+        b = fiskal.bez_jir(con)
+        if b:
+            red.append("  BEZ JIR-a: %s, najstariji od %s%s" % (
+                fiskal._racuna(b["broj"]), b["najstariji"], ", Porezna javila grešku: %d" % b["greske"] if b["greske"] else ""))
+        else:
+            red.append("  Svi fiskalni računi imaju JIR.")
+    if m.get("kopija_van"):
+        import kopija_van
+        u = kopija_van.upozorenje(con)
+        if u:
+            red.append("  KOPIJA: %s. %s" % (u["naslov"], u["opis"]))
+        else:
+            z = kopija_van._zadnja(con, True, "1")
+            red.append("  Kopija izvan računala u redu, zadnja %s." % (z["vrijeme"][:16] if z else "-"))
+    else:
+        import kopija
+        k = kopija.popis()
+        red.append("  Kopija samo na ovom računalu (modul Kopija baze izvan računala nije uključen)%s." % (
+            ", zadnja %s" % max(x["vrijeme"] for x in k)[:16] if k else ""))
+    import sat
+    razlika, kada = sat.zadnje(con)
+    if razlika is None:
+        red.append("  Sat računala još nije provjeren.")
+    elif abs(razlika) >= sat.ZUTO:
+        red.append("  SAT: %s" % sat.opis(razlika))
+    else:
+        red.append("  Sat računala točan (provjereno %s)." % (kada[:16] or "-"))
+    od = (dt.date.fromisoformat(datum) - dt.timedelta(days=6)).isoformat()
+    manjak = [(r["zatvorena"][:10], r["prebrojano"] - r["ocekivano"]) for r in con.execute(
+        """SELECT zatvorena, prebrojano, ocekivano FROM smjene WHERE zatvorena IS NOT NULL
+           AND substr(zatvorena, 1, 10) BETWEEN ? AND ? ORDER BY zatvorena""", (od, datum))
+        if (r["prebrojano"] or 0) - (r["ocekivano"] or 0) < 0]
+    if manjak:
+        red.append("  Manjak u ladici zadnjih 7 dana: %s EUR (%s)" % (
+            _eur(-sum(x[1] for x in manjak)),
+            ", ".join("%s.%s. %s" % (x[0][8:10], x[0][5:7], _eur(-x[1])) for x in manjak)))
+    else:
+        red.append("  Zadnjih 7 dana nije bilo manjka u ladici.")
+    return "\n".join(red)
 
 
 # ---------------------------------------------------------------- slanje

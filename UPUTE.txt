@@ -499,6 +499,27 @@ BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
   - OIB radnika (Dodaci, Radnici i ovlasti): ako je upisan, ide na
     fiskalni racun kao OIB operatera; inace OIB iz postavki fiskalizacije.
 
+KOPIJA NA DVA MJESTA, DOJAVA, STANJE U E-MAILU, TETRAPAK, ROK NA KASI (od 0.4.4)
+Sve je novo kao opcija u Postavkama (zadano iskljuceno):
+  - Kopija baze izvan racunala: u Postavkama sad ima i "Druga mapa (po
+    zelji)", npr. prva na USB disku, druga u OneDrive mapi. Ista kopija
+    ide na oba mjesta i svako se provjerava zasebno. Prazno = samo jedna.
+  - "Dojava kad kopija izostane": kad kopija ne uspije ili je nema 2 dana,
+    crvena traka na vrhu kase, crveno u Kontroli i jednom dnevno e-mail
+    vlasniku (koristi SMTP postavke vecernjeg sazetka).
+  - "Sazetak: stanje kase i kopije": vecernji e-mail dobiva odjeljak
+    STANJE: fiskalni racuni nase kase danas i koliko ih je bez JIR-a,
+    kopija izvan racunala, sat racunala i manjak u ladici zadnjih 7 dana.
+  - "Tetrapak u povratnoj naknadi": u Povratu ambalaze dodaje vrstu
+    Tetrapak (viseslojni karton, 0,10 EUR). Do 31.12.2026. vidi se, ali se
+    ne moze isplatiti; od 1.1.2027. normalno. U Pregledu za Fond je
+    zasebno. Ako se rok odgodi, iskljucite modul.
+  - "Rok i minimalna zaliha na kasi": kad se u kosaricu doda artikl kojem
+    je istekao rok "upotrijebiti do" (Zaliha, Rokovi i kalo), kasa ga ne
+    doda dok ne potvrdite da je roba iz druge serije. Za "najbolje
+    upotrijebiti do" i rok koji istice za 3 dana samo upozori. Kad prodaja
+    spusti zalihu ispod minimalne, kasa javi (jednom po artiklu).
+
 BRZO BROJANJE LADICE, ISPIS UZ PRAVU FISKALIZACIJU, PAPIR U PISACU (od 0.4.3)
   - Blagajna, "Brzo prebroji ladicu": usred smjene (prije pauze, kad
     dolazi inspekcija) upisite koliko je gotovine u ladici i kliknite

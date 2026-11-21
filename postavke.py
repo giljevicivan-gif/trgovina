@@ -59,6 +59,9 @@ MODULI = (
      "iznos po vrsti se može promijeniti) iz ladice uz potvrdu (nije račun). Upisuje se kao isplata u Blagajni; "
      "pregled po danu i mjesecu za Fond (CSV). Potvrdite s knjigovođom i Fondom kako se vodi i potražuje "
      "isplaćena naknada.", False),
+    ("povrat_tetrapak", "Tetrapak u povratnoj naknadi (od 1. 1. 2027.)",
+     "U Povratu ambalaže dodaje vrstu Tetrapak (višeslojni karton, 0,10 € po komadu). Isplata je moguća tek od "
+     "1. 1. 2027.; u Pregledu za Fond tetrapak je zasebno. Radi uz modul Povrat ambalaže.", False),
     ("zaslon_kupca", "Zaslon za kupca",
      "Drugi prozor (drugi monitor) ili tablet u WiFi mreži kupcu pokazuje stavke, ukupno i koliko mu se vraća.", False),
     ("vaga_veza", "Vaga spojena s kasom",
@@ -76,8 +79,11 @@ MODULI = (
     ("narudzba_mail", "Narudžba dobavljaču e-mailom",
      "U Prijedlogu narudžbe gumb za slanje narudžbe dobavljaču e-mailom (SMTP iz večernjeg sažetka).", False),
     ("kopija_van", "Kopija baze izvan računala",
-     "Jednom dnevno (i kod zaključka smjene) provjerena kopija baze na USB disk ili u OneDrive / Google Drive mapu. "
-     "Na kartici Danas crveno upozorenje ako kopije nema 2 dana.", False),
+     "Jednom dnevno (i kod zaključka smjene) provjerena kopija baze na USB disk ili u OneDrive / Google Drive mapu, "
+     "po želji i u drugu mapu (npr. USB i OneDrive). Na kartici Danas crveno upozorenje ako kopije nema 2 dana.", False),
+    ("kopija_dojava", "Dojava kad kopija izostane",
+     "Kad kopija izvan računala ne uspije ili je nema 2 dana: crvena traka na kasi, crveno u Kontroli i jednom dnevno "
+     "e-mail vlasniku (SMTP iz večernjeg sažetka). Radi uz modul Kopija baze izvan računala.", False),
     ("donacije", "Donacije hrane",
      "Evidencija donirane hrane (smanjuje zalihu kao otpis), zapisnik za potpis i godišnji zbroj prema 2 % prihoda. "
      "Potvrdite s knjigovođom.", False),
@@ -87,6 +93,13 @@ MODULI = (
      "Kasa šalje račune Poreznoj (FINA certifikat). Prvo na testu s demo certifikatom; prava fiskalizacija tek uz potvrdu.", False),
     ("sazetak", "Večernji sažetak na e-mail",
      "Kod zaključka smjene (ili u zadano vrijeme) stiže e-mail s prometom, blagajnom i što treba naručiti. Treba internet.", False),
+    ("sazetak_stanje", "Sažetak: stanje kase i kopije",
+     "U večernji e-mail dodaje odjeljak STANJE: fiskalni računi danas i koliko ih je bez JIR-a, kopija izvan računala, "
+     "sat računala i manjak u ladici zadnjih 7 dana. Radi uz Večernji sažetak.", False),
+    ("kasa_upozorenja", "Rok i minimalna zaliha na kasi",
+     "Kod dodavanja artikla u košaricu: zabrana i potvrda za istekao rok \"upotrijebiti do\", upozorenje za "
+     "\"najbolje upotrijebiti do\" i rok koji uskoro ističe (modul Rokovi), i poruka kad zaliha padne ispod "
+     "minimalne.", False),
 )
 ZADANO = {m[0]: m[3] for m in MODULI}
 

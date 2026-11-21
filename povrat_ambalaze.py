@@ -16,12 +16,19 @@ Nije isto što i modul "ambalaza" (ambalaza.py): tamo su gajbe i palete koje
 dugujemo dobavljačima.
 
 Potvrdite s knjigovođom i Fondom kako se vodi i potražuje isplaćena naknada.
+
+Modul "povrat_tetrapak" (0.4.4): od 1. 1. 2027. u sustav povratne naknade ulazi i višeslojna
+kartonska ambalaža pića (tetrapak: mlijeko, sokovi), po 0,10 € (Pravilnik o ambalaži i otpadnoj
+ambalaži iz 2023.; trgovci su tražili odgodu, ali do studenog 2026. nije odobrena). Uključen modul
+doda vrstu "Tetrapak (višeslojni karton)"; isplata za nju moguća je tek od TETRAPAK_OD.
+Isključen modul vrstu samo isključi (isplate ostaju u pregledu).
 """
 
 import csv
 import datetime as dt
 import io
 
+import postavke
 from baza import centi
 from nabava import Greska
 
@@ -29,6 +36,8 @@ from nabava import Greska
 POCETNE = (("Boca/limenka", 10),)
 NAPOMENA = "Isplata povratne naknade za ambalažu — nije račun"
 MAX_KOMADA = 5000
+TETRAPAK_NAZIV = "Tetrapak (višeslojni karton)"
+TETRAPAK_OD = "2027-01-01"
 
 SHEMA = """
 CREATE TABLE IF NOT EXISTS povrat_vrste (
@@ -88,8 +97,49 @@ def pripremi(con):
     con.commit()
 
 
+def _tetrapak_id(con):
+    try:
+        return int(postavke.vrijednost(con, "povrat_amb.tetrapak_id", "0") or 0)
+    except ValueError:
+        return 0
+
+
+def uskladi_tetrapak(con):
+    """Modul povrat_tetrapak: uključen = vrsta Tetrapak postoji i aktivna je; isključen = vrsta isključena.
+    Vrsta se pamti po id-u (može se preimenovati ili promijeniti iznos u Vrste i iznosi)."""
+    ukljucen = postavke.ukljucen(con, "povrat_tetrapak")
+    vid = _tetrapak_id(con)
+    r = con.execute("SELECT id, aktivan FROM povrat_vrste WHERE id = ?", (vid,)).fetchone() if vid else None
+    if ukljucen and not r:
+        r = con.execute("SELECT id, aktivan FROM povrat_vrste WHERE naziv = ?", (TETRAPAK_NAZIV,)).fetchone()
+        with con:
+            if r:
+                vid = r["id"]
+                con.execute("UPDATE povrat_vrste SET aktivan = 1 WHERE id = ?", (vid,))
+            else:
+                vid = con.execute("INSERT INTO povrat_vrste (naziv, iznos, aktivan) VALUES (?, 10, 1)",
+                                  (TETRAPAK_NAZIV,)).lastrowid
+        postavke.postavi(con, "povrat_amb.tetrapak_id", vid)
+    elif ukljucen and not r["aktivan"] and postavke.vrijednost(con, "povrat_amb.tetrapak_iskljucio", "") == "modul":
+        with con:
+            con.execute("UPDATE povrat_vrste SET aktivan = 1 WHERE id = ?", (vid,))
+        postavke.postavi(con, "povrat_amb.tetrapak_iskljucio", "")
+    elif not ukljucen and r and r["aktivan"]:
+        with con:
+            con.execute("UPDATE povrat_vrste SET aktivan = 0 WHERE id = ?", (vid,))
+        postavke.postavi(con, "povrat_amb.tetrapak_iskljucio", "modul")
+    return vid
+
+
+def _od(con, vid, danas=None):
+    """Datum od kojeg se vrsta smije isplaćivati ('' = odmah)."""
+    danas = danas or dt.date.today().isoformat()
+    return TETRAPAK_OD if vid and vid == _tetrapak_id(con) and danas < TETRAPAK_OD else ""
+
+
 def vrste(con, sve=False):
-    return [dict(r) for r in con.execute(
+    uskladi_tetrapak(con)
+    return [dict(r, od=_od(con, r["id"])) for r in con.execute(
         "SELECT * FROM povrat_vrste" + ("" if sve else " WHERE aktivan = 1") + " ORDER BY id")]
 
 
@@ -146,6 +196,8 @@ def isplati(con, p, radnik=""):
             v = con.execute("SELECT * FROM povrat_vrste WHERE id = ? AND aktivan = 1", (vid,)).fetchone()
             if not v:
                 raise Greska("Vrsta ambalaže ne postoji ili je isključena.")
+            if _od(con, vid, t[:10]):
+                raise Greska("%s ulazi u povratnu naknadu tek od 1. 1. 2027.; prije toga se ne isplaćuje." % v["naziv"])
             stavke.append((v, kom, v["iznos"] * kom))
         ukupno = sum(s[2] for s in stavke)
         komada = sum(s[1] for s in stavke)

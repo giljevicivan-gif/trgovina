@@ -476,6 +476,7 @@ function dodaj(a, kol, popust) {
   if (!(kol > 0)) { toast('Upišite količinu', true); return; }
   if (!(popust >= 0 && popust <= 100)) { toast('Popust mora biti između 0 i 100 %', true); return; }
   if (!provjeriTezinu(a, kol)) { if (odabran) $('#kol-unos').select(); else odustani(); return; }
+  if (!provjeriRok(a)) { odustani(); return; }
   if (uredjuje >= 0) { kosarica[uredjuje].kol = kol; kosarica[uredjuje].popust = popust; }
   else {
     const isti = kosarica.find(s => s.a.id === a.id && (s.popust || 0) === popust);
@@ -483,6 +484,40 @@ function dodaj(a, kol, popust) {
     else kosarica.push({a, kol, popust});
   }
   crtajKosaricu(); odustani();
+  javiZalihu(a);
+}
+// rok trajanja i minimalna zaliha kod dodavanja u košaricu (modul kasa_upozorenja, kasa_upozorenja.py)
+let KU = null, KU_javljeno = {};
+async function ucitajKU() {
+  if (!MODULI.kasa_upozorenja) { KU = null; return; }
+  try { KU = await api('/api/kasa_upozorenje/artikli'); } catch (e) { KU = null; }
+}
+setInterval(ucitajKU, 300000);
+function provjeriRok(a) {
+  if (!KU || !KU.ukljuceno || uredjuje >= 0) return true;
+  const r = KU.rokovi[a.id];
+  if (!r) return true;
+  if (r.stanje === 'istekao_zabrana')
+    return confirm(`${a.naziv}: istekao rok "upotrijebiti do" (${datumHr(r.rok)}, upisano ${kolTxt(r.kolicina)} ${a.jm}).\n\n` +
+                   'Ta roba se NE SMIJE prodati ni donirati, samo otpisati (Zaliha, Rokovi i kalo).\n\n' +
+                   'Kliknite U redu samo ako kupac kupuje robu iz druge serije, s ispravnim rokom.');
+  const k = a.id + ':' + r.stanje;
+  if (KU_javljeno[k]) return true;
+  KU_javljeno[k] = 1;
+  if (r.stanje === 'istekao_izdvojiti' || r.stanje === 'izdvojeno')
+    toast(`${a.naziv}: istekao rok "najbolje upotrijebiti do" (${datumHr(r.rok)}). Smije se prodati samo izdvojeno i uz jasnu obavijest kupcu.`, true);
+  else
+    toast(`${a.naziv}: rok ističe ${r.dana <= 0 ? 'danas' : r.dana === 1 ? 'sutra' : 'za ' + r.dana + ' dana'} (${datumHr(r.rok)}). Razmislite o sniženju.`);
+  return true;
+}
+function javiZalihu(a) {
+  if (!KU || !KU.ukljuceno) return;
+  const z = KU.zaliha[a.id];
+  if (!z || KU_javljeno['min:' + a.id]) return;
+  const ostaje = z.zaliha - kosarica.filter(s => s.a.id === a.id).reduce((t, s) => t + s.kol, 0);
+  if (ostaje >= z.min) return;
+  KU_javljeno['min:' + a.id] = 1;
+  setTimeout(() => toast(`${a.naziv}: zaliha pada ispod minimalne (ostaje ${kolTxt(Math.max(ostaje, 0))} ${a.jm}, minimalna ${kolTxt(z.min)} ${a.jm}). Naručite.`), 1500);
 }
 function iznos(s) { return Math.round(s.a.cijena * s.kol * (1 - (s.popust || 0) / 100)); }
 function ukupno() { return kosarica.reduce((z, s) => z + iznos(s), 0); }
@@ -624,6 +659,7 @@ async function naplati() {
     if (window.zaslonPlaceno) zaslonPlaceno(ukupno(), vrati);  // zaslon za kupca: Hvala! Vratiti...
     naplati.oznaka = null; R1 = null; crtajR1();
     kosarica = []; $('#primljeno').value = ''; $('#dio-gotovina').value = ''; crtajKosaricu();
+    ucitajKU();
     if (r.fiskal) fiskalPoruka(r.fiskal); else toast('Spremljeno');
     if (vrati !== null && vrati >= 0) {
       $('#vratiti').textContent = eur(vrati) + ' (zadnji račun)';
@@ -2064,6 +2100,7 @@ function primijeniModule() {
   tab('bonovi').textContent = m.bonovi && m.vjernost ? 'Bonovi i vjernost' : m.bonovi ? 'Bonovi' : 'Vjernost';
   if (!m.inventura_mobitel) $('#z-mob').hidden = true;
   if (!m.akcije) $('#z-akc').hidden = true;
+  ucitajKU();  // rok i minimalna zaliha na kasi
   if (window.kasaKupacModuli) kasaKupacModuli(m);  // povrat ambalaže, zaslon za kupca (kasa_kupac.js)
   const on = document.querySelector('.tabs button.on');
   if (on && on.hidden) tab('danas').click();
