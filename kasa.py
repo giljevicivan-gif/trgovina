@@ -478,6 +478,9 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, f.read(), "text/javascript; charset=utf-8")
             elif u.path == "/api/kopija_van":
                 self._send(200, kopija_van.stanje(con))
+            elif u.path == "/api/uvoz_artikala":
+                self._send(200, {"bez_artikala": uvoz_artikala.bez_artikala_iz_robe(con),
+                                 "roba_mapa": bool(ROBA_MAPA)})
             elif u.path == "/api/donacije":
                 self._send(200, donacije.pregled(con, q.get("godina")))
             elif re.fullmatch(r"/api/donacija/\d+", u.path):
@@ -762,6 +765,9 @@ class Handler(BaseHTTPRequestHandler):
                 kopija_van.nakon_zakljucka()
             elif u.path == "/api/uvoz_artikala/pregled":
                 self._send(200, uvoz_artikala.pregled(con, podaci, ROBA_MAPA or ""))
+            elif u.path == "/api/uvoz_artikala/vrati":
+                uvoz_artikala.vrati_artikle_iz_robe(con)
+                self._send(200, {"ok": True})
             elif u.path == "/api/uvoz_artikala/uvezi":
                 with UVOZ_LOCK:  # ne usred uvoza iz Robe
                     self._send(200, uvoz_artikala.uvezi(con, podaci, ROBA_MAPA or ""))

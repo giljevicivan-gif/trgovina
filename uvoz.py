@@ -58,9 +58,12 @@ def uvezi(root, con, ispis=print):
                 "ON CONFLICT(roba_sifra) DO UPDATE SET naziv = excluded.naziv",
                 (v["SIFRA"], naziv_placanja(v["OPIS"])))
 
-        # --- artikli
+        # --- artikli (osim kad su zamijenjeni artiklima druge trgovine, vidi uvoz_artikala.py)
         n = 0
-        for a in citaj(zadnja, "artikli.dbf"):
+        bez_artikala = postavke.vrijednost(con, "uvoz.bez_artikala", "0") == "1"
+        if bez_artikala:
+            ispis("Artikli iz Robe se ne uvoze (zamijenjeni u Postavkama, Uvoz artikala druge trgovine).")
+        for a in ([] if bez_artikala else citaj(zadnja, "artikli.dbf")):
             barkod = a.get("BARCODE", "").strip()
             if not barkod.strip("0"):
                 barkod = ""

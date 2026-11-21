@@ -726,6 +726,13 @@ UVOZ ARTIKALA DRUGE TRGOVINE
     na drugi OIB, program upozori i trazi potvrdu kvacicom.
   - U praznoj bazi bez zadane Robe artikli zadrzavaju Robinu sifru, pa
     kasnije spajanje Robe te trgovine osvjezava iste artikle.
+  - Nacin "Zamijeni moje artikle ovima": umjesto dodavanja se postojeci
+    artikli brisu (oni s racunima, primkama ili inventurom se samo
+    sakriju, sifra dobije oznaku S-, da stari dokumenti ostanu ispravni),
+    pa se upisu artikli te Robe. Racuni, dokumenti, postavke i radnici
+    ostaju. Prije toga sigurnosna kopija. Nakon zamjene se artikli iz
+    vase Robe vise ne uvoze (prodaja i dokumenti iz Robe da); gumb "Opet
+    uvozi artikle iz Robe" u istom panelu to vraca.
   Druga trgovina na istom racunalu, s vlastitom bazom: kopirajte
   instalacija\Kasa_druga_trgovina.cmd na radnu povrsinu i pokrenite ga.
   Baza je u C:\TrgovinaPetica, kasa na http://127.0.0.1:8791, bez uvoza
