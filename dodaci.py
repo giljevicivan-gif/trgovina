@@ -21,6 +21,8 @@ import re
 
 import ambalaza
 import fiskal
+import kasa_upozorenja
+import kopija_van
 import lanci
 import postavke
 import prijedlog_dan
@@ -134,15 +136,21 @@ def get(h, con, put, q):
                           "radnici": [{"id": x["id"], "ime": x["ime"]} for x in radnici.popis(con)] if m["radnici"] else [],
                           "ima_vlasnika": radnici.ima_vlasnika(con), "prijava": bool(m["radnici"] and not r and not BEZ_RADNIKA)})
         elif put == "/api/kasa_upozorenje":
-            # traka na vrhu kase (svi prijavljeni radnici): računi bez JIR-a i sat računala
+            # traka na vrhu kase (svi prijavljeni radnici): računi bez JIR-a, sat računala i kopija
             poruke = []
             t = fiskal.traka(con)
+            if t:
+                poruke.append(t)
+            t = kopija_van.traka(con)
             if t:
                 poruke.append(t)
             razlika, _ = sat.zadnje(con)
             if razlika is not None and abs(razlika) >= sat.CRVENO:
                 poruke.append({"razina": "crveno", "tekst": sat.upozorenje(con)})
             h._send(200, {"poruke": poruke})
+        elif put == "/api/kasa_upozorenje/artikli":
+            # rokovi i minimalna zaliha za provjeru kod dodavanja u košaricu (modul kasa_upozorenja)
+            h._send(200, kasa_upozorenja.za_kasu(con))
         elif put == "/api/dodaci/danas":
             m = postavke.moduli(con)
             out = {}

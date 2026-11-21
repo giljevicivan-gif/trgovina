@@ -93,7 +93,9 @@
     try { ispis = localStorage.getItem('kk.ispis') !== '0'; } catch (e) { /* */ }
     const box = modal('<h2>Povrat ambalaže</h2><p class="napomena" style="margin:0">Kupac vraća prazne boce i limenke, ' +
       'isplaćuje mu se povratna naknada iz ladice. Ovo nije prodaja ni račun.</p>' +
-      (P.vrste.length ? P.vrste.map(v => `<div class="kk-vrsta" data-v="${v.id}" data-iznos="${v.iznos}">` +
+      (P.vrste.length ? P.vrste.map(v => v.od
+        ? `<div class="kk-vrsta"><span><b>${esc(v.naziv)}</b><span class="napomena">od ${datumHr(v.od)}: ${eur(v.iznos)} € po komadu (prije se ne isplaćuje)</span></span></div>`
+        : `<div class="kk-vrsta" data-v="${v.id}" data-iznos="${v.iznos}">` +
         `<span><b>${esc(v.naziv)}</b><span class="napomena">${eur(v.iznos)} € po komadu</span></span>` +
         '<button type="button" data-d="-1" title="Jedan manje">−</button><input inputmode="numeric" value="0" autocomplete="off">' +
         '<button type="button" data-d="1" title="Jedan više">+</button><button type="button" class="deset" data-d="10" title="Deset više">+10</button>' +
@@ -112,7 +114,7 @@
           `<button class="btn mali" data-isp="${z.id}" type="button">Ispiši</button> ` +
           (z.ponisteno ? '' : `<button class="btn mali opasno" data-pon="${z.id}" data-ozn="${esc(z.oznaka)}" type="button">Poništi</button>`) + '</td></tr>').join('') + '</table>' : '') +
       `<p class="napomena" style="margin-top:10px">${NAPOMENA}</p>`);
-    const redovi = [...box.querySelectorAll('.kk-vrsta')];
+    const redovi = [...box.querySelectorAll('.kk-vrsta[data-v]')];
     function zbroj() {
       let uk = 0, kom = 0;
       redovi.forEach(r => {
