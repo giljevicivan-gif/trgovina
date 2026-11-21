@@ -541,9 +541,11 @@
     const izbor = (k, n, opcije) => `<label>${n}<select id="ts-${k}">` + opcije.map(([v, t]) => `<option value="${v}" ${String(P[k]) === v ? 'selected' : ''}>${esc(t)}</option>`).join('') + '</select></label>';
     box.innerHTML = '<h2>Termalni pisač (izravni ispis)</h2><p class="napomena">Račun ide ravno na pisač, bez prozora za ispis. Kad pisač ne radi, kasa javi grešku i otvori obični ispis. ' +
       'Prodaja je spremljena prije ispisa, pa problem s pisačem nikad ne poništi račun.</p>' +
-      '<div class="polja">' + izbor('veza', 'Veza', [['windows', 'Windows pisač (USB)'], ['mreza', 'Mrežni pisač (IP)'], ['com', 'COM port']]) +
+      '<div class="polja">' + izbor('veza', 'Veza', [['windows', 'Windows pisač (s driverom)'], ['usb', 'USB pisač bez drivera'], ['mreza', 'Mrežni pisač (IP)'], ['com', 'COM port']]) +
       `<label data-veza="windows">Windows pisač<input id="ts-pisac" list="ts-popis" value="${esc(P.pisac)}" style="width:240px"><datalist id="ts-popis"></datalist></label>` +
       '<button class="btn mali" data-veza="windows" id="ts-trazi" type="button">Popis pisača</button>' +
+      `<label data-veza="usb">USB pisač<select id="ts-usb" style="width:300px"><option value="${esc(P.usb || '')}">${P.usb ? 'spremljeni pisač' : 'sam nađe (jedini spojeni)'}</option></select></label>` +
+      '<button class="btn mali" data-veza="usb" id="ts-trazi-usb" type="button">Traži USB pisač</button>' +
       `<span data-veza="mreza">${polje('adresa', 'IP adresa[:port]', 'placeholder="192.168.1.50:9100" style="width:180px"')}</span>` +
       `<span data-veza="com" style="display:flex;gap:10px">${polje('com', 'COM port', 'style="width:80px"')}` +
       izbor('brzina', 'Brzina', [['', 'kako je postavljeno'], ['9600', '9600'], ['19200', '19200'], ['38400', '38400'], ['115200', '115200']]) + '</span></div>' +
@@ -552,7 +554,7 @@
       izbor('kodna', 'Hrvatska slova', P.kodne) + kv('rezanje', 'Odreži papir') + polje('redova', 'Praznih redova prije reza', 'style="width:60px" inputmode="numeric"') + '</div>' +
       '<div class="polja">' + kv('qr', 'QR kod (inače se ispiše adresa)') + polje('qr_velicina', 'Veličina QR (1-16)', 'style="width:60px" inputmode="numeric"') +
       kv('ladica', 'Otvori ladicu kod gotovine') + izbor('ladica_pin', 'Ladica na', [['2', 'pin 2 (obično)'], ['5', 'pin 5']]) + '</div>' +
-      '<div class="polja">' + kv('papir', 'Provjeri papir prije i poslije ispisa (mrežni i Windows pisač; ako ga nema, kasa nudi "Ispiši ponovno")') + '</div>' +
+      '<div class="polja">' + kv('papir', 'Provjeri papir prije i poslije ispisa (mrežni, Windows i USB pisač; ako ga nema, kasa nudi "Ispiši ponovno")') + '</div>' +
       '<p class="napomena">Ako umjesto č ć ž š đ izlaze krivi znakovi, probajte drugu kodnu stranicu ili "bez kvačica". QR kod na računu mora biti najmanje 2 x 2 cm (veličina 5 je oko 2,5 cm na 80 mm pisaču).</p>' +
       '<div class="red"><button class="btn prim" id="ts-spremi">Spremi</button><button class="btn" id="ts-probni">Probni ispis</button><button class="btn" id="ts-ladica">Otvori ladicu</button></div>' +
       '<p id="ts-rez" class="napomena"></p>' +
@@ -562,7 +564,7 @@
     $('#ts-veza').onchange = veza; veza();
     const podaci = () => {
       const o = {};
-      ['veza', 'pisac', 'adresa', 'com', 'brzina', 'sirina', 'znakova', 'kodna', 'redova', 'qr_velicina', 'ladica_pin'].forEach(k => o[k] = $('#ts-' + k).value);
+      ['veza', 'pisac', 'adresa', 'com', 'usb', 'brzina', 'sirina', 'znakova', 'kodna', 'redova', 'qr_velicina', 'ladica_pin'].forEach(k => o[k] = $('#ts-' + k).value);
       ['rezanje', 'qr', 'ladica', 'papir'].forEach(k => o[k] = $('#ts-' + k).checked);
       return o;
     };
@@ -574,6 +576,17 @@
     gumb('ts-spremi', async () => { await api('/api/tisak/postavke', podaci()); toast('Spremljeno'); return 'Spremljeno.'; });
     gumb('ts-probni', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/probni', {}); return 'Probni ispis poslan pisaču.'; });
     gumb('ts-ladica', async () => { await api('/api/tisak/postavke', podaci()); await api('/api/tisak/otvori_ladicu', {}); return 'Ladica: naredba poslana.'; });
+    $('#ts-trazi-usb').onclick = async () => {
+      try {
+        const x = await api('/api/tisak/usb');
+        if (!x.windows) { rez('USB pisač bez drivera radi samo na Windowsima.', true); return; }
+        $('#ts-usb').innerHTML = '<option value="">sam nađe (jedini spojeni)</option>' +
+          x.usb.map(u => `<option value="${esc(u.putanja)}" ${u.putanja === P.usb ? 'selected' : ''}>${esc(u.naziv)}</option>`).join('');
+        if (x.usb.length === 1) $('#ts-usb').value = x.usb[0].putanja;
+        rez(x.usb.length ? 'Nađeno: ' + x.usb.map(u => u.naziv).join(', ') + '. Kliknite Probni ispis.' :
+          'Nije nađen USB pisač. Je li uključen i spojen? Ako se u Upravitelju uređaja vidi kao COM port, odaberite vezu "COM port".', !x.usb.length);
+      } catch (e) { rez(e.message, true); }
+    };
     $('#ts-trazi').onclick = async () => {
       try {
         const x = await api('/api/tisak/pisaci');

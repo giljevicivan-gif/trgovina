@@ -638,7 +638,8 @@ IZRAVNI ISPIS NA TERMALNI PISAC I LADICA (modul "termo_pisac")
   Ukljucuje se u Postavkama (zadano iskljuceno). Namjesta se u Dodaci,
   Termalni pisac:
   - Veza: Windows pisac (USB pisac s instaliranim driverom; "Popis
-    pisaca" pokaze instalirane), mrezni pisac (IP, port 9100) ili COM
+    pisaca" pokaze instalirane), USB pisac bez drivera (vidi dolje),
+    mrezni pisac (IP, port 9100) ili COM
     port (npr. COM3; brzina obicno 9600 ili 115200, prazno = kako je
     postavljeno u Windowsima).
   - Papir 80 mm (48 znakova) ili 58 mm (32); broj znakova se moze
@@ -655,6 +656,15 @@ IZRAVNI ISPIS NA TERMALNI PISAC I LADICA (modul "termo_pisac")
   Racun je spremljen prije ispisa, pa greska pisaca ne ponistava
   prodaju. Windows pisac: ako ispis ne izlazi, u driveru pisaca
   probajte "Generic / Text Only" ili driver proizvodjaca.
+  USB pisac bez drivera (npr. MicroPOS WTP-100II): Windows za svaki
+  USB pisac sam ucita svoj ugradjeni "USB Printing Support", pa nista
+  ne treba instalirati. Spojite pisac USB kabelom i ukljucite ga,
+  Dodaci, Termalni pisac, Veza "USB pisac bez drivera", "Trazi USB
+  pisac", pa Probni ispis. Ako je spojen samo jedan USB pisac, kasa ga
+  nadje sama i kad ga prebacite u drugu USB uticnicu. Ako ga ne nadje:
+  u Upravitelju uredjaja pogledajte je li pod "Portovi (COM i LPT)"
+  (tada veza "COM port" s tim brojem) ili pod "Drugi uredjaji" sa zutim
+  usklicnikom (tada mu Windows nema driver; javite nam).
 BARKOD ZA PLACANJE NA OTPREMNICI (modul "qr_uplata")
   Ukljucuje se u Postavkama (zadano iskljuceno). U Postavkama, ispod
   popisa modula, upisite IBAN (provjerava se kontrolni broj), naziv,

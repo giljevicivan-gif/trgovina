@@ -6,6 +6,7 @@ Bez modula (ili kad pisač ne radi) kasa otvara obični prozor za ispis (/ispis/
 
 Veza s pisačem (Dodaci, Termalni pisač):
     windows  pisač instaliran u Windowsima (USB): podaci idu kroz spooler u RAW obliku (winspool.drv)
+    usb      USB pisač bez instaliranog drivera: ravno u uređaj kroz Windowsov ugrađeni usbprint.sys
     mreza    mrežni pisač IP:port (obično 9100)
     com      serijski port (COM3) ili USB pisač koji se javlja kao COM port
 
@@ -14,7 +15,7 @@ podaci obveznika, broj računa, operater, stavke, ukupno, PDV, ZKI, JIR i QR kod
 Upozorenja ostaju ista: "OVO NIJE FISKALIZIRANI RAČUN" (vježba i test), račun bez JIR-a.
 
 Ispis se poziva tek kad je račun spremljen (zaseban zahtjev iz preglednika), pa problem s pisačem
-nikad ne poništi prodaju. Mreža i COM imaju vremensko ograničenje od 5 sekundi.
+nikad ne poništi prodaju. Mreža, USB i COM imaju vremensko ograničenje od 5 sekundi.
 """
 
 import datetime as dt
@@ -86,7 +87,7 @@ REZ = GS + b"V\x42\x00"  # GS V 66 0: djelomično rezanje
 
 # ---------------------------------------------------------------- postavke
 
-ZADANO = {"veza": "windows", "pisac": "", "adresa": "", "com": "COM3", "brzina": "", "sirina": "80",
+ZADANO = {"veza": "windows", "pisac": "", "adresa": "", "com": "COM3", "usb": "", "brzina": "", "sirina": "80",
           "znakova": "", "kodna": "cp852", "rezanje": "1", "redova": "4", "ladica": "1", "ladica_pin": "2",
           "qr": "1", "qr_velicina": "5", "papir": "1"}
 
@@ -118,8 +119,8 @@ def spremi_postavke(con, p):
     d = lambda k: str(p[k] if p.get(k) is not None else sada[k]).strip()
     da = lambda k: ("1" if p[k] in (True, 1, "1", "true") else "0") if k in p else sada[k]
     veza = d("veza")
-    if veza not in ("windows", "mreza", "com"):
-        raise Greska("Veza: Windows pisač, mreža ili COM port.")
+    if veza not in ("windows", "usb", "mreza", "com"):
+        raise Greska("Veza: Windows pisač, USB bez drivera, mreža ili COM port.")
     adresa = d("adresa")
     if veza == "mreza":
         _host_port(adresa)  # provjera
@@ -147,7 +148,7 @@ def spremi_postavke(con, p):
     pin = d("ladica_pin")
     if pin not in ("2", "5"):
         raise Greska("Ladica: pin 2 ili pin 5.")
-    vals = {"veza": veza, "pisac": d("pisac")[:200], "adresa": adresa[:100], "com": com[:60], "brzina": brzina,
+    vals = {"veza": veza, "pisac": d("pisac")[:200], "adresa": adresa[:100], "com": com[:60], "usb": d("usb")[:400], "brzina": brzina,
             "sirina": sirina, "znakova": zn, "kodna": kodna, "rezanje": da("rezanje"), "redova": redova,
             "ladica": da("ladica"), "ladica_pin": pin, "qr": da("qr"), "qr_velicina": qv, "papir": da("papir")}
     for k, v in vals.items():
@@ -507,10 +508,240 @@ def _enum_printers():
     return [x.pPrinterName for x in niz if x.pPrinterName]
 
 
+# ---------------------------------------------------------------- izravno na USB (bez upravljačkog programa)
+# Termalni pisači na USB-u (MicroPOS/Winpos WTP-100, Epson TM, Xprinter...) javljaju se kao "USB pisač".
+# Windows za njih sam učita svoj ugrađeni upravljački program "USB Printing Support" (usbprint.sys),
+# i bez ikakve instalacije: uređaj tada postoji, ali nije "pisač" u popisu pisača. Program ga traži
+# kroz SetupAPI (sučelje GUID_DEVINTERFACE_USBPRINT) i piše ESC/POS bajtove ravno u uređaj (CreateFile +
+# WriteFile), s vremenskim ograničenjem od 5 sekundi. Instaliran driver proizvođača ne smeta.
+USBPRINT_GUID = "{28D78FAD-5A12-11D1-AE5B-0000F803A8C2}"
+IOCTL_USBPRINT_GET_LPT_STATUS = 0x220030
+
+
+def _winapi():
+    import ctypes
+    from ctypes import wintypes
+
+    class GUID(ctypes.Structure):
+        _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD), ("Data3", wintypes.WORD),
+                    ("Data4", ctypes.c_ubyte * 8)]
+
+    class SP_DEVICE_INTERFACE_DATA(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("InterfaceClassGuid", GUID), ("Flags", wintypes.DWORD),
+                    ("Reserved", ctypes.c_size_t)]
+
+    class SP_DEVINFO_DATA(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("ClassGuid", GUID), ("DevInst", wintypes.DWORD),
+                    ("Reserved", ctypes.c_size_t)]
+
+    class OVERLAPPED(ctypes.Structure):
+        _fields_ = [("Internal", ctypes.c_size_t), ("InternalHigh", ctypes.c_size_t), ("Offset", wintypes.DWORD),
+                    ("OffsetHigh", wintypes.DWORD), ("hEvent", wintypes.HANDLE)]
+
+    sa = ctypes.WinDLL("setupapi.dll", use_last_error=True)
+    k = ctypes.WinDLL("kernel32.dll", use_last_error=True)
+    sa.SetupDiGetClassDevsW.argtypes = [ctypes.POINTER(GUID), wintypes.LPCWSTR, wintypes.HWND, wintypes.DWORD]
+    sa.SetupDiGetClassDevsW.restype = wintypes.HANDLE
+    sa.SetupDiEnumDeviceInterfaces.argtypes = [wintypes.HANDLE, ctypes.c_void_p, ctypes.POINTER(GUID), wintypes.DWORD,
+                                               ctypes.POINTER(SP_DEVICE_INTERFACE_DATA)]
+    sa.SetupDiEnumDeviceInterfaces.restype = wintypes.BOOL
+    sa.SetupDiGetDeviceInterfaceDetailW.argtypes = [wintypes.HANDLE, ctypes.POINTER(SP_DEVICE_INTERFACE_DATA),
+                                                    ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD),
+                                                    ctypes.POINTER(SP_DEVINFO_DATA)]
+    sa.SetupDiGetDeviceInterfaceDetailW.restype = wintypes.BOOL
+    sa.SetupDiGetDeviceRegistryPropertyW.argtypes = [wintypes.HANDLE, ctypes.POINTER(SP_DEVINFO_DATA), wintypes.DWORD,
+                                                     ctypes.POINTER(wintypes.DWORD), ctypes.c_void_p, wintypes.DWORD,
+                                                     ctypes.POINTER(wintypes.DWORD)]
+    sa.SetupDiGetDeviceRegistryPropertyW.restype = wintypes.BOOL
+    sa.SetupDiDestroyDeviceInfoList.argtypes = [wintypes.HANDLE]
+    k.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD,
+                              wintypes.DWORD, wintypes.HANDLE]
+    k.CreateFileW.restype = wintypes.HANDLE
+    k.WriteFile.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(wintypes.DWORD),
+                            ctypes.POINTER(OVERLAPPED)]
+    k.WriteFile.restype = wintypes.BOOL
+    k.DeviceIoControl.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, ctypes.c_void_p,
+                                  wintypes.DWORD, ctypes.POINTER(wintypes.DWORD), ctypes.POINTER(OVERLAPPED)]
+    k.DeviceIoControl.restype = wintypes.BOOL
+    k.GetOverlappedResult.argtypes = [wintypes.HANDLE, ctypes.POINTER(OVERLAPPED), ctypes.POINTER(wintypes.DWORD),
+                                      wintypes.BOOL]
+    k.GetOverlappedResult.restype = wintypes.BOOL
+    k.CreateEventW.argtypes = [ctypes.c_void_p, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR]
+    k.CreateEventW.restype = wintypes.HANDLE
+    k.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    k.WaitForSingleObject.restype = wintypes.DWORD
+    k.CancelIoEx.argtypes = [wintypes.HANDLE, ctypes.POINTER(OVERLAPPED)]
+    k.CloseHandle.argtypes = [wintypes.HANDLE]
+    return ctypes, wintypes, sa, k, GUID, SP_DEVICE_INTERFACE_DATA, SP_DEVINFO_DATA, OVERLAPPED
+
+
+def _guid(GUID, tekst):
+    import uuid
+    u = uuid.UUID(tekst)
+    g = GUID(u.time_low, u.time_mid, u.time_hi_version)
+    for i, b in enumerate(u.bytes[8:]):
+        g.Data4[i] = b
+    return g
+
+
+def _usb_naziv(putanja, opis):
+    m = re.search(r"(?i)vid_([0-9a-f]{4})&pid_([0-9a-f]{4})", putanja or "")
+    vp = " (VID %s, PID %s)" % (m.group(1).upper(), m.group(2).upper()) if m else ""
+    return (opis or "USB pisač") + vp
+
+
+def usb_pisaci():
+    """[{"putanja", "naziv"}] za USB pisače koje Windows vidi (s drugim ili bez ikakvog drivera proizvođača)."""
+    if os.name != "nt":
+        return []
+    ctypes, wintypes, sa, k, GUID, IFD, DID, _ = _winapi()
+    g = _guid(GUID, USBPRINT_GUID)
+    INVALID = wintypes.HANDLE(-1).value
+    h = sa.SetupDiGetClassDevsW(ctypes.byref(g), None, None, 0x02 | 0x10)  # DIGCF_PRESENT | DIGCF_DEVICEINTERFACE
+    if not h or h == INVALID:
+        return []
+    out = []
+    try:
+        i = 0
+        while i < 32:
+            ifd = IFD()
+            ifd.cbSize = ctypes.sizeof(IFD)
+            if not sa.SetupDiEnumDeviceInterfaces(h, None, ctypes.byref(g), i, ctypes.byref(ifd)):
+                break
+            i += 1
+            treba = wintypes.DWORD(0)
+            sa.SetupDiGetDeviceInterfaceDetailW(h, ctypes.byref(ifd), None, 0, ctypes.byref(treba), None)
+            if not treba.value:
+                continue
+            buf = ctypes.create_string_buffer(treba.value + 4)
+            # SP_DEVICE_INTERFACE_DETAIL_DATA_W.cbSize: 8 na 64-bitnom, 6 na 32-bitnom Pythonu
+            ctypes.cast(buf, ctypes.POINTER(wintypes.DWORD))[0] = 8 if ctypes.sizeof(ctypes.c_void_p) == 8 else 6
+            did = DID()
+            did.cbSize = ctypes.sizeof(DID)
+            if not sa.SetupDiGetDeviceInterfaceDetailW(h, ctypes.byref(ifd), buf, treba.value, None, ctypes.byref(did)):
+                continue
+            putanja = ctypes.wstring_at(ctypes.addressof(buf) + 4)
+            opis = ""
+            for prop in (0x0C, 0x00):  # SPDRP_FRIENDLYNAME, SPDRP_DEVICEDESC
+                pb = ctypes.create_unicode_buffer(256)
+                if sa.SetupDiGetDeviceRegistryPropertyW(h, ctypes.byref(did), prop, None, pb, ctypes.sizeof(pb), None):
+                    opis = pb.value.strip()
+                    if opis:
+                        break
+            out.append({"putanja": putanja, "naziv": _usb_naziv(putanja, opis)})
+    finally:
+        sa.SetupDiDestroyDeviceInfoList(h)
+    return out
+
+
+def _usb_odaberi(spremljeno):
+    """Spremljena putanja ako je uređaj tu; inače jedini spojeni USB pisač."""
+    svi = usb_pisaci()
+    if not svi:
+        raise Greska("Nije pronađen nijedan USB pisač. Je li pisač uključen i spojen USB kabelom? "
+                     "(Ako ga Windows vidi kao COM port, odaberite vezu \"COM port\".)")
+    for x in svi:
+        if spremljeno and x["putanja"].lower() == spremljeno.lower():
+            return x
+    if len(svi) == 1:
+        return svi[0]
+    if spremljeno:
+        # isti pisač u drugoj USB utičnici: ista VID/PID oznaka
+        m = re.search(r"(?i)vid_[0-9a-f]{4}&pid_[0-9a-f]{4}", spremljeno)
+        isti = [x for x in svi if m and m.group(0).lower() in x["putanja"].lower()]
+        if len(isti) == 1:
+            return isti[0]
+    raise Greska("Spojeno je više USB pisača. U Dodaci, Termalni pisač kliknite \"Traži USB pisač\" i odaberite pravi.")
+
+
+def _usb_otvori(putanja):
+    ctypes, wintypes, sa, k = _winapi()[:4]
+    GENERIC_RW, SHARE_RW, OPEN_EXISTING, FILE_FLAG_OVERLAPPED = 0xC0000000, 0x3, 3, 0x40000000
+    h = k.CreateFileW(putanja, GENERIC_RW, SHARE_RW, None, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, None)
+    if not h or h == wintypes.HANDLE(-1).value:
+        kod = ctypes.get_last_error()
+        if kod in (5, 32):  # pristup odbijen / zauzeto
+            raise Greska("USB pisač je zauzet (drugi program ili Windows ispis ga drži). Pokušajte ponovno.")
+        raise Greska("USB pisač se ne može otvoriti (%d: %s)" % (kod, ctypes.FormatError(kod).strip()))
+    return h
+
+
+def _usb_cekaj(k, ctypes, wintypes, h, ov, ms):
+    """Čeka preklopljeni (overlapped) zahtjev; vraća broj bajtova ili None ako je isteklo vrijeme."""
+    n = wintypes.DWORD(0)
+    if k.WaitForSingleObject(ov.hEvent, ms) != 0:  # WAIT_OBJECT_0
+        k.CancelIoEx(h, ctypes.byref(ov))
+        k.GetOverlappedResult(h, ctypes.byref(ov), ctypes.byref(n), True)
+        return None
+    if not k.GetOverlappedResult(h, ctypes.byref(ov), ctypes.byref(n), False):
+        kod = ctypes.get_last_error()
+        raise Greska("USB pisač: greška kod slanja (%d: %s)" % (kod, ctypes.FormatError(kod).strip()))
+    return n.value
+
+
+def _usb(spremljeno, podaci):
+    if os.name != "nt":
+        raise Greska("Izravni USB ispis radi samo na Windowsima.")
+    ctypes, wintypes, sa, k, _, _, _, OVERLAPPED = _winapi()
+    uredaj = _usb_odaberi(spremljeno)
+    h = _usb_otvori(uredaj["putanja"])
+    ev = k.CreateEventW(None, True, False, None)
+    try:
+        buf = ctypes.create_string_buffer(podaci, len(podaci))
+        poslano = 0
+        while poslano < len(podaci):
+            ov = OVERLAPPED()
+            ov.hEvent = ev
+            n = wintypes.DWORD(0)
+            if not k.WriteFile(h, ctypes.byref(buf, poslano), len(podaci) - poslano, ctypes.byref(n), ctypes.byref(ov)):
+                kod = ctypes.get_last_error()
+                if kod != 997:  # ERROR_IO_PENDING
+                    raise Greska("USB pisač: slanje nije uspjelo (%d: %s)" % (kod, ctypes.FormatError(kod).strip()))
+            r = _usb_cekaj(k, ctypes, wintypes, h, ov, int(TIMEOUT * 1000))
+            if r is None:
+                raise Greska("USB pisač ne prima podatke (5 s). Je li uključen, ima li papira, je li poklopac zatvoren?")
+            if r == 0:
+                raise Greska("USB pisač ne prima podatke.")
+            poslano += r
+    finally:
+        k.CloseHandle(ev)
+        k.CloseHandle(h)
+
+
+def _papir_usb(spremljeno):
+    """Stanje papira kroz ugrađeni Windows USB upravljački program (LPT status bajt, IEEE 1284):
+    "nema papira" samo kad pisač javi i "papir prazan" i "greška"; inače ne znamo (None) ili ima."""
+    if os.name != "nt":
+        return None
+    ctypes, wintypes, sa, k, _, _, _, OVERLAPPED = _winapi()
+    h = _usb_otvori(_usb_odaberi(spremljeno)["putanja"])
+    ev = k.CreateEventW(None, True, False, None)
+    try:
+        ov = OVERLAPPED()
+        ov.hEvent = ev
+        st = ctypes.create_string_buffer(1)
+        n = wintypes.DWORD(0)
+        if not k.DeviceIoControl(h, IOCTL_USBPRINT_GET_LPT_STATUS, None, 0, st, 1, ctypes.byref(n), ctypes.byref(ov)):
+            if ctypes.get_last_error() != 997:
+                return None
+        if not _usb_cekaj(k, ctypes, wintypes, h, ov, 1500):
+            return None
+        b = st.raw[0]
+    finally:
+        k.CloseHandle(ev)
+        k.CloseHandle(h)
+    if b in (0x00, 0xFF):
+        return None
+    PAPER_EMPTY, NOT_ERROR = 0x20, 0x08
+    if b & PAPER_EMPTY and not b & NOT_ERROR:
+        return {"ima": False, "pri_kraju": False}
+    return {"ima": True, "pri_kraju": False}
+
+
 # ---------------------------------------------------------------- stanje papira
 # ESC/POS "DLE EOT 4": pisač odmah vrati jedan bajt o senzoru papira
 # (bitovi 2-3 = papir pri kraju, bitovi 5-6 = nema papira). Radi za mrežni pisač
-# (odgovor stiže istom vezom). Za Windows pisač stanje se čita iz spoolera
+# (odgovor stiže istom vezom). USB bez drivera: LPT status bajt iz usbprint.sys. Za Windows pisač stanje se čita iz spoolera
 # (PRINTER_INFO_2.Status: nema papira, offline, greška) ako ga upravljački program javlja.
 # COM port se ne pita (čitanje bez vremenskog ograničenja moglo bi zaključati port).
 DLE_EOT_PAPIR = b"\x10\x04\x04"
@@ -591,6 +822,8 @@ def stanje_papira(p):
             return _papir_mreza(p["adresa"])
         if p["veza"] == "windows":
             return _papir_windows(p.get("pisac"))
+        if p["veza"] == "usb":
+            return _papir_usb(p.get("usb"))
     except Exception:
         return None
     return None
@@ -605,6 +838,8 @@ def posalji(p, podaci, dokument="Racun"):
             _mreza(p["adresa"], podaci)
         elif p["veza"] == "com":
             _com(p["com"], p.get("brzina"), podaci)
+        elif p["veza"] == "usb":
+            _usb(p.get("usb"), podaci)
         else:
             if not p.get("pisac"):
                 raise Greska("Odaberite Windows pisač (Dodaci, Termalni pisač).")
@@ -713,6 +948,11 @@ def get(h, con, put, q, racun):
         h._send(200, p)
     elif put == "/api/tisak/pisaci":
         h._send(200, {"pisaci": pisaci(), "windows": os.name == "nt"})
+    elif put == "/api/tisak/usb":
+        try:
+            h._send(200, {"usb": usb_pisaci(), "windows": os.name == "nt"})
+        except Exception as e:  # neobičan Windows: poruka umjesto pada
+            raise Greska("Traženje USB pisača nije uspjelo: %s" % e)
     elif re.fullmatch(r"/api/tisak/tekst/\d+", put):
         p = postavke_modula(con)
         h._send(200, {"tekst": kao_tekst(slozi_racun(racun(con, int(put.rsplit("/", 1)[1])), znakova(p)), znakova(p))})
