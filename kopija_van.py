@@ -70,7 +70,8 @@ def sada():
 # ---------------------------------------------------------------- postavke
 
 def _env_mapa():
-    return os.environ.get("TRGOVINA_KOPIJA_MAPA", "").strip()
+    m = os.environ.get("TRGOVINA_KOPIJA_MAPA", "").strip()
+    return "" if m == "-" else m  # "-" = bez dodatne mape (Kasa_druga_trgovina.cmd)
 
 
 def _prosiri(m):

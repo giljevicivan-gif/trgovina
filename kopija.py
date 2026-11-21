@@ -25,7 +25,7 @@ ZADRZI = 30
 def _mape():
     out = [MAPA]
     dodatna = os.environ.get("TRGOVINA_KOPIJA_MAPA", "").strip()
-    if dodatna:
+    if dodatna and dodatna != "-":  # "-" = bez dodatne mape (Kasa_druga_trgovina.cmd)
         out.append(dodatna)
     return out
 

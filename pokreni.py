@@ -52,8 +52,9 @@ def pripremi_okolinu():
 
 
 def zapamti_postavke():
-    """Port i dodatnu mapu kopija (ručno upisane u postavke.cmd) zapamti u registru, da ih novi Setup ne prepiše."""
-    if os.name != "nt":
+    """Port i dodatnu mapu kopija (ručno upisane u postavke.cmd) zapamti u registru, da ih novi Setup ne prepiše.
+    Druga trgovina na istom računalu (Kasa_druga_trgovina.cmd, TRGOVINA_NE_PAMTI=1) ne dira registar."""
+    if os.name != "nt" or os.environ.get("TRGOVINA_NE_PAMTI") == "1":
         return
     try:
         import winreg
@@ -218,6 +219,8 @@ def _main(podaci):
 
     argv = [os.path.join(OVDJE, "kasa.py")]
     roba = (os.environ.get("ROBA") or "").strip()
+    if roba == "-":  # "-" = bez Robe (npr. druga trgovina na istom računalu, vidi Kasa_druga_trgovina.cmd)
+        roba = ""
     if roba:
         from uvoz import godine_u_mapi
         try:
