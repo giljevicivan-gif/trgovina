@@ -37,6 +37,10 @@ MODULI = (
     ("eracun_uvoz", "Primka iz eRačuna dobavljača",
      "Učitajte XML eRačuna (UBL 2.1) i program sam popuni primku: dobavljač, broj, stavke i cijene. "
      "Ništa se ne šalje Poreznoj.", False),
+    ("eracun_posrednik", "eRačun preko posrednika (Fiskalizacija 2.0)",
+     "Veza s posrednikom (moj-eRačun, ePoslovanje ili FINA): ulazni eRačuni dobavljača stižu sami i jednim klikom "
+     "idu u primku ili se odbijaju; zbirni račun tvrtki šalje se kao eRačun i označava plaćenim. Posrednik "
+     "fiskalizira i javlja Poreznoj. Prvo na testnoj okolini. Kasa se ne mijenja.", False),
     ("ponude", "Ponude i broj narudžbenice",
      "Ponude kupcima (pretvaraju se u narudžbu) i broj narudžbenice kupca na otpremnici (radi uz narudžbe).", False),
     ("dugovanja", "Računi dobavljača i dugovanja", "Dospijeće i plaćanje računa dobavljača (primke), tko koliko duguje i što kasni.", False),

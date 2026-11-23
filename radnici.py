@@ -51,6 +51,9 @@ PUTANJE = (
     ("/api/usporedba", "cijene"), ("/api/lanci", "cijene"),
     ("/api/storno/", "storno"), ("/ispis_popisna", "cijene"),
     ("/api/eracun", "nabava"), ("/api/kpd", "zaliha"),
+    ("/api/eposrednik", "nabava"), ("/eposrednik_xml", "nabava"), ("/api/eposrednik/postavke", "postavke"),
+    ("/api/eposrednik/certifikat", "postavke"), ("/api/eposrednik/provjeri", "postavke"),
+    ("/api/eposrednik/izlazni", "postavke"),
     ("/api/postavke", "postavke"), ("/api/fiskal", "postavke"), ("/api/radnici", "postavke"), ("/api/sazetak", "postavke"),
     ("/api/povrat_amb/vrsta", "postavke"), ("/api/zaslon/mreza", "postavke"),
     ("/api/vaga/", "postavke"),
@@ -278,6 +281,8 @@ OPISI = (
     ("/api/tisak/", "Termalni pisač"),
     ("/api/uplata", "Postavke barkoda za plaćanje"), ("/api/dob_mail/posalji", "Narudžba dobavljaču e-mailom"),
     ("/api/kopija_van/", "Kopija izvan računala"), ("/api/donacij", "Donacija hrane"),
+    ("/api/eposrednik/postavke", "Postavke eRačuna (posrednik)"), ("/api/eposrednik/izlazni", "Izlazni eRačun"),
+    ("/api/eposrednik/", "Ulazni eRačuni (posrednik)"),
 )
 
 

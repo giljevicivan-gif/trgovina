@@ -1367,6 +1367,10 @@ $('#n-eracun-dat').addEventListener('change', async e => {
   const f = e.target.files[0]; if (!f) return;
   let E;
   try { E = await api('/api/eracun/procitaj', {xml: await f.text()}); } catch (err) { return toast(err.message, true); }
+  primkaIzERacuna(E);
+});
+// prijedlog primke (odgovor /api/eracun/procitaj) -> nova primka; koristi i eracun_posrednik.js
+async function primkaIzERacuna(E) {
   await ucitajZalihu();
   if (!E.dobavljac.partner_id) {
     const d = E.dobavljac;
@@ -1395,7 +1399,7 @@ $('#n-eracun-dat').addEventListener('change', async e => {
   const U = E.upozorenja || [];
   toast(`eRačun ${E.broj}: ${E.stavke.length - dok.nepovezane.length} od ${E.stavke.length} stavki povezano. Provjerite i spremite.` +
         (U.length ? ' ' + U.join(' ') : ''), U.length > 0);
-});
+}
 function crtajNepovezane() {
   let box = $('#e-nepovezane');
   if (!box) { $('#e-stavke').insertAdjacentHTML('beforebegin', '<div id="e-nepovezane"></div>'); box = $('#e-nepovezane'); }
@@ -2738,5 +2742,6 @@ ucitajKontrolu();
 <script src="/kopija_van.js"></script>
 <script src="/donacije.js"></script>
 <script src="/uvoz_artikala.js"></script>
+<script src="/eracun_posrednik.js"></script>
 </body>
 </html>
