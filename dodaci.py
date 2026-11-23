@@ -46,7 +46,7 @@ MODULI_PUTANJA = (
     ("/api/fiskal", "fiskalizacija"), ("/api/lanci", "lanci"), ("/api/sazetak", "sazetak"), ("/api/prijedlog_dan", "prijedlog_dan"),
 )
 BEZ_PRIJAVE = ("/", "/dodaci.js", "/api/dodaci/stanje", "/api/radnici/prijava", "/api/radnici/odjava",
-               "/api/radnici/prvi", "/favicon.ico", "/kopija_van.js", "/donacije.js")
+               "/api/radnici/prvi", "/favicon.ico", "/kopija_van.js", "/donacije.js", "/eracun_posrednik.js")
 
 
 def pripremi(con):

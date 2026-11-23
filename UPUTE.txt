@@ -762,6 +762,33 @@ UVOZ ARTIKALA DRUGE TRGOVINE
   iz Robe i bez dodatne mape kopija (sve se mijenja u retcima "set" na
   vrhu datoteke). Glavna kasa i njezina baza se ne diraju.
 
+eRACUN PREKO POSREDNIKA (moj-eRacun, ePoslovanje, FINA) - od 0.5.0
+  Modul "eRacun preko posrednika" (Postavke, zadano iskljucen). Gumb
+  "eRacuni (posrednik)" u Nabavi. Kasa i fiskalizacija s kase se ne mijenjaju.
+  Posrednik salje i prima eRacune, sam ih fiskalizira i javlja Poreznoj
+  odbijanja i naplatu (eIzvjestavanje). Program samo razgovara s njim.
+  - Ulazni: "Dohvati nove" povuce eRacune dobavljaca zadnjih 30 dana.
+    "U primku" otvori primku popunjenu iz eRacuna (provjerite i Spremi).
+    "Odbij" (razlog N/U/O i opis) - ne moze se ponistiti.
+  - Izlazni: odaberite kupca s OIB-om i mjesec, "Pregled eRacuna", pa
+    "Posalji". Salje se zbirni racun isporucenih narudzbi bez racuna
+    (UBL 2.1, HR CIUS 2025). Svaki artikl treba KPD sifru (6 znamenki).
+    Broj eRacuna: broj-prostor-uredjaj (uredjaj zadano 9, razlicit od
+    kase i Robe). Na TESTU narudzbe ostaju bez racuna; u PRODUKCIJI
+    dobiju broj "eRacun ..." i vise ne ulaze u zbirni pregled.
+    "Placeno" javlja naplatu (datum, iznos, nacin T/O/Z).
+  - Postavke posrednika: na dnu ekrana. Prvo okolina TEST.
+    moj-eRacun: korisnik, lozinka i SoftwareId (pisite na
+      integracije@moj-eracun.hr da dodijele SoftwareId za nas program).
+    ePoslovanje: API kljuc (besplatna proba na test.eposlovanje.hr).
+      Veza je napisana bez javne dokumentacije API-ja v2: prije prave
+      uporabe treba je provjeriti na testu.
+    FINA: aplikacijski certifikat (.p12, za test demo) i adresa servisa
+      koju FINA daje kod ugovaranja. Takodjer treba provjeriti na testu.
+  - VAZNO: eRacuni vam stizu preko JEDNOG posrednika (adresa u FiskAplikaciji).
+    Ako je to posrednik koji koristi Roba, nas program cita iste racune
+    bez promjene u Robi. Ne mijenjajte adresu primanja dok ne isprobate.
+
 VAZNO ZA NABAVU
   Od kad primke i otpise upisujete ovdje, NE upisujte ih vise i u Robu,
   inace se zaliha udvostruci. Cijene (MPC) i dalje mijenjajte u Robi,

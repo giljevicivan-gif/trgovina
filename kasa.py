@@ -55,6 +55,7 @@ import knjigovodja
 import kopija
 import kopija_van
 import donacije
+import eracun_posrednik
 import usporedba
 import nabava
 import nadogradnja
@@ -368,6 +369,7 @@ PUTANJE_MODULA = (
     ("/api/uplata", "qr_uplata"), ("/api/dob_mail", "narudzba_mail"), ("/ispis_narudzba_dob", "narudzba_mail"),
     ("/api/kopija_van", "kopija_van"), ("/api/donacij", "donacije"), ("/ispis_donacija", "donacije"),
     ("/api/uvoz_artikala", "uvoz_artikala"),
+    ("/api/eposrednik", "eracun_posrednik"), ("/eposrednik_xml", "eracun_posrednik"),
 )
 
 
@@ -473,11 +475,20 @@ class Handler(BaseHTTPRequestHandler):
             elif re.fullmatch(r"/ispis_zpc/\d+/\d+", u.path):
                 g, s = u.path.split("/")[2:4]
                 self._send(200, ispis_zpc_html(roba_dodatno.zpc(con, int(g), int(s))), "text/html; charset=utf-8")
-            elif u.path in ("/kopija_van.js", "/donacije.js", "/uvoz_artikala.js"):
+            elif u.path in ("/kopija_van.js", "/donacije.js", "/uvoz_artikala.js", "/eracun_posrednik.js"):
                 with open(os.path.join(SCRIPT_DIR, u.path[1:]), encoding="utf-8") as f:
                     self._send(200, f.read(), "text/javascript; charset=utf-8")
             elif u.path == "/api/kopija_van":
                 self._send(200, kopija_van.stanje(con))
+            elif u.path == "/api/eposrednik":
+                self._send(200, eracun_posrednik.stanje(con))
+            elif re.fullmatch(r"/api/eposrednik/ulazni/\d+/primka", u.path):
+                self._send(200, eracun_posrednik.u_primku(con, int(u.path.split("/")[4])))
+            elif re.fullmatch(r"/eposrednik_xml/(ulazni|izlazni)/\d+", u.path):
+                vrsta, iid = u.path.split("/")[2:4]
+                fn = eracun_posrednik.xml_ulaznog if vrsta == "ulazni" else eracun_posrednik.xml_izlaznog
+                xml, broj = fn(con, int(iid))
+                self._send(200, xml, "application/xml; charset=utf-8")
             elif u.path == "/api/uvoz_artikala":
                 self._send(200, {"bez_artikala": uvoz_artikala.bez_artikala_iz_robe(con),
                                  "roba_mapa": bool(ROBA_MAPA)})
@@ -880,6 +891,31 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, kopija_van.provjeri(con))
             elif u.path == "/api/donacija":
                 self._send(200, {"id": donacije.spremi(con, podaci, dodaci._ime(self))})
+            elif u.path == "/api/eposrednik/postavke":
+                self._send(200, eracun_posrednik.spremi_postavke(con, podaci))
+            elif u.path == "/api/eposrednik/certifikat":
+                self._send(200, {"putanja": eracun_posrednik.spremi_certifikat(con, podaci.get("ime"), podaci.get("sadrzaj"))})
+            elif u.path == "/api/eposrednik/provjeri":
+                self._send(200, eracun_posrednik.provjeri(con))
+            elif u.path == "/api/eposrednik/dohvati":
+                self._send(200, eracun_posrednik.dohvati_ulazne(con, podaci.get("od"), podaci.get("do")))
+            elif re.fullmatch(r"/api/eposrednik/ulazni/\d+/odbij", u.path):
+                self._send(200, eracun_posrednik.odbij(con, int(u.path.split("/")[4]), podaci))
+            elif u.path == "/api/eposrednik/izlazni/pregled":
+                r = eracun_posrednik.pripremi_racun(con, int(podaci.get("kupac_id") or 0), podaci.get("mjesec"), dodaci._ime(self))
+                r.pop("xml")
+                self._send(200, r)
+            elif u.path == "/api/eposrednik/izlazni/posalji":
+                self._send(200, eracun_posrednik.posalji_racun(con, int(podaci.get("kupac_id") or 0), podaci.get("mjesec"),
+                                                               dodaci._ime(self)))
+            elif re.fullmatch(r"/api/eposrednik/izlazni/\d+/(ponovno|osvjezi|placeno)", u.path):
+                iid, radnja = int(u.path.split("/")[4]), u.path.split("/")[5]
+                if radnja == "ponovno":
+                    self._send(200, eracun_posrednik.posalji_ponovno(con, iid))
+                elif radnja == "osvjezi":
+                    self._send(200, eracun_posrednik.osvjezi(con, iid))
+                else:
+                    self._send(200, eracun_posrednik.placeno(con, iid, podaci))
             elif u.path == "/api/donacije/prihod":
                 self._send(200, donacije.spremi_prihod(con, podaci))
             elif u.path == "/api/eracun/procitaj":
