@@ -486,6 +486,16 @@ FISKALIZACIJA (TEST S DEMO CERTIFIKATOM) - novo 18.11.2026.
   dogovor s knjigovodjom. Na dnu kartice upisete rijec PRODUKCIJA i
   kliknete gumb. Program ne dopusta produkciju s demo certifikatom.
 
+  Zastita od greske 166 Porezne (od 0.4.9): prije izdavanja racuna
+  program provjeri da je zbroj stavki jednak ukupnom iznosu, da je za
+  svaku stopu osnovica + PDV tocno jednako iznosu te stope (na cent, ne
+  samo unutar tolerancije 0,01) i da su dijelovi placanja zbrojeni
+  jednaki ukupnom. Ako nesto ne stima, racun se ne izdaje (blagajnik
+  vidi poruku), a vec izdani se ne salje nego je crven u Kontroli.
+  Robina greska 166 (zaokruzivanje svake stavke na vagu tri puta) kod
+  nas ne moze nastati: PDV se racuna po stopi iz zbroja, osnovica je
+  razlika. Test: python -m unittest discover -s testovi -v
+
 BRZE PLACANJE, VELIKA TEZINA, GOTOVINA + KARTICA (od 0.2.2)
   Ukljucuje se u Postavkama:
   - Brze placanje: F5 = gotovina (kursor ide u Primljeno), F6 = kartica,
