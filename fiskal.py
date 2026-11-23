@@ -420,6 +420,64 @@ def _pdv_stavke(stavke, u_pdv):
     return out
 
 
+class FormulaGreska(Greska):
+    """Iznosi računa ne štimaju (Porezna, greška 166). Takav račun se ne izdaje i ne šalje."""
+
+
+def provjeri_formulu(ukupno, stavke, pdv=None, u_pdv=True, placanja=None):
+    """Zaštita od greške 166 Porezne ("ukupan iznos na računu nije ispravan prema formuli").
+
+    Porezna provjerava: IznosUkupno = zbroj (Osnovica + Iznos PDV) po stopama, tolerancija 0,01 EUR.
+    Program Roba je tu griješio kod artikala na vagu (stavku zaokružuje tri puta odvojeno).
+    Ovdje tražimo točno slaganje na cent, ne samo unutar tolerancije:
+      1. zbroj iznosa stavki = ukupno računa,
+      2. za svaku stopu: osnovica + PDV = bruto te stope, a PDV je onaj iz bruto iznosa (± 1 cent),
+      3. zbroj osnovica + PDV = ukupno,
+      4. dijelovi plaćanja (ako ih ima) zbrojeni = ukupno.
+    Sve u cijelim centima. Ako išta ne štima: FormulaGreska."""
+    def cijeli(v, sto):
+        if not isinstance(v, int) or isinstance(v, bool):
+            raise FormulaGreska("Neispravan iznos (%s): %r." % (sto, v))
+        return v
+    ukupno = cijeli(ukupno, "ukupno")
+    if not stavke:
+        raise FormulaGreska("Račun nema stavki.")
+    zbroj = sum(cijeli(s["iznos"], s.get("naziv") or "stavka") for s in stavke)
+    if zbroj != ukupno:
+        raise FormulaGreska("Zbroj stavki (%s) nije jednak ukupnom iznosu računa (%s)." % (iznos(zbroj), iznos(ukupno)))
+    if pdv is None:
+        pdv = _pdv_stavke(stavke, u_pdv)
+    if u_pdv:
+        po = {}
+        for s in stavke:
+            po[s["pdv_stopa"]] = po.get(s["pdv_stopa"], 0) + s["iznos"]
+        if sorted(po) != sorted(st for st, _, _ in pdv):
+            raise FormulaGreska("Stope PDV-a u poruci ne odgovaraju stavkama računa.")
+        for stopa, osn, p in pdv:
+            cijeli(osn, "osnovica"); cijeli(p, "PDV")
+            if osn + p != po[stopa]:
+                raise FormulaGreska("Stopa %.2f %%: osnovica %s + PDV %s nije jednako %s."
+                                    % (stopa, iznos(osn), iznos(p), iznos(po[stopa])))
+            ocekivani = pdv_iz_bruto(abs(po[stopa]), stopa) * (1 if po[stopa] >= 0 else -1)
+            if abs(p - ocekivani) > 1:
+                raise FormulaGreska("Stopa %.2f %%: PDV %s, a iz iznosa %s treba biti %s."
+                                    % (stopa, iznos(p), iznos(po[stopa]), iznos(ocekivani)))
+        if sum(o + p for _, o, p in pdv) != ukupno:
+            raise FormulaGreska("Zbroj osnovica i PDV-a (%s) nije jednak ukupnom iznosu računa (%s)."
+                                % (iznos(sum(o + p for _, o, p in pdv)), iznos(ukupno)))
+    if placanja:
+        zp = sum(cijeli(x, "plaćanje") for x in placanja)
+        if zp != ukupno:
+            raise FormulaGreska("Dijelovi plaćanja (%s) nisu jednaki ukupnom iznosu računa (%s)." % (iznos(zp), iznos(ukupno)))
+
+
+def _provjeri_racun(con, rid, ukupno, u_pdv):
+    """provjeri_formulu za račun iz baze (stavke i dijelovi plaćanja)."""
+    stavke = [dict(s) for s in con.execute("SELECT * FROM racun_stavke WHERE racun_id = ?", (rid,))]
+    placanja = [x[0] for x in con.execute("SELECT iznos FROM racun_placanja WHERE racun_id = ?", (rid,))]
+    provjeri_formulu(ukupno, stavke, None, u_pdv, placanja)
+
+
 def racun_xml(f, stavke):
     """<tns:Racun> za zapis iz fiskal_racuni (kanonski, bez razmaka)."""
     x = ["<tns:Racun>",
@@ -436,12 +494,7 @@ def racun_xml(f, stavke):
             x.append("<tns:Porez><tns:Stopa>%.2f</tns:Stopa><tns:Osnovica>%s</tns:Osnovica>"
                      "<tns:Iznos>%s</tns:Iznos></tns:Porez>" % (stopa, iznos(osn), iznos(p)))
         x.append("</tns:Pdv>")
-    # Porezna (greška 166): ukupni iznos = zbroj osnovica + PDV (tolerancija 0,01 EUR).
-    # Ovdje je osnovica = bruto - PDV po stopi, pa je zbroj točan na cent ako su stavke
-    # zbrojene u ukupno; inače račun ne šaljemo krivo nego javimo grešku.
-    if pdv and abs(sum(o + p for _, o, p in pdv) - f["ukupno"]) > 1:
-        raise Greska("Zbroj osnovica i PDV-a (%s) nije jednak ukupnom iznosu računa (%s)."
-                     % (iznos(sum(o + p for _, o, p in pdv)), iznos(f["ukupno"])))
+    provjeri_formulu(f["ukupno"], stavke, pdv, f["u_pdv"])
     x += ["<tns:IznosUkupno>%s</tns:IznosUkupno>" % iznos(f["ukupno"]),
           "<tns:NacinPlac>%s</tns:NacinPlac>" % f["nacin"],
           "<tns:OibOper>%s</tns:OibOper>" % f["oib_operatera"],
@@ -608,6 +661,9 @@ def pri_naplati(con, rid, operater="", oib_radnika=""):
     pst = spreman(con)
     key, _ = _ucitaj(pst)
     r = con.execute("SELECT * FROM racuni WHERE id = ?", (rid,)).fetchone()
+    # Prije izdavanja: račun koji ne prolazi formulu Porezne (greška 166) se ne izdaje,
+    # naplata se poništava (ista transakcija) i blagajnik vidi poruku.
+    _provjeri_racun(con, rid, r["ukupno"], int(pst["u_pdv"]))
     godina = int(r["vrijeme"][:4])
     broj = con.execute(
         "SELECT COALESCE(MAX(broj), 0) + 1 FROM fiskal_racuni WHERE okolina = ? AND godina = ? "
@@ -643,6 +699,7 @@ def posalji(con, rid):
             stavke = [dict(s) for s in con.execute("SELECT * FROM racun_stavke WHERE racun_id = ?", (rid,))]
             podaci = dict(f)
             podaci["nak_dost"] = nak
+            _provjeri_racun(con, rid, f["ukupno"], f["u_pdv"])
             xml = potpisi("RacunZahtjev", _zaglavlje() + racun_xml(podaci, stavke), key, cert)
             odgovor = posalji_soap(pst, xml, "racuni")
             jir, greske = procitaj_odgovor(odgovor)
@@ -652,6 +709,9 @@ def posalji(con, rid):
                                               "račun se šalje ponovno." % postavke.vrijednost(con, "fiskal.potpis_opis", ""))]
         except NemaVeze as e:
             jir, greske, status = "", [("veza", str(e))], "ceka"
+        except FormulaGreska as e:
+            # ne šalje se (bila bi greška 166); ponavljanje ne pomaže, zato crveno u Kontroli
+            jir, greske, status = "", [("formula", "Račun nije poslan, iznosi ne štimaju: %s" % e)], "greska"
         except Greska as e:
             jir, greske, status = "", [("postavke", str(e))], "ceka"
         except Exception as e:  # bilo što drugo: račun ostaje za ponovno slanje, naplata se ne ruši
@@ -667,7 +727,7 @@ def posalji(con, rid):
                 status = "greska"
                 if not greske:
                     greske = [("?", "Odgovor bez JIR-a.")]
-        poruka = "; ".join(("%s: %s" % g) if g[0] not in ("veza", "postavke", "potpis") else g[1] for g in greske)
+        poruka = "; ".join(("%s: %s" % g) if g[0] not in ("veza", "postavke", "potpis", "formula") else g[1] for g in greske)
         with con:
             con.execute(
                 """UPDATE fiskal_racuni SET jir = ?, status = ?, nak_dost = ?, pokusaja = pokusaja + 1,
